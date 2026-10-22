@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
-import { resolveTheme, themeChangeEvent, themeStorageKey } from "@/lib/theme";
+import { defaultTheme, resolveTheme, themeChangeEvent, themeStorageKey } from "@/lib/theme";
 
 function subscribe(onChange: () => void) {
   const onStorage = (event: StorageEvent) => {
@@ -25,7 +25,7 @@ function getSnapshot() {
 }
 
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, getSnapshot, () => "dark");
+  const theme = useSyncExternalStore(subscribe, getSnapshot, () => defaultTheme);
   const nextTheme = theme === "dark" ? "light" : "dark";
   const title = `Switch to ${nextTheme} mode`;
   function toggle() {

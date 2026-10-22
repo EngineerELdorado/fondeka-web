@@ -13,7 +13,7 @@ npm run dev
 
 Open [http://localhost:4200](http://localhost:4200). The default is a clearly labeled demo with fictional data. Demo changes are persisted in this browser only; Settings → Reset demo restores the initial workspace. Demo never falls back to or calls the live backend.
 
-The interface opens in dark mode. The sun/moon button in the workspace header, sign-in screen, and browser verification screen switches between dark and light themes. The preference persists in browser storage, synchronizes across tabs, and is applied before first paint. Both themes use locally served Geist typography, layered surfaces, and the Fondeka green accent. Decorative motion respects the system’s reduced-motion preference.
+The interface opens in light mode by default. The sun/moon button in the workspace header, sign-in screen, and browser verification screen switches between dark and light themes. A saved preference takes precedence over the default, persists in browser storage, synchronizes across tabs, and is applied before first paint. Both themes use locally served Geist typography, layered surfaces, and the Fondeka green accent. Decorative motion respects the system’s reduced-motion preference.
 
 ## Connect the existing backend
 
