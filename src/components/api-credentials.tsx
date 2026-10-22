@@ -134,55 +134,98 @@ export function ApiCredentials({
             description="Generate your first key and configure where Fondeka should deliver signed webhooks."
           />
         ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Integration</th>
-                  <th>Key prefix</th>
-                  <th>Webhook destination</th>
-                  <th>Created</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.data.map((key) => (
-                  <tr key={key.id}>
-                    <td className="table-name">{key.name}</td>
-                    <td>
-                      <code className="key-prefix">{key.keyPrefix}••••</code>
-                    </td>
-                    <td>
-                      <span className="webhook-url">
-                        <Webhook size={14} />
-                        {key.webhookUrl || "Not configured"}
-                      </span>
-                    </td>
-                    <td>{date(key.createdAt)}</td>
-                    <td>
-                      <Badge value={key.enabled ? "ENABLED" : "REVOKED"} />
-                    </td>
-                    <td>
-                      {key.enabled && (
-                        <button
-                          className="button secondary small"
-                          disabled={demoMode || busy}
-                          onClick={() => {
-                            setRevoke(key);
-                            setError("");
-                          }}
-                          aria-label={"Revoke " + key.name}
-                        >
-                          <Trash2 size={14} /> Revoke
-                        </button>
-                      )}
-                    </td>
+          <>
+            <div className="table-wrap desktop-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Integration</th>
+                    <th>Key prefix</th>
+                    <th>Webhook destination</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {keys.data.map((key) => (
+                    <tr key={key.id}>
+                      <td className="table-name">{key.name}</td>
+                      <td>
+                        <code className="key-prefix">{key.keyPrefix}••••</code>
+                      </td>
+                      <td>
+                        <span className="webhook-url">
+                          <Webhook size={14} />
+                          {key.webhookUrl || "Not configured"}
+                        </span>
+                      </td>
+                      <td>{date(key.createdAt)}</td>
+                      <td>
+                        <Badge value={key.enabled ? "ENABLED" : "REVOKED"} />
+                      </td>
+                      <td>
+                        {key.enabled && (
+                          <button
+                            className="button secondary small"
+                            disabled={demoMode || busy}
+                            onClick={() => {
+                              setRevoke(key);
+                              setError("");
+                            }}
+                            aria-label={"Revoke " + key.name}
+                          >
+                            <Trash2 size={14} /> Revoke
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mobile-credentials-list">
+              {keys.data.map((key) => (
+                <article className="mobile-credential" key={key.id}>
+                  <div className="mobile-credential-heading">
+                    <span className="mobile-record-icon">
+                      <KeyRound size={20} />
+                    </span>
+                    <strong>{key.name}</strong>
+                    <Badge value={key.enabled ? "ENABLED" : "REVOKED"} />
+                  </div>
+                  <code className="key-prefix">{key.keyPrefix}••••</code>
+                  <details>
+                    <summary>Integration details</summary>
+                    <dl className="detail-list">
+                      <div>
+                        <dt>Created</dt>
+                        <dd>{date(key.createdAt)}</dd>
+                      </div>
+                      <div>
+                        <dt>Webhook</dt>
+                        <dd>{key.webhookUrl || "Not configured"}</dd>
+                      </div>
+                    </dl>
+                    {key.enabled && (
+                      <button
+                        className="button danger small"
+                        disabled={demoMode || busy}
+                        onClick={() => {
+                          setRevoke(key);
+                          setError("");
+                        }}
+                        aria-label={`Revoke ${key.name}`}
+                      >
+                        <Trash2 size={16} />
+                        Revoke key
+                      </button>
+                    )}
+                  </details>
+                </article>
+              ))}
+            </div>
+          </>
         )}
         <div className="panel-note">
           <KeyRound size={14} />
@@ -259,7 +302,7 @@ export function ApiCredentials({
               </div>
             </div>
           ) : (
-            <form onSubmit={(event) => void create(event)}>
+            <form className="form-stack" onSubmit={(event) => void create(event)}>
               <label>
                 Integration name
                 <input

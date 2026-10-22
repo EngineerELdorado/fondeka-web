@@ -12,7 +12,7 @@ import {
   Store,
   Zap,
 } from "lucide-react";
-import { Badge, ErrorState, Loading, PageHeading } from "@/components/ui";
+import { Badge, MobileRecord, ErrorState, Loading, PageHeading } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
 import type { Business, Page, PaymentRequest, Store as StoreType } from "@/lib/types";
@@ -27,11 +27,16 @@ export default function Overview() {
   return (
     <>
       <PageHeading
+        mobileTitle="Overview"
         eyebrow="YOUR WORKSPACE"
         title="Business, without boundaries."
         description="Manage your commerce, payments, and integrations in one place."
       >
-        <Link className="button primary" href="/payment-requests?new=1">
+        <Link
+          className="button primary"
+          href="/payment-requests?new=1"
+          aria-label="Create payment request"
+        >
           <Plus size={17} />
           Request a payment
         </Link>
@@ -156,39 +161,53 @@ export default function Overview() {
           ) : payments.error ? (
             <ErrorState message={payments.error} retry={refresh} />
           ) : payments.data?.content.length ? (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Request</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.data.content.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <Link href="/payment-requests" className="table-name">
-                          {item.title || "Untitled request"}
-                        </Link>
-                        <small className="table-subtitle">
-                          {item.type === "INVOICE"
-                            ? "Invoice"
-                            : item.type === "DONATION"
-                              ? "Donation"
-                              : "Payment link"}
-                        </small>
-                      </td>
-                      <td className="amount">{money(item.amount, item.currency)}</td>
-                      <td>
-                        <Badge value={item.lifecycle} />
-                      </td>
+            <>
+              <div className="table-wrap desktop-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Amount</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {payments.data.content.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <Link href="/payment-requests" className="table-name">
+                            {item.title || "Untitled request"}
+                          </Link>
+                          <small className="table-subtitle">
+                            {item.type === "INVOICE"
+                              ? "Invoice"
+                              : item.type === "DONATION"
+                                ? "Donation"
+                                : "Payment link"}
+                          </small>
+                        </td>
+                        <td className="amount">{money(item.amount, item.currency)}</td>
+                        <td>
+                          <Badge value={item.lifecycle} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mobile-record-list">
+                {payments.data.content.map((item) => (
+                  <MobileRecord
+                    key={item.id}
+                    title={item.title || "Untitled request"}
+                    subtitle={item.type === "INVOICE" ? "Invoice" : "Payment link"}
+                    amount={money(item.amount, item.currency)}
+                    status={item.lifecycle}
+                    href="/payment-requests"
+                  />
+                ))}
+              </div>
+            </>
           ) : (
             <div className="inline-empty">
               Your payment requests will appear here.{" "}

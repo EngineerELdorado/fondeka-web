@@ -94,11 +94,11 @@ export default function Login() {
         <Brand />
         <div>
           <span className="welcome-kicker">YOUR BUSINESS, CONNECTED</span>
-          <h1>
+          <h2>
             Built for the way
             <br />
             <span>you do business.</span>
-          </h1>
+          </h2>
           <p>
             Your stores, payments, and integrations.
             <br />
@@ -114,7 +114,14 @@ export default function Login() {
       <section className="login-form-section">
         <div className="login-form-wrap">
           <span className="eyebrow">YOUR NEXT CHAPTER</span>
-          <h2>{step === "email" ? "Welcome to your workspace." : "Check your inbox."}</h2>
+          <h1>
+            <span className="desktop-page-title">
+              {step === "email" ? "Welcome to your workspace." : "Check your inbox."}
+            </span>
+            <span className="mobile-page-title">
+              {step === "email" ? "Sign in to Fondeka." : "Enter your code."}
+            </span>
+          </h1>
           <p className="muted">
             {step === "email"
               ? "Sign in with the email you use in the Fondeka app."
@@ -146,6 +153,11 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="go"
                     placeholder="you@yourbusiness.com"
                     autoFocus
                   />
@@ -160,6 +172,8 @@ export default function Login() {
                     pattern="[0-9]{6}"
                     inputMode="numeric"
                     autoComplete="one-time-code"
+                    maxLength={6}
+                    enterKeyHint="done"
                     autoFocus
                     placeholder="000000"
                     className="otp-input"

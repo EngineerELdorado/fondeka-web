@@ -36,6 +36,7 @@ export default function Pos() {
   return (
     <>
       <PageHeading
+        mobileTitle="Point of sale"
         eyebrow="POINT OF SALE"
         title="A good day starts with a sale."
         description="Your products and your checkout, working together."
@@ -83,6 +84,8 @@ function PosRegister({ store }: { store: Store }) {
   const [buyer, setBuyer] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [uncertain, setUncertain] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [reviewFromCart, setReviewFromCart] = useState(false);
   const products = useQuery<Page<Product>>(
     `/customer-api/commerce/stores/${store.id}/products?page=${page}&size=12`,
   );
@@ -152,6 +155,8 @@ function PosRegister({ store }: { store: Store }) {
           body: JSON.stringify(payload()),
         }),
       );
+      setReviewFromCart(cartOpen);
+      setCartOpen(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Couldn’t quote the sale.");
     } finally {
@@ -186,6 +191,106 @@ function PosRegister({ store }: { store: Store }) {
       setBusy(false);
     }
   }
+  function backToSale() {
+    setQuote(undefined);
+    setError("");
+    if (reviewFromCart) setCartOpen(true);
+  }
+  const cartContents = (
+    <>
+      <div className="panel-heading">
+        <h2>
+          Current sale <span className="count-pill">{quantity}</span>
+        </h2>
+        <button
+          className="icon-button"
+          aria-label="Clear sale"
+          disabled={!cart.length || busy}
+          onClick={() => setCart([])}
+        >
+          <Trash2 size={17} />
+        </button>
+      </div>
+      {!cart.length ? (
+        <div className="cart-empty">
+          <ShoppingCart size={36} strokeWidth={1.3} />
+          <h3>A little empty, for now.</h3>
+          <p>Tap a product to add it to your sale.</p>
+        </div>
+      ) : (
+        <div className="cart-items">
+          {cart.map(({ product, quantity }) => (
+            <div className="cart-item" key={product.id}>
+              <div>
+                <strong>{product.name}</strong>
+                <small>{money(product.priceAmount, currency)} each</small>
+              </div>
+              <div className="quantity-control">
+                <button
+                  disabled={busy}
+                  onClick={() => decrement(product.id)}
+                  aria-label={`Remove one ${product.name}`}
+                >
+                  <Minus size={13} />
+                </button>
+                <span>{quantity}</span>
+                <button
+                  disabled={busy}
+                  onClick={() => add(product)}
+                  aria-label={`Add one ${product.name}`}
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="cart-bottom">
+        <label>
+          <span>
+            Customer name <span className="optional">(optional)</span>
+          </span>
+          <input
+            value={buyer}
+            onChange={(e) => setBuyer(e.target.value)}
+            maxLength={180}
+            placeholder="Walk-in customer"
+            disabled={busy}
+          />
+        </label>
+        <div className="cart-subtotal">
+          <span>Subtotal</span>
+          <strong>{money(total, currency)}</strong>
+        </div>
+        <p className="cart-fee-note">Any applicable fees are shown before you confirm.</p>
+        {error && !quote && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button
+          className="button primary checkout-button"
+          onClick={() => void review()}
+          disabled={!cart.length || busy}
+        >
+          {busy ? (
+            <>
+              <span className="spinner" />
+              Quoting…
+            </>
+          ) : (
+            <>
+              Review cash sale <ArrowRight size={17} />
+            </>
+          )}
+        </button>
+        <small className="cart-caption">
+          {demoMode ? "Demo checkout · no real payment" : "Record cash received at your counter"}
+        </small>
+      </div>
+    </>
+  );
   return (
     <>
       <div className="pos-layout">
@@ -225,6 +330,7 @@ function PosRegister({ store }: { store: Store }) {
                   product.status === "ACTIVE" &&
                   product.priceCurrency === currency &&
                   (product.inventoryPolicy !== "TRACKED" || Number(product.inventoryQuantity) > 0);
+                const inCart = cart.find((item) => item.product.id === product.id)?.quantity ?? 0;
                 return (
                   <button
                     className="pos-product"
@@ -235,6 +341,7 @@ function PosRegister({ store }: { store: Store }) {
                   >
                     <span className={`product-illustration product-color-${index % 6}`}>
                       <Icon size={38} strokeWidth={1.25} />
+                      {inCart > 0 && <span className="product-cart-count">{inCart}</span>}
                       <span className="add-product-circle">
                         <Plus size={17} />
                       </span>
@@ -268,110 +375,37 @@ function PosRegister({ store }: { store: Store }) {
             />
           )}
         </section>
-        <aside className="panel cart-panel">
-          <div className="panel-heading">
-            <h2>
-              Current sale <span className="count-pill">{quantity}</span>
-            </h2>
-            <button
-              className="icon-button"
-              aria-label="Clear sale"
-              disabled={!cart.length || busy}
-              onClick={() => setCart([])}
-            >
-              <Trash2 size={17} />
-            </button>
-          </div>
-          {!cart.length ? (
-            <div className="cart-empty">
-              <ShoppingCart size={36} strokeWidth={1.3} />
-              <h3>A little empty, for now.</h3>
-              <p>Tap a product to add it to your sale.</p>
-            </div>
-          ) : (
-            <div className="cart-items">
-              {cart.map(({ product, quantity }) => (
-                <div className="cart-item" key={product.id}>
-                  <div>
-                    <strong>{product.name}</strong>
-                    <small>{money(product.priceAmount, currency)} each</small>
-                  </div>
-                  <div className="quantity-control">
-                    <button
-                      disabled={busy}
-                      onClick={() => decrement(product.id)}
-                      aria-label={`Remove one ${product.name}`}
-                    >
-                      <Minus size={13} />
-                    </button>
-                    <span>{quantity}</span>
-                    <button
-                      disabled={busy}
-                      onClick={() => add(product)}
-                      aria-label={`Add one ${product.name}`}
-                    >
-                      <Plus size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="cart-bottom">
-            <label>
-              Customer name <span className="optional">(optional)</span>
-              <input
-                value={buyer}
-                onChange={(e) => setBuyer(e.target.value)}
-                maxLength={180}
-                placeholder="Walk-in customer"
-                disabled={busy}
-              />
-            </label>
-            <div className="cart-subtotal">
-              <span>Subtotal</span>
-              <strong>{money(total, currency)}</strong>
-            </div>
-            <p className="cart-fee-note">Any applicable fees are shown before you confirm.</p>
-            {error && !quote && (
-              <p className="form-error" role="alert">
-                {error}
-              </p>
-            )}
-            <button
-              className="button primary checkout-button"
-              onClick={() => void review()}
-              disabled={!cart.length || busy}
-            >
-              {busy ? (
-                <>
-                  <span className="spinner" />
-                  Quoting…
-                </>
-              ) : (
-                <>
-                  Review cash sale <ArrowRight size={17} />
-                </>
-              )}
-            </button>
-            <small className="cart-caption">
-              {demoMode
-                ? "Demo checkout · no real payment"
-                : "Record cash received at your counter"}
-            </small>
-          </div>
-        </aside>
+        <aside className="panel cart-panel">{cartContents}</aside>
       </div>
-      {quote && (
+      <div className="mobile-cart-dock">
+        <button
+          className="button primary"
+          disabled={!quantity || busy}
+          onClick={() => setCartOpen(true)}
+          aria-label={`View sale, ${quantity} items, ${money(total, currency)}`}
+        >
+          <span className="mobile-cart-count">
+            <ShoppingBag size={19} />
+            <span>{quantity}</span>
+          </span>
+          <span>{quantity ? "View sale" : "Add products to start"}</span>
+          <strong aria-live="polite">{money(total, currency)}</strong>
+          <ArrowRight size={18} />
+        </button>
+      </div>
+      {cartOpen && (
         <Modal
-          title="Confirm cash sale"
+          title="Review sale"
           description={store.name}
-          onClose={() => {
-            setQuote(undefined);
-            setError("");
-          }}
+          variant="sheet"
+          onClose={() => setCartOpen(false)}
           busy={busy}
         >
+          <div className="mobile-sale-content">{cartContents}</div>
+        </Modal>
+      )}
+      {quote && (
+        <Modal title="Confirm cash sale" description={store.name} onClose={backToSale} busy={busy}>
           <div className="transaction-hero">
             <strong>{money(quote.totalAmount, quote.totalCurrency)}</strong>
             <span className="quiet-label">CASH PAYMENT</span>
@@ -404,14 +438,7 @@ function PosRegister({ store }: { store: Store }) {
             </p>
           )}
           <div className="modal-actions">
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => {
-                setQuote(undefined);
-                setError("");
-              }}
-            >
+            <button className="button secondary" disabled={busy} onClick={backToSale}>
               Back to sale
             </button>
             <button

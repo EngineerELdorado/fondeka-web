@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Copy, ExternalLink, Link2, Plus, Search } from "lucide-react";
-import { Badge, Empty, ErrorState, Loading, Modal, PageHeading, Pagination } from "@/components/ui";
+import {
+  Badge,
+  MobileRecord,
+  Empty,
+  ErrorState,
+  Loading,
+  Modal,
+  PageHeading,
+  Pagination,
+} from "@/components/ui";
 import { PaymentForm } from "@/components/payment-form";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
@@ -62,11 +71,16 @@ export default function PaymentRequests() {
   return (
     <>
       <PageHeading
+        mobileTitle="Payment requests"
         eyebrow="PAYMENTS"
         title="Send a link. Get things moving."
         description="Create payment requests and give every payment a clear place to land."
       >
-        <button className="button primary" onClick={() => setCreating(true)}>
+        <button
+          className="button primary"
+          aria-label="Create payment request"
+          onClick={() => setCreating(true)}
+        >
           <Plus size={17} />
           Create request
         </button>
@@ -113,60 +127,84 @@ export default function PaymentRequests() {
             }
           />
         ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Request</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Collected</th>
-                  <th>Status</th>
-                  <th>
-                    <span className="sr-only">Open request</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <button
-                        className="text-button table-name"
-                        onClick={() => {
-                          setSelected(item);
-                          setCancel(false);
-                          setMutationError("");
-                        }}
-                      >
-                        {item.title || "Untitled request"}
-                      </button>
-                      <small className="table-subtitle">{item.linkCode}</small>
-                    </td>
-                    <td>{item.type === "QUICK_CHARGE" ? "Payment link" : label(item.type)}</td>
-                    <td className="amount">{money(item.amount, item.currency)}</td>
-                    <td className="amount">{money(item.totalCollected, item.currency)}</td>
-                    <td>
-                      <Badge value={item.lifecycle} />
-                    </td>
-                    <td>
-                      <button
-                        className="icon-button"
-                        aria-label={`View request ${item.title}`}
-                        onClick={() => {
-                          setSelected(item);
-                          setCancel(false);
-                          setMutationError("");
-                        }}
-                      >
-                        <ExternalLink size={16} />
-                      </button>
-                    </td>
+          <>
+            <div className="table-wrap desktop-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Request</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Collected</th>
+                    <th>Status</th>
+                    <th>
+                      <span className="sr-only">Open request</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <button
+                          className="text-button table-name"
+                          onClick={() => {
+                            setSelected(item);
+                            setCancel(false);
+                            setMutationError("");
+                          }}
+                        >
+                          {item.title || "Untitled request"}
+                        </button>
+                        <small className="table-subtitle">{item.linkCode}</small>
+                      </td>
+                      <td>{item.type === "QUICK_CHARGE" ? "Payment link" : label(item.type)}</td>
+                      <td className="amount">{money(item.amount, item.currency)}</td>
+                      <td className="amount">{money(item.totalCollected, item.currency)}</td>
+                      <td>
+                        <Badge value={item.lifecycle} />
+                      </td>
+                      <td>
+                        <button
+                          className="icon-button"
+                          aria-label={`View request ${item.title}`}
+                          onClick={() => {
+                            setSelected(item);
+                            setCancel(false);
+                            setMutationError("");
+                          }}
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mobile-record-list">
+              {items.map((item) => (
+                <MobileRecord
+                  key={item.id}
+                  title={item.title || "Untitled request"}
+                  subtitle={item.type === "QUICK_CHARGE" ? "Payment link" : label(item.type)}
+                  meta={
+                    Number(item.totalCollected) > 0
+                      ? `${money(item.totalCollected, item.currency)} collected`
+                      : undefined
+                  }
+                  amount={money(item.amount, item.currency)}
+                  status={item.lifecycle}
+                  icon={<Link2 size={19} />}
+                  onClick={() => {
+                    setSelected(item);
+                    setCancel(false);
+                    setMutationError("");
+                  }}
+                />
+              ))}
+            </div>
+          </>
         )}
         {payments.data && (
           <Pagination

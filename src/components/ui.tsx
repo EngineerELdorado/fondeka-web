@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, AlertCircle, Inbox, X } from "lucide-react";
 import { label } from "@/lib/format";
 
@@ -46,11 +47,13 @@ export function Badge({ value }: { value?: string }) {
 export function PageHeading({
   eyebrow,
   title,
+  mobileTitle,
   description,
   children,
 }: {
   eyebrow?: string;
   title: string;
+  mobileTitle?: string;
   description: string;
   children?: ReactNode;
 }) {
@@ -58,7 +61,16 @@ export function PageHeading({
     <div className="page-heading">
       <div>
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1>{title}</h1>
+        <h1>
+          {mobileTitle ? (
+            <>
+              <span className="desktop-page-title">{title}</span>
+              <span className="mobile-page-title">{mobileTitle}</span>
+            </>
+          ) : (
+            title
+          )}
+        </h1>
         <p className="muted">{description}</p>
       </div>
       <div className="heading-actions">{children}</div>
@@ -154,23 +166,31 @@ export function Modal({
   children,
   onClose,
   busy = false,
+  variant = "dialog",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  variant?: "dialog" | "sheet";
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const element = dialog.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     element?.showModal();
-    return () => element?.close();
+    return () => {
+      element?.close();
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
   return (
     <dialog
       ref={dialog}
-      className="modal"
+      className={`modal ${variant === "sheet" ? "modal-sheet" : ""}`}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onClose();
@@ -178,12 +198,12 @@ export function Modal({
       onClick={(event) => {
         if (event.target === event.currentTarget && !busy) onClose();
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
     >
       <div className="modal-inner">
         <div className="modal-header">
           <div>
-            <h2 id="modal-title">{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {description && <p className="muted">{description}</p>}
           </div>
           <button
@@ -199,6 +219,54 @@ export function Modal({
       </div>
     </dialog>
   );
+}
+
+export function MobileRecord({
+  title,
+  subtitle,
+  meta,
+  amount,
+  status,
+  icon,
+  onClick,
+  href,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  meta?: ReactNode;
+  amount?: ReactNode;
+  status?: string;
+  icon?: ReactNode;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const content = (
+    <>
+      {icon && <span className="mobile-record-icon">{icon}</span>}
+      <span className="mobile-record-main">
+        <span className="mobile-record-title">{title}</span>
+        {subtitle && <span className="mobile-record-subtitle">{subtitle}</span>}
+        {meta && <span className="mobile-record-meta">{meta}</span>}
+      </span>
+      <span className="mobile-record-value">
+        {amount != null && <strong>{amount}</strong>}
+        {status && <Badge value={status} />}
+      </span>
+    </>
+  );
+  if (href)
+    return (
+      <Link href={href} className="mobile-record">
+        {content}
+      </Link>
+    );
+  if (onClick)
+    return (
+      <button type="button" className="mobile-record" onClick={onClick}>
+        {content}
+      </button>
+    );
+  return <div className="mobile-record">{content}</div>;
 }
 export function SubmitButton({
   busy,

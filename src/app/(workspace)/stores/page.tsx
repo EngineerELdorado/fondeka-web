@@ -22,11 +22,16 @@ export default function Stores() {
   return (
     <>
       <PageHeading
+        mobileTitle="Stores"
         eyebrow="COMMERCE"
         title="A place for every possibility."
         description="Your stores, products, and orders. Make yourself at home."
       >
-        <button className="button primary" onClick={() => setCreating(true)}>
+        <button
+          className="button primary"
+          aria-label="Create store"
+          onClick={() => setCreating(true)}
+        >
           <Plus size={17} />
           Create store
         </button>

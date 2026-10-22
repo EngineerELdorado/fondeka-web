@@ -22,11 +22,12 @@ export default function Developers() {
   return (
     <>
       <PageHeading
+        mobileTitle="API & developers"
         eyebrow="DEVELOPER WORKSPACE"
         title="Good connections go a long way."
         description="Your API integrations and activity, with your business in view."
       >
-        <button className="button secondary" onClick={refresh}>
+        <button className="button secondary" aria-label="Refresh businesses" onClick={refresh}>
           <RefreshCw size={16} />
           Refresh
         </button>

@@ -15,6 +15,8 @@ Open [http://localhost:4200](http://localhost:4200). The default is a clearly la
 
 The interface opens in light mode by default. The sun/moon button in the workspace header, sign-in screen, and browser verification screen switches between dark and light themes. A saved preference takes precedence over the default, persists in browser storage, synchronizes across tabs, and is applied before first paint. Both themes use locally served Geist typography, layered surfaces, and the Fondeka green accent. Decorative motion respects the system’s reduced-motion preference.
 
+On phones, the workspace uses bottom navigation, compact lists in place of wide tables, and full-screen forms or bottom sheets. POS keeps the catalog visible with a floating sale total and a cart sheet. Secondary banners are hidden and the integration guide is collapsed; API tools and settings remain accessible from More. Touch controls, input sizes, and safe-area spacing adapt to small screens in both themes.
+
 ## Connect the existing backend
 
 Copy `.env.example` to `.env.local`, set `NEXT_PUBLIC_DEMO_MODE=false`, and provide:

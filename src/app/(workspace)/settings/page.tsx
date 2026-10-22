@@ -13,6 +13,7 @@ export default function Settings() {
   return (
     <>
       <PageHeading
+        mobileTitle="Settings"
         eyebrow="WORKSPACE"
         title="Make yourself at home."
         description="A few details about your Fondeka Business workspace."

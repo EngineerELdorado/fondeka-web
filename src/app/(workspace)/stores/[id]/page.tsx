@@ -5,6 +5,7 @@ import { use, useState, type FormEvent } from "react";
 import { ArrowLeft, ExternalLink, Monitor, Package, Pencil, Plus } from "lucide-react";
 import {
   Badge,
+  MobileRecord,
   Empty,
   ErrorState,
   Loading,
@@ -17,7 +18,7 @@ import { StoreForm } from "@/components/store-form";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
 import { request } from "@/lib/data";
-import { date, money, parseAmount, safeLink } from "@/lib/format";
+import { date, label, money, parseAmount, safeLink } from "@/lib/format";
 import type { Order, Page, Product, Store } from "@/lib/types";
 
 export default function StoreDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -65,11 +66,19 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
               title={store.data.name}
               description={store.data.description || "Your products, your orders, your business."}
             >
-              <button className="button secondary" onClick={() => setEditing(true)}>
+              <button
+                className="button secondary"
+                aria-label="Edit store"
+                onClick={() => setEditing(true)}
+              >
                 <Pencil size={15} />
                 Edit store
               </button>
-              <Link className="button primary" href={`/pos?store=${id}`}>
+              <Link
+                className="button primary"
+                aria-label="Open point of sale"
+                href={`/pos?store=${id}`}
+              >
                 <Monitor size={17} />
                 Open point of sale
               </Link>
@@ -129,45 +138,63 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                     </button>
                   </Empty>
                 ) : (
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Product</th>
-                          <th>SKU</th>
-                          <th>Price</th>
-                          <th>Inventory</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {products.data.content.map((product) => (
-                          <tr key={product.id}>
-                            <td>
-                              <span className="product-table-name">
-                                <span className="product-thumb">
-                                  <Package size={19} />
-                                </span>
-                                <strong>{product.name}</strong>
-                              </span>
-                            </td>
-                            <td>{product.sku || "—"}</td>
-                            <td className="amount">
-                              {money(product.priceAmount, product.priceCurrency)}
-                            </td>
-                            <td>
-                              {product.inventoryPolicy === "TRACKED"
-                                ? `${product.inventoryQuantity ?? 0} in stock`
-                                : "Unlimited"}
-                            </td>
-                            <td>
-                              <Badge value={product.status} />
-                            </td>
+                  <>
+                    <div className="table-wrap desktop-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Price</th>
+                            <th>Inventory</th>
+                            <th>Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {products.data.content.map((product) => (
+                            <tr key={product.id}>
+                              <td>
+                                <span className="product-table-name">
+                                  <span className="product-thumb">
+                                    <Package size={19} />
+                                  </span>
+                                  <strong>{product.name}</strong>
+                                </span>
+                              </td>
+                              <td>{product.sku || "—"}</td>
+                              <td className="amount">
+                                {money(product.priceAmount, product.priceCurrency)}
+                              </td>
+                              <td>
+                                {product.inventoryPolicy === "TRACKED"
+                                  ? `${product.inventoryQuantity ?? 0} in stock`
+                                  : "Unlimited"}
+                              </td>
+                              <td>
+                                <Badge value={product.status} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mobile-record-list">
+                      {products.data.content.map((product) => (
+                        <MobileRecord
+                          key={product.id}
+                          title={product.name}
+                          subtitle={
+                            product.inventoryPolicy === "TRACKED"
+                              ? `${product.inventoryQuantity ?? 0} in stock`
+                              : "Unlimited inventory"
+                          }
+                          amount={money(product.priceAmount, product.priceCurrency)}
+                          status={product.status !== "ACTIVE" ? product.status : undefined}
+                          icon={<Package size={20} />}
+                        />
+                      ))}
+                    </div>
+                  </>
                 )
               ) : orders.loading ? (
                 <Loading />
@@ -179,36 +206,50 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                   description="Orders from your store and point of sale will appear here."
                 />
               ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Reference</th>
-                        <th>Customer</th>
-                        <th>Channel</th>
-                        <th>Amount</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.data.content.map((order) => (
-                        <tr key={order.id}>
-                          <td className="table-name">{order.reference}</td>
-                          <td>{order.buyerName || "Walk-in customer"}</td>
-                          <td>{order.channel}</td>
-                          <td className="amount">
-                            {money(order.totalAmount, order.totalCurrency)}
-                          </td>
-                          <td>{date(order.createdAt)}</td>
-                          <td>
-                            <Badge value={order.posPaymentStatus || order.status} />
-                          </td>
+                <>
+                  <div className="table-wrap desktop-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Reference</th>
+                          <th>Customer</th>
+                          <th>Channel</th>
+                          <th>Amount</th>
+                          <th>Date</th>
+                          <th>Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {orders.data.content.map((order) => (
+                          <tr key={order.id}>
+                            <td className="table-name">{order.reference}</td>
+                            <td>{order.buyerName || "Walk-in customer"}</td>
+                            <td>{order.channel}</td>
+                            <td className="amount">
+                              {money(order.totalAmount, order.totalCurrency)}
+                            </td>
+                            <td>{date(order.createdAt)}</td>
+                            <td>
+                              <Badge value={order.posPaymentStatus || order.status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mobile-record-list">
+                    {orders.data.content.map((order) => (
+                      <MobileRecord
+                        key={order.id}
+                        title={order.buyerName || "Walk-in customer"}
+                        subtitle={order.reference}
+                        meta={`${date(order.createdAt)} · ${order.channel === "POS" ? "Point of sale" : label(order.channel)}`}
+                        amount={money(order.totalAmount, order.totalCurrency)}
+                        status={order.posPaymentStatus || order.status}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
               {(tab === "products" ? products.data : orders.data) && (
                 <Pagination

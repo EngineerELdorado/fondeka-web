@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
@@ -11,11 +11,18 @@ export const metadata: Metadata = {
     "One workspace for your stores, point of sale, payment requests, and Fondeka API integrations.",
   robots: { index: false, follow: false },
 };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
       data-theme={defaultTheme}
+      data-scroll-behavior="smooth"
       className={`${GeistSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
