@@ -20,17 +20,21 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { LanguageSwitch } from "./language-switch";
+import { ApiEnvironmentSwitch } from "./api-environment-switch";
 import { Brand } from "./ui";
 import { useWorkspace } from "./workspace-provider";
 import { demoMode } from "@/lib/auth";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNavigation } from "./mobile-navigation";
+import { DeveloperSectionLinks } from "./developer-section-links";
+import { WorkspaceBusinessId } from "./workspace-business-id";
+import { developerHref, developerSections } from "@/lib/developer-navigation";
 
 const navigation = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
+  { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/stores", label: "Online Stores", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
-  { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/developers", label: "API", icon: Code2 },
 ];
 export function AppShell({ children }: { children: ReactNode }) {
@@ -44,9 +48,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? "/pos"
       : pathname;
   const [open, setOpen] = useState(false);
+  const workspaceTone = activePath.startsWith("/pos")
+    ? "amber"
+    : activePath.startsWith("/stores")
+      ? "violet"
+      : activePath.startsWith("/developers")
+        ? "blue"
+        : "green";
+  const [developerExpansion, setDeveloperExpansion] = useState<{ path: string; open: boolean }>();
+  const developersOpen =
+    developerExpansion?.path === pathname
+      ? developerExpansion.open
+      : pathname.startsWith("/developers");
   const { logout, notify } = useWorkspace();
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-workspace-tone={workspaceTone}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Link href="/overview" aria-label={uiText("Fondeka Business home")}>
@@ -58,27 +74,61 @@ export function AppShell({ children }: { children: ReactNode }) {
             {uiText("F")}
             <span />
           </span>
-          <span>
+          <span className="workspace-identity">
             <strong>{uiText("Business workspace")}</strong>
-            <small>{demoMode ? uiText("Demo account") : uiText("Your Fondeka account")}</small>
+            <WorkspaceBusinessId />
           </span>
           <ChevronDown size={15} />
         </Link>
         <p className="nav-caption">{uiText("WORKSPACE")}</p>
         <nav aria-label={uiText("Main navigation")}>
-          {navigation.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`nav-item ${activePath.startsWith(href) ? "active" : ""}`}
-              aria-current={activePath.startsWith(href) ? "page" : undefined}
-              onClick={() => setOpen(false)}
-            >
-              <Icon size={19} />
-              <span>{uiText(label)}</span>
-              {activePath.startsWith(href) && <span className="nav-active-dot" />}
-            </Link>
-          ))}
+          {navigation.map(({ href, label, icon: Icon }) =>
+            href === "/developers" ? (
+              <div key={href} className="developer-nav-group">
+                <div
+                  className={`developer-nav-parent ${activePath.startsWith(href) ? "active" : ""}`}
+                >
+                  <Link
+                    href={developerHref(
+                      "credentials",
+                      pathname.startsWith("/developers") ? values : new URLSearchParams(),
+                    )}
+                    className="nav-item"
+                    aria-current={pathname === href ? "page" : undefined}
+                    onClick={() => setOpen(false)}
+                  >
+                    <Icon size={19} />
+                    <span>{uiText(label)}</span>
+                  </Link>
+                  <button
+                    type="button"
+                    className="developer-nav-toggle"
+                    aria-expanded={developersOpen}
+                    aria-controls="developer-submenu"
+                    aria-label={uiText(developersOpen ? "Collapse API menu" : "Expand API menu")}
+                    onClick={() => setDeveloperExpansion({ path: pathname, open: !developersOpen })}
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
+                <div id="developer-submenu" hidden={!developersOpen}>
+                  <DeveloperSectionLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-item ${activePath.startsWith(href) ? "active" : ""}`}
+                aria-current={activePath.startsWith(href) ? "page" : undefined}
+                onClick={() => setOpen(false)}
+              >
+                <Icon size={19} />
+                <span>{uiText(label)}</span>
+                {activePath.startsWith(href) && <span className="nav-active-dot" />}
+              </Link>
+            ),
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="help-card">
@@ -87,7 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             <strong>{uiText("Build your next integration.")}</strong>
             <p>{uiText("Connect your business to the Fondeka API.")}</p>
-            <Link href="/developers#integration-guide" onClick={() => setOpen(false)}>
+            <Link href="/developers/guides" onClick={() => setOpen(false)}>
               {uiText("Explore the guide")}
               <ArrowUpRight size={15} />
             </Link>
@@ -136,13 +186,25 @@ export function AppShell({ children }: { children: ReactNode }) {
                 navigation.find((item) => activePath.startsWith(item.href))?.label ?? "Settings",
               )}
             </strong>
+            {developerSections.find((section) => section.href === pathname) && (
+              <>
+                <span className="breadcrumb-slash">/</span>
+                <strong>
+                  {uiText(developerSections.find((section) => section.href === pathname)!.label)}
+                </strong>
+              </>
+            )}
           </div>
           <div className="topbar-right">
-            <span className={`environment-pill ${demoMode ? "demo" : "live"}`}>
-              {demoMode ? <FlaskConical size={13} /> : <ShieldCheck size={13} />}{" "}
-              {demoMode ? uiText("Demo mode") : uiText("Live workspace")}
-            </span>
-            <Link href="/developers" className="topbar-docs">
+            {pathname.startsWith("/developers") ? (
+              <ApiEnvironmentSwitch />
+            ) : (
+              <span className={`environment-pill ${demoMode ? "demo" : "live"}`}>
+                {demoMode ? <FlaskConical size={13} /> : <ShieldCheck size={13} />}{" "}
+                {demoMode ? uiText("Demo mode") : uiText("Live workspace")}
+              </span>
+            )}
+            <Link href="/developers/guides" className="topbar-docs">
               {uiText("Developer guide")}
               <ArrowUpRight size={14} />
             </Link>

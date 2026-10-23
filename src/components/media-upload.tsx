@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { ImagePlus, Video, FileUp, ImageOff } from "lucide-react";
+import { ImageCrop } from "./image-crop";
+import { MediaVideo } from "./media-video";
 import { request } from "@/lib/data";
 import { safeLink } from "@/lib/format";
 import { demoMode } from "@/lib/auth";
@@ -23,6 +26,11 @@ export function MediaUpload({
   maxSeconds = 30,
   onBusy,
   disabled = false,
+  aspect,
+  duration: savedDuration,
+  helper,
+  ownerName,
+  compact = false,
 }: {
   label: string;
   value?: string | null;
@@ -34,11 +42,22 @@ export function MediaUpload({
   maxSeconds?: number;
   onBusy?: (busy: boolean) => void;
   disabled?: boolean;
+  aspect?: number;
+  duration?: number | null;
+  helper?: string;
+  ownerName?: string;
+  compact?: boolean;
 }) {
   const { t } = useI18n();
+  const videoLimit = Math.min(maxSeconds, 30);
+  const mediaName = ownerName ? `${ownerName} · ${label}` : label;
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [crop, setCrop] = useState<File>();
+  const [preview, setPreview] = useState<File>();
+  const input = useRef<HTMLInputElement>(null);
+
   const xhr = useRef<XMLHttpRequest | null>(null);
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
@@ -50,10 +69,32 @@ export function MediaUpload({
       xhr.current?.abort();
     };
   }, []);
+  function select(file?: File) {
+    if (!file || busy || disabled || crop) return;
+    setError("");
+    if (kind === "image" && aspect) {
+      if (
+        !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name) ||
+        file.size <= 0 ||
+        file.size > (maxBytes ?? 10 * 1024 * 1024)
+      ) {
+        setError(
+          t(
+            "Choose a photo up to 10 MB (JPG, PNG or WebP).",
+            "Choisissez une photo de 10 Mo maximum (JPG, PNG ou WebP).",
+          ),
+        );
+        return;
+      }
+      setCrop(file);
+      onBusy?.(true);
+    } else void upload(file);
+  }
   async function upload(file?: File) {
     if (!file || busy) return;
     setError("");
     setBusy(true);
+    setPreview(file);
     onBusy?.(true);
     const controller = new AbortController();
     abort.current = controller;
@@ -99,7 +140,7 @@ export function MediaUpload({
       if (kind === "video") {
         const url = URL.createObjectURL(file);
         try {
-          duration = await new Promise<number>((resolve, reject) => {
+          duration = await new Promise<number | undefined>((resolve, reject) => {
             const video = document.createElement("video");
             const cleanup = () => {
               clearTimeout(timer);
@@ -115,9 +156,7 @@ export function MediaUpload({
             };
             const fail = () => {
               cleanup();
-              reject(
-                new Error(t("This video cannot be read.", "Cette vidéo ne peut pas être lue.")),
-              );
+              resolve(undefined);
             };
             const timer = setTimeout(fail, 15000);
             controller.signal.addEventListener("abort", cancel, { once: true });
@@ -125,7 +164,7 @@ export function MediaUpload({
             video.onloadedmetadata = () => {
               const seconds = video.duration;
               cleanup();
-              resolve(seconds);
+              resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : undefined);
             };
             video.onerror = fail;
             video.src = url;
@@ -133,11 +172,11 @@ export function MediaUpload({
         } finally {
           URL.revokeObjectURL(url);
         }
-        if (!Number.isFinite(duration) || duration! <= 0 || duration! > maxSeconds)
+        if (duration !== undefined && duration > Math.min(maxSeconds, 30))
           throw new Error(
             t(
-              `Choose a video of ${maxSeconds} seconds or less.`,
-              `Choisissez une vidéo de ${maxSeconds} secondes maximum.`,
+              `Choose a video of ${Math.min(maxSeconds, 30)} seconds or less.`,
+              `Choisissez une vidéo de ${Math.min(maxSeconds, 30)} secondes maximum.`,
             ),
           );
       }
@@ -150,7 +189,7 @@ export function MediaUpload({
         );
       }
       const contentType =
-        file.type ||
+        (file.type && file.type !== "application/octet-stream" ? file.type : "") ||
         (
           {
             jpg: "image/jpeg",
@@ -232,6 +271,7 @@ export function MediaUpload({
       if (mounted.current) {
         setBusy(false);
         setProgress(0);
+        setPreview(undefined);
         onBusy?.(false);
       }
       xhr.current = null;
@@ -239,55 +279,141 @@ export function MediaUpload({
     }
   }
   return (
-    <div className="media-upload">
-      <label>
-        {label}
-        <input
-          type="file"
-          disabled={busy || disabled}
-          accept={
-            kind === "image"
-              ? ".jpg,.jpeg,.png,.webp,.heic,.heif"
-              : kind === "video"
-                ? ".mp4,.mov"
-                : ".pdf,.epub,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.m4a,.mp4,.mov"
-          }
-          onChange={(e) => void upload(e.target.files?.[0])}
-        />
-      </label>
-      {value && kind === "image" && safeLink(value) && (
-        <img className="upload-preview" src={value} alt={label} />
-      )}{" "}
-      {value && kind === "video" && safeLink(value) && (
-        <video className="upload-video-preview" src={value} controls preload="metadata" />
+    <div
+      className={`media-upload media-upload-${kind} ${aspect && aspect !== 1 ? "media-upload-wide" : ""}`}
+      onDragOver={(e) => {
+        if (kind === "image") e.preventDefault();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (kind === "image") select(e.dataTransfer.files[0]);
+      }}
+    >
+      <strong className="media-upload-label">{label}</strong>
+      {kind === "image" && (
+        <div className="media-upload-frame" style={{ aspectRatio: aspect || 1 }}>
+          {value && safeLink(value) ? (
+            <ImagePreview key={value} value={value} label={mediaName} />
+          ) : (
+            <ImagePlus size={30} strokeWidth={1.4} aria-hidden="true" />
+          )}
+        </div>
       )}
-      {value && (
-        <div className="media-value">
-          <span>{t("File added", "Fichier ajouté")}</span>
+      {value && kind === "video" && (
+        <MediaVideo url={value} title={mediaName} duration={savedDuration} />
+      )}
+      {!value && kind === "video" && (
+        <Video className="media-upload-icon" size={28} strokeWidth={1.4} aria-hidden="true" />
+      )}
+      {kind === "digital" && <FileUp size={25} aria-hidden="true" />}
+      <input
+        ref={input}
+        className="sr-only"
+        aria-label={label}
+        type="file"
+        disabled={busy || disabled || !!crop}
+        accept={
+          kind === "image"
+            ? ".jpg,.jpeg,.png,.webp,.heic,.heif"
+            : kind === "video"
+              ? ".mp4,.mov"
+              : ".pdf,.epub,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.m4a,.mp4,.mov"
+        }
+        onChange={(e) => {
+          select(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      <p className="media-upload-helper">
+        {helper ||
+          (kind === "video"
+            ? t(
+                `Optional · A short explanation, up to ${videoLimit} seconds. MP4 or MOV.`,
+                `Facultatif · Une courte présentation, jusqu’à ${videoLimit} secondes. MP4 ou MOV.`,
+              )
+            : kind === "image"
+              ? t("Choose a photo or drop it here.", "Choisissez une photo ou glissez-la ici.")
+              : "")}
+      </p>
+      <div className="media-upload-actions">
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy || disabled || !!crop}
+          onClick={() => input.current?.click()}
+          aria-label={`${value ? t("Replace", "Remplacer") : t("Upload", "Importer")} · ${label}`}
+        >
+          {kind === "video"
+            ? value
+              ? t("Replace video", "Remplacer la vidéo")
+              : t("Add video", "Ajouter une vidéo")
+            : value
+              ? t("Replace", "Remplacer")
+              : kind === "image"
+                ? compact
+                  ? t("Add", "Ajouter")
+                  : t("Upload photo", "Importer une photo")
+                : t("Choose file", "Choisir un fichier")}
+        </button>
+        {value && (
           <button
             type="button"
             className="text-button"
-            disabled={busy || disabled}
+            disabled={busy || disabled || !!crop}
             onClick={() => onChange("")}
+            aria-label={`${t("Remove", "Retirer")} · ${label}`}
           >
             {t("Remove", "Retirer")}
           </button>
-        </div>
+        )}
+      </div>
+      {kind === "digital" && value && (
+        <span className="muted">{t("File added", "Fichier ajouté")}</span>
       )}
       {busy && (
-        <>
-          <progress max={100} value={progress} />
-          <span role="status">{progress}%</span>
+        <div className="media-upload-progress">
+          <span role="status">
+            {t("Uploading…", "Envoi en cours…")} {preview?.name}
+          </span>
+          <progress
+            max={100}
+            value={progress}
+            aria-label={t("Upload progress", "Progression de l’envoi")}
+          />
+          <span aria-hidden="true">{progress}%</span>
           <button type="button" className="text-button" onClick={() => abort.current?.abort()}>
             {t("Cancel upload", "Annuler l’envoi")}
           </button>
-        </>
+        </div>
       )}
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
+      {crop && (
+        <ImageCrop
+          file={crop}
+          aspect={aspect || 1}
+          onCancel={() => {
+            setCrop(undefined);
+            onBusy?.(false);
+          }}
+          onConfirm={(photo) => {
+            setCrop(undefined);
+            void upload(photo);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ImagePreview({ value, label }: { value: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <ImageOff size={30} aria-label={label} />
+  ) : (
+    <img src={value} alt={label} loading="lazy" onError={() => setFailed(true)} />
   );
 }

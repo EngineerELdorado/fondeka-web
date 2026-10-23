@@ -54,7 +54,7 @@ export default function Overview() {
               {t("Open point of sale", "Ouvrir le POS")}
               <ArrowRight size={16} />
             </Link>
-            <Link href="/developers" className="welcome-secondary">
+            <Link href="/developers/guides" className="welcome-secondary">
               {t("Explore the API", "Découvrir l’API")}
               <ArrowUpRight size={15} />
             </Link>

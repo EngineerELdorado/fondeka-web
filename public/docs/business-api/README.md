@@ -2,7 +2,7 @@
 
 Collect and send payments through mobile money and crypto, settling in your account's fiat wallets. Start in sandbox with virtual money, then use live credentials when your integration is ready.
 
-Merchant requests use a Business-specific `X-API-Key`. Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.
+Merchant requests use a Business-specific `X-API-Key`.
 
 | Start here | What you will build |
 | --- | --- |

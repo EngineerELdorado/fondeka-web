@@ -105,7 +105,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/top-ups",
-        "description": "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
+        "description": "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account/currency wallet per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"amount\": 100,\n  \"currency\": \"USD\"\n}",
@@ -234,7 +234,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/transactions/{{reference}}",
-        "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. FAILED/CANCELED do not imply a refund; inspect refunded."
+        "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded."
       },
       "event": [
         {
@@ -272,7 +272,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
-        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. Unknown or manual-review outcomes keep funds reserved; do not submit a replacement payment while investigating.",
+        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. PROCESSING includes accepted and unresolved provider outcomes and keeps funds reserved; do not submit a replacement payment while investigating.",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"clientReference\": \"crypto-order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"paymentMethodName\": \"USDT\"\n}",
@@ -319,7 +319,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
-        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. Unknown or manual-review outcomes keep funds reserved; do not submit a replacement payment while investigating.",
+        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. PROCESSING includes accepted and unresolved provider outcomes and keeps funds reserved; do not submit a replacement payment while investigating.",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"clientReference\": \"order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",

@@ -1,0 +1,77 @@
+"use client";
+import { useState } from "react";
+import { countryFlag } from "@/lib/payment-country";
+import { safeLink } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
+import type { CurrencyPresentation } from "@/lib/currency-choices";
+
+const currencyRegions: Record<string, string> = {
+  USD: "US",
+  CDF: "CD",
+  EUR: "EU",
+  GBP: "GB",
+  KES: "KE",
+  RWF: "RW",
+  BIF: "BI",
+  ETB: "ET",
+  UGX: "UG",
+  GHS: "GH",
+  NGN: "NG",
+  ZAR: "ZA",
+  CAD: "CA",
+  AUD: "AU",
+  JPY: "JP",
+  CHF: "CH",
+  CNY: "CN",
+};
+
+export function CurrencyIdentity({
+  currency,
+  metadata,
+}: {
+  currency: string;
+  metadata?: CurrencyPresentation;
+}) {
+  const { language } = useI18n();
+  let name = metadata?.displayName || currency;
+  if (!metadata?.displayName) {
+    try {
+      name = new Intl.DisplayNames([language], { type: "currency" }).of(currency) || currency;
+    } catch {
+      /* The currency code remains unambiguous. */
+    }
+  }
+  const region = currencyRegions[currency] || metadata?.countryCode;
+  const source = safeLink(metadata?.logoUrl);
+  return (
+    <span className="currency-identity">
+      <span className={`currency-flag ${region ? "" : "currency-flag-code"}`} aria-hidden="true">
+        <FlagImage
+          key={source}
+          source={source}
+          fallback={region ? countryFlag(region) : currency}
+        />
+      </span>
+      <span>
+        <strong>{currency}</strong>
+        <small>{name}</small>
+      </span>
+    </span>
+  );
+}
+
+function FlagImage({ source, fallback }: { source?: string; fallback: string }) {
+  const [failed, setFailed] = useState(false);
+  return source && !failed ? (
+    <img
+      src={source}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <span>{fallback}</span>
+  );
+}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Heart, Link2, Plus, ReceiptText, RefreshCw, Zap } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
@@ -50,6 +50,7 @@ export default function PaymentLinks() {
   return (
     <>
       <PageHeading
+        icon={Link2}
         title={t("Payment links", "Liens de paiement")}
         description={t(
           "Quick collections, crowdfunding and invoices",
@@ -100,6 +101,7 @@ export default function PaymentLinks() {
           <ErrorState message={payments.error} retry={refresh} />
         ) : !items?.length ? (
           <Empty
+            icon={Link2}
             title={t("Your payment links", "Vos liens de paiement")}
             description={t(
               "Create a request to collect payments or try another filter on this page.",
@@ -129,30 +131,45 @@ export default function PaymentLinks() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((p) => (
-                    <tr key={p.id}>
-                      <td>
-                        <button
-                          className="text-button table-name"
-                          onClick={() => update({ request: p.id })}
-                        >
-                          {p.title || t("Quick Charge", "Encaissement rapide")}
-                        </button>
-                        <small className="table-subtitle">{p.linkCode}</small>
-                      </td>
-                      <td>{label(p.type)}</td>
-                      <td className="amount">
-                        {p.amount == null
-                          ? t("Variable amount", "Montant libre")
-                          : money(p.amount, p.currency)}
-                      </td>
-                      <td>{money(p.totalCollected, p.currency)}</td>
-                      <td>
-                        <Badge value={p.lifecycle} />
-                      </td>
-                      <td>{date(p.activationAt)}</td>
-                    </tr>
-                  ))}
+                  {items.map((p) => {
+                    const Icon =
+                      p.type === "DONATION" ? Heart : p.type === "INVOICE" ? ReceiptText : Zap;
+                    return (
+                      <tr key={p.id}>
+                        <td>
+                          <div className="request-identity">
+                            <span
+                              className="request-type-icon"
+                              data-request-type={p.type}
+                              aria-hidden="true"
+                            >
+                              <Icon size={18} />
+                            </span>
+                            <div>
+                              <button
+                                className="text-button table-name"
+                                onClick={() => update({ request: p.id })}
+                              >
+                                {p.title || t("Quick Charge", "Encaissement rapide")}
+                              </button>
+                              <small className="table-subtitle">{p.linkCode}</small>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{label(p.type)}</td>
+                        <td className="amount">
+                          {p.amount == null
+                            ? t("Variable amount", "Montant libre")
+                            : money(p.amount, p.currency)}
+                        </td>
+                        <td>{money(p.totalCollected, p.currency)}</td>
+                        <td>
+                          <Badge value={p.lifecycle} />
+                        </td>
+                        <td>{date(p.activationAt)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

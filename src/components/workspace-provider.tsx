@@ -47,6 +47,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const scopeRef = useRef(accountKey);
   const router = useRouter();
   const pathname = usePathname();
+  const needsSession = pathname !== "/login";
   const refresh = useCallback(() => setVersion((value) => value + 1), []);
   const notify = useCallback((message: string) => setToast(message), []);
   useEffect(() => {
@@ -91,7 +92,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [toast]);
   useEffect(() => {
-    if (demoMode || pathname === "/login") return;
+    if (demoMode || !needsSession) return;
     let active = true;
     async function check() {
       if (!authConfigured) {
@@ -141,7 +142,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("fondeka:session-expired", expire);
       window.removeEventListener("fondeka:device-required", verifyDevice);
     };
-  }, [pathname, router, authRevision]);
+  }, [needsSession, router, authRevision]);
   const logout = useCallback(async () => {
     setApiScope(undefined);
     clearQueryCache();

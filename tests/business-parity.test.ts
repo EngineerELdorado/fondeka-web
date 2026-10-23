@@ -22,12 +22,13 @@ import { toolLinkDestination } from "../src/lib/business-tools-ui";
 import {
   cacheQuery,
   cachedQuery,
+  isQueryFresh,
   clearQueryCache,
   queryCacheGeneration,
   invalidateQueryPaths,
   queryRevision,
 } from "../src/lib/query-cache";
-import { currencyChoices } from "../src/lib/currency-choices";
+import { currencyChoices, currencyPresentations } from "../src/lib/currency-choices";
 import { receiptHtml } from "../src/lib/receipt";
 import { uiText } from "../src/lib/ui-copy";
 import { demoRequest, resetDemo } from "../src/lib/demo";
@@ -298,17 +299,19 @@ test("report dates and currency stay server inputs, and discovered currencies ex
     ["CDF", "USD"],
   );
 });
-test("account/language/version query keys isolate caches and expire without browser persistence", () => {
+test("account/language/version query keys stay isolated; idle data becomes stale without disappearing", () => {
   clearQueryCache();
   cacheQuery("account-A:/stores:en:1", { name: "A" }, 1000);
-  assert.equal(cachedQuery("account-B:/stores:en:1", 1000), undefined);
-  assert.equal(cachedQuery("account-A:/stores:fr:1", 1000), undefined);
-  assert.equal(cachedQuery("account-A:/stores:en:2", 1000), undefined);
-  assert.deepEqual(cachedQuery("account-A:/stores:en:1", 1001), { name: "A" });
-  assert.equal(cachedQuery("account-A:/stores:en:1", 121001), undefined);
+  assert.equal(cachedQuery("account-B:/stores:en:1"), undefined);
+  assert.equal(cachedQuery("account-A:/stores:fr:1"), undefined);
+  assert.equal(cachedQuery("account-A:/stores:en:2"), undefined);
+  assert.deepEqual(cachedQuery("account-A:/stores:en:1"), { name: "A" });
+  assert.equal(isQueryFresh("account-A:/stores:en:1", "", 1001), true);
+  assert.equal(isQueryFresh("account-A:/stores:en:1", "", 121001), false);
+  assert.deepEqual(cachedQuery("account-A:/stores:en:1"), { name: "A" });
   cacheQuery("account-A:/stores:en:1", {}, 2000);
   clearQueryCache();
-  assert.equal(cachedQuery("account-A:/stores:en:1", 2000), undefined);
+  assert.equal(cachedQuery("account-A:/stores:en:1"), undefined);
 });
 test("known owner deep links retain their selections and discard external return targets", () => {
   const path = businessDestination(
@@ -439,4 +442,31 @@ test("demo owner workflows create/edit/read requests and customers without affec
   } finally {
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: original });
   }
+});
+
+test("wallet currency media reuses catalog logos and names without deriving balances or assigning an ambiguous country", () => {
+  const metadata = currencyPresentations({
+    content: [
+      {
+        currency: "USD",
+        displayName: "US Dollar",
+        logoUrl: "https://flagcdn.com/w80/us.png",
+        countryCodes: ["US"],
+        balance: 999999,
+      },
+      { currency: "XAF", countryCodes: ["CM", "GA"], logoUrl: null },
+      { currency: "CDF", logoUrl: 123, displayName: null },
+      { currency: "invalid", logoUrl: "https://foreign.example/icon.png" },
+      "EUR",
+    ],
+  });
+  assert.deepEqual(metadata.get("USD"), {
+    displayName: "US Dollar",
+    logoUrl: "https://flagcdn.com/w80/us.png",
+    countryCode: "US",
+  });
+  assert.equal(metadata.get("XAF")?.countryCode, undefined);
+  assert.equal(metadata.get("CDF")?.logoUrl, undefined);
+  assert.equal(metadata.size, 3);
+  assert.equal(currencyPresentations(null).size, 0);
 });

@@ -107,6 +107,7 @@ function client(
     store?: Storage;
     onGranted?: () => void;
     uuid?: () => string;
+    now?: () => number;
   } = {},
 ) {
   return new BusinessToolsClient({
@@ -114,7 +115,7 @@ function client(
     storage: options.store ?? storage(),
     request: transport,
     onGranted: options.onGranted ?? (() => {}),
-    now: () => 1000,
+    now: options.now ?? (() => 1000),
     uuid: options.uuid ?? (() => purchaseId),
   });
 }
@@ -436,6 +437,70 @@ test("workspace startup reads once and menu/deep-link navigation immediately reu
   }
   assert.equal(reads, 1);
   assert.equal(grants, 1);
+});
+test("idle resume retains verified access, coalesces focus checks and locks only after confirmed revocation", async () => {
+  let now = 1000;
+  let reads = 0;
+  const wait = deferred<unknown>();
+  const subject = client(
+    async () => (++reads === 1 ? access({ accessGranted: true }) : wait.promise),
+    { now: () => now },
+  );
+  await subject.ensureAccess();
+  await subject.revalidate();
+  assert.equal(reads, 1);
+  now += 60_001;
+  const refresh = subject.revalidate();
+  assert.equal(subject.revalidate(), refresh);
+  assert.equal(subject.getSnapshot().loading, false);
+  assert.equal(subject.getSnapshot().refreshing, true);
+  await subject.enter("/stores");
+  assert.equal(reads, 2);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), true);
+  wait.resolve(access({ status: "EXPIRED" }));
+  await refresh;
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), false);
+});
+test("a temporary background access error does not hide an already loaded workspace", async () => {
+  let now = 1000;
+  let reads = 0;
+  const subject = client(
+    async () => {
+      if (++reads === 1) return access({ accessGranted: true });
+      throw new Error("Offline");
+    },
+    { now: () => now },
+  );
+  await subject.ensureAccess();
+  now += 60_001;
+  await subject.revalidate();
+  assert.equal(subject.getSnapshot().error, undefined);
+  assert.equal(subject.getSnapshot().refreshError, "Offline");
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/developers", true), true);
+});
+test("a protected-operation denial supersedes an in-flight background grant", async () => {
+  let now = 1000;
+  let reads = 0;
+  const background = deferred<unknown>();
+  const denied = deferred<unknown>();
+  const subject = client(
+    async () => {
+      reads++;
+      if (reads === 1) return access({ accessGranted: true });
+      return reads === 2 ? background.promise : denied.promise;
+    },
+    { now: () => now },
+  );
+  await subject.ensureAccess();
+  now += 60_001;
+  const refresh = subject.revalidate();
+  const check = subject.enter("/stores", true);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), false);
+  denied.resolve(access());
+  await check;
+  background.resolve(access({ accessGranted: true }));
+  await refresh;
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), false);
 });
 test("explicit access refresh still blocks owner reads and honors backend expiry", async () => {
   const wait = deferred<unknown>();

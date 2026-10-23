@@ -14,12 +14,15 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Modal } from "./ui";
+import { DeveloperSectionLinks } from "./developer-section-links";
+import { developerHref } from "@/lib/developer-navigation";
+import { useUrlState } from "@/lib/use-url-state";
 
 const tabs = [
   { href: "/overview", label: "Overview", icon: House },
+  { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/stores", label: "Online Stores", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
-  { href: "/payment-requests", label: "Payment links", icon: Link2 },
 ];
 
 export function MobileNavigation({
@@ -36,6 +39,7 @@ export function MobileNavigation({
   onLogout: () => void;
 }) {
   const uiText = useUiText();
+  const { values } = useUrlState();
 
   const moreActive = pathname.startsWith("/developers") || pathname.startsWith("/settings");
   return (
@@ -71,16 +75,27 @@ export function MobileNavigation({
       {open && (
         <Modal title={uiText("Your workspace")} variant="sheet" onClose={onClose}>
           <div className="mobile-more-links">
-            <Link href="/developers" onClick={onClose}>
+            <Link
+              href={developerHref(
+                "credentials",
+                pathname.startsWith("/developers") ? values : new URLSearchParams(),
+              )}
+              onClick={onClose}
+            >
               <span className="tool-icon blue">
                 <Code2 size={22} />
               </span>
               <span>
-                <strong>{uiText("API & developers")}</strong>
-                <small>{uiText("Credentials, activity, and integrations")}</small>
+                <strong>{uiText("API")}</strong>
+                <small>{uiText("API keys and integrations")}</small>
               </span>
               <ArrowUpRight size={18} />
             </Link>
+            <DeveloperSectionLinks
+              pathname={pathname}
+              onNavigate={onClose}
+              className="mobile-developer-children"
+            />
             <Link href="/settings" onClick={onClose}>
               <span className="tool-icon mint">
                 <Settings2 size={22} />

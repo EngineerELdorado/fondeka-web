@@ -1,5 +1,6 @@
 import type { Page, Store } from "./types";
 import { queryRevision, subscribeQueries } from "./query-cache";
+import { normalizePageResponse } from "./page-response";
 
 const storesPath = "/customer-api/commerce/stores";
 export const posStoresPath = (page = 0) => `${storesPath}?page=${page}&size=20`;
@@ -8,6 +9,7 @@ export const validStoreId = (id: unknown): id is number =>
 
 /** Normalize at the boundary. A broken or incomplete response must never look like zero stores. */
 export function normalizePosStores(value: unknown, page = 0): Page<Store> {
+  value = normalizePageResponse(value);
   const raw = value as Partial<Page<Store>> | null;
   const content = Array.isArray(value) ? value : raw?.content;
   const total = Array.isArray(value) ? value.length : raw?.totalElements;
@@ -47,7 +49,9 @@ export async function resolvePosDestination(
   allowed: () => boolean | Promise<boolean>,
 ) {
   if (!(await allowed())) return;
-  const result = await stores.load(0, language);
+  const cached = stores.cached(0, language);
+  const result = cached ?? (await stores.load(0, language));
+  if (cached) void stores.load(0, language).catch(() => {});
   if (!(await allowed())) return;
   return posDestination(result);
 }
@@ -97,6 +101,11 @@ export class PosStoresClient {
   fresh(page = 0, language = "en") {
     const entry = this.page(page, language);
     return !!entry.data && this.now() - entry.time < 120_000;
+  }
+  cached(page = 0, language = "en") {
+    const entry = this.page(page, language);
+    // Explicit create/delete invalidation must resolve the count again before routing.
+    return Number.isFinite(entry.time) ? entry.data : undefined;
   }
   load(page = 0, language = "en"): Promise<Page<Store>> {
     if (this.disposed) return Promise.reject(new DOMException("Account changed", "AbortError"));

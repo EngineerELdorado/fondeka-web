@@ -27,7 +27,8 @@ export function usePosStoresPage(page = 0) {
   }, [client, enabled, language, page, revision, state.loading, state.error]);
   return {
     ...state,
-    loading: (!state.data && !state.error) || state.loading,
+    loading: !state.data && !state.error,
+    refreshing: !!state.data && state.loading,
     refresh: () => {
       client.invalidate();
       if (enabled) void client.load(page, language).catch(() => {});

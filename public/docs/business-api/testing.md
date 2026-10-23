@@ -12,15 +12,15 @@ Add `X-Fondeka-Test-Scenario` to collection/payout submission. Omission means SU
 | `INVALID_DESTINATION` | FAILED |
 | `INSUFFICIENT_FUNDS` | FAILED; simulated external failure, separate from the sandbox wallet's own balance check |
 | `PAYMENT_NOT_APPROVED` | FAILED |
-| `CANCELED` | CANCELED |
-| `EXPIRED` | CANCELED with expiration explanation |
+| `CANCELED` | FAILED with failureCode CANCELED |
+| `EXPIRED` | FAILED with failureCode EXPIRED and expiration explanation |
 | `PENDING` | Remains PROCESSING; accepted payout funds stay reserved |
 
-Failed/canceled payouts refund their gross debit when the snapshotted sandbox refund policy permits it. Always inspect `refunded`; account for policy changes and historical simulations separately. Existing status-only sandbox payments created before virtual wallets were introduced do not gain retroactive wallet effects.
+Failed payouts, including canceled/expired scenarios, refund their gross debit when the snapshotted sandbox refund policy permits it. Always inspect `refunded`; account for policy changes and historical simulations separately. Existing status-only sandbox payments created before virtual wallets were introduced do not gain retroactive wallet effects.
 
 ## Fund and convert virtual wallets
 
-Use `POST /business-api/v1/businesses/{businessId}/sandbox-wallets/top-ups` with `Idempotency-Key` and `{"amount":100,"currency":"USD"}`. Maximum 1,000,000 per top-up and 100 new top-ups per account per UTC day. Replaying a successful identical top-up does not consume another quota slot. Inspect balances with `/wallets` and entries with `/sandbox-wallets/USD/entries?page=0&size=20`.
+Use `POST /business-api/v1/businesses/{businessId}/sandbox-wallets/top-ups` with `Idempotency-Key` and `{"amount":100,"currency":"USD"}`. Maximum 1,000,000 per top-up and 100 new top-ups per account/currency wallet per UTC day. Each currency wallet has its own quota. Replaying a successful identical top-up does not consume another quota slot. Inspect balances with `/wallets` and entries with `/sandbox-wallets/USD/entries?page=0&size=20`.
 
 History returns `{"content":[...],"page":{"size":20,"number":0,"totalElements":1,"totalPages":1}}`. Read pagination totals from `page`, use zero-based page numbers, and keep size between 1 and 100. Entries are ordered by descending ledger sequence.
 
@@ -42,6 +42,6 @@ Merchant endpoint errors contain `message`, `status`, `statusCode`, `errorCode`,
 | 429 | Back off; observe applicable quotas, including the UTC top-up limit |
 | 500/503 or connection timeout | Preserve the intent/reference and retry with backoff using the same key; reconcile before creating another payment |
 
-A framework error on an unknown URL outside the documented merchant handlers can have a different shape. Do not infer payment failure from a polling/network error. If polling returns UNKNOWN/manual review, stop automatic replacement and investigate. Include the payment reference, Business ID and request ID when contacting support, without sharing credentials.
+A framework error on an unknown URL outside the documented merchant handlers can have a different shape. Do not infer payment failure from a polling/network error. If a payment remains PROCESSING, retain its reference and continue polling with backoff; investigate long-running payments before creating a replacement. Include the payment reference, Business ID and request ID when contacting support, without sharing credentials.
 
 The [Postman collection](postman.v1.json) contains sandbox guards. Set `apiKey` locally, `businessId`, and a unique `intent` once per logical run. It captures accepted payment references for polling but does not wait for worker completion automatically. Keep exported/shared credentials blank.

@@ -20,6 +20,8 @@ type Storage = Pick<globalThis.Storage, "getItem" | "setItem" | "removeItem">;
 export interface BusinessToolsState {
   destination?: string;
   loading: boolean;
+  refreshing?: boolean;
+  refreshError?: string;
   access?: BusinessToolsAccess;
   error?: string;
   submissionError?: string;
@@ -66,6 +68,7 @@ export class BusinessToolsClient {
   private revision = 0;
   private disposed = false;
   private accessTask?: Promise<void>;
+  private accessCheckedAt?: number;
   private statusTask?: Promise<void>;
   private storageKey: string;
   private restored = false;
@@ -168,12 +171,31 @@ export class BusinessToolsClient {
     }
     return access;
   }
-  reload(denied = false): Promise<void> {
+  /** Resume checks retain a previously verified grant while the server revalidates it. */
+  revalidate(): Promise<void> {
+    if (this.disposed || this.state.busy) return Promise.resolve();
+    if (this.accessTask) return this.accessTask;
+    if (
+      this.accessCheckedAt !== undefined &&
+      (this.dependencies.now ?? Date.now)() - this.accessCheckedAt < 60_000
+    )
+      return Promise.resolve();
+    return this.reload(false, { background: true });
+  }
+  reload(denied = false, options: { background?: boolean } = {}): Promise<void> {
     if (this.disposed) return Promise.resolve();
     if (this.accessTask && !denied) return this.accessTask;
     const revision = ++this.revision;
+    const background =
+      !!options.background &&
+      this.state.access?.accessGranted === true &&
+      !this.state.error &&
+      !denied;
+    this.accessCheckedAt = (this.dependencies.now ?? Date.now)();
     this.update({
-      loading: true,
+      loading: !background,
+      refreshing: background,
+      refreshError: undefined,
       error: undefined,
       ...(denied
         ? {
@@ -192,6 +214,7 @@ export class BusinessToolsClient {
         this.update({
           access,
           loading: false,
+          refreshing: false,
           ...(!access.accessGranted
             ? { resourceUnavailable: false, resourceUnavailableFor: undefined }
             : {}),
@@ -224,11 +247,15 @@ export class BusinessToolsClient {
           await this.loadPurchase(savedId);
         }
       } catch (error) {
-        if (!this.disposed && revision === this.revision)
+        if (!this.disposed && revision === this.revision) {
+          const message =
+            error instanceof Error ? error.message : "Couldn’t check Business Tools access.";
           this.update({
             loading: false,
-            error: error instanceof Error ? error.message : "Couldn’t check Business Tools access.",
+            refreshing: false,
+            ...(background ? { refreshError: message } : { error: message }),
           });
+        }
       }
     })();
     this.accessTask = task;

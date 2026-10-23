@@ -4,7 +4,7 @@
       "TerminalPaymentEvent" : {
         "https://merchant.example/fondeka/webhooks" : {
           "post" : {
-            "description" : "POST to the immutable webhook URL configured when the originating key was issued. The URL below is a placeholder, not an API endpoint. HMAC-SHA256 uses the webhook secret over UTF-8 timestamp + '.' + exact raw request bytes. X-Fondeka-Signature is v1=<lowercase hex>. Verify in constant time, reject stale timestamps (recommended ±300s), validate environment and deduplicate event ID before fulfillment. Return any 2xx after durable acceptance. Non-2xx, redirects and transport failures retry up to 10 attempts with 30/60/120/240/480/960/1800/1800/1800-second scheduled delays; scheduling can be later. IDs and payload bytes stay fixed; attempt timestamp/signature change. Revoked credentials still deliver accepted payments. UNKNOWN/MANUAL_INTERVENTION_REQUIRED do not emit terminal events. No ordering guarantee across payments.",
+            "description" : "POST to the immutable webhook URL configured when the originating key was issued. The URL below is a placeholder, not an API endpoint. HMAC-SHA256 uses the webhook secret over UTF-8 timestamp + '.' + exact raw request bytes. X-Fondeka-Signature is v1=<lowercase hex>. Verify in constant time, reject stale timestamps (recommended ±300s), validate environment and deduplicate event ID before fulfillment. Return any 2xx after durable acceptance. Non-2xx, redirects and transport failures retry up to 10 attempts with 30/60/120/240/480/960/1800/1800/1800-second scheduled delays; scheduling can be later. IDs and payload bytes stay fixed; attempt timestamp/signature change. Revoked credentials still deliver accepted payments. Payments still PROCESSING do not emit terminal events. Cancellation/expiry generate failed events. No ordering guarantee across payments.",
             "operationId" : "receiveTerminalPaymentEvent",
             "parameters" : [ {
               "description" : "Stable event UUID, equal to body.id.",
@@ -341,7 +341,7 @@
             "type" : "string"
           },
           "refunded" : {
-            "description" : "Whether the payout debit has been refunded. FAILED/CANCELED alone does not guarantee a refund.",
+            "description" : "Whether the payout debit has been refunded. FAILED alone does not guarantee a refund.",
             "type" : "boolean"
           },
           "service" : {
@@ -359,8 +359,8 @@
             "type" : "number"
           },
           "status" : {
-            "description" : "COMPLETED, FAILED and CANCELED are terminal and generate events. UNKNOWN and MANUAL_INTERVENTION_REQUIRED are unresolved: poll/reconcile, do not create another payout.",
-            "enum" : [ "NONE", "INITIATED", "SUBMITTED", "PROCESSING", "FUNDED", "EXECUTING", "COMPLETED", "FAILED", "CANCELED", "MANUAL_INTERVENTION_REQUIRED", "UNKNOWN" ],
+            "description" : "PROCESSING means pending, including accepted payments and unresolved provider/reconciliation outcomes. COMPLETED and FAILED are terminal; cancellation/expiry are FAILED. Keep polling PROCESSING with the original reference.",
+            "enum" : [ "PROCESSING", "COMPLETED", "FAILED" ],
             "type" : "string"
           },
           "transactionId" : {
@@ -395,7 +395,7 @@
             "type" : "string"
           },
           "type" : {
-            "enum" : [ "business_api.collection.completed", "business_api.collection.failed", "business_api.collection.canceled", "business_api.payout.completed", "business_api.payout.failed", "business_api.payout.canceled" ],
+            "enum" : [ "business_api.collection.completed", "business_api.collection.failed", "business_api.payout.completed", "business_api.payout.failed" ],
             "type" : "string"
           }
         },
@@ -516,9 +516,14 @@
             "type" : "string"
           },
           "exchangeRate" : {
-            "description" : "Fiat units per token in this quote; sandbox is synthetic.",
+            "description" : "Units of exchangeRateCurrency per token. LIVE rates are USD/token; sandbox is synthetic.",
             "nullable" : true,
             "type" : "number"
+          },
+          "exchangeRateCurrency" : {
+            "description" : "Rate denomination: USD in LIVE, the payment fiat currency in SANDBOX. Separate from the wallet currency.",
+            "nullable" : true,
+            "type" : "string"
           },
           "expiresAt" : {
             "description" : "Optional crypto invoice expiry; do not pay an expired invoice.",
@@ -936,7 +941,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -948,7 +953,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -1022,7 +1027,7 @@
             "$ref" : "#/components/callbacks/TerminalPaymentEvent"
           }
         },
-        "description" : "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. Unknown or manual-review outcomes keep funds reserved; do not submit a replacement payment while investigating.",
+        "description" : "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. PROCESSING includes accepted and unresolved provider outcomes and keeps funds reserved; do not submit a replacement payment while investigating.",
         "operationId" : "createPayout",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -1270,7 +1275,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -1282,7 +1287,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -1576,7 +1581,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -1588,7 +1593,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -1844,7 +1849,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -1856,7 +1861,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -1925,7 +1930,7 @@
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/top-ups" : {
       "post" : {
-        "description" : "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
+        "description" : "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account/currency wallet per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
         "operationId" : "createSandboxTopUp",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -2139,7 +2144,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2151,7 +2156,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -2418,7 +2423,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2430,7 +2435,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -2499,7 +2504,7 @@
     },
     "/business-api/v1/businesses/{businessId}/transactions/{reference}" : {
       "get" : {
-        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. FAILED/CANCELED do not imply a refund; inspect refunded.",
+        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded.",
         "operationId" : "getTransaction",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -2673,7 +2678,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2685,7 +2690,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
@@ -2916,7 +2921,7 @@
                   "error" : {
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+                      "message" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2928,7 +2933,7 @@
                 }
               }
             },
-            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per UTC day.",
+            "description" : "A configured limit was reached; sandbox funding permits 100 new top-ups per account/currency wallet per UTC day.",
             "headers" : {
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"

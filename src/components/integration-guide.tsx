@@ -2,9 +2,8 @@
 import dynamic from "next/dynamic";
 import { Code2, Download } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { useUrlState } from "@/lib/use-url-state";
 import { businessApiDocsRoot } from "@/lib/business-api-docs";
-import type { ApiEnvironment } from "@/lib/types";
+import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import release from "../../public/docs/business-api/release.json";
 import { Loading } from "./ui";
 
@@ -12,21 +11,14 @@ const Documentation = dynamic(() => import("./business-api-documentation"), {
   loading: () => <Loading rows={3} />,
 });
 
-export function IntegrationGuide({ environment = "LIVE" }: { environment?: ApiEnvironment }) {
+export function IntegrationGuide({ setup }: { setup: ApiGuideSetup }) {
   const { t } = useI18n();
-  const { values, update } = useUrlState();
-  const expanded = values.get("guide") === "1";
   return (
     <section
       className="api-docs"
       aria-label={t("Business API documentation", "Documentation de l’API Business")}
     >
-      <button
-        className="api-docs-toggle"
-        onClick={() => update({ guide: expanded ? null : 1 })}
-        aria-expanded={expanded}
-        aria-controls="integration-guide"
-      >
+      <div className="api-docs-toggle api-docs-heading">
         <span className="tool-icon blue">
           <Code2 size={21} />
         </span>
@@ -37,10 +29,7 @@ export function IntegrationGuide({ environment = "LIVE" }: { environment?: ApiEn
           </small>
         </span>
         <span className="count-pill">v{release.version}</span>
-        <span className="api-docs-toggle-mark" aria-hidden="true">
-          {expanded ? "−" : "+"}
-        </span>
-      </button>
+      </div>
       <div className="api-docs-downloads">
         <code>{release.baseUrl}</code>
         <a
@@ -60,8 +49,8 @@ export function IntegrationGuide({ environment = "LIVE" }: { environment?: ApiEn
           {t("Postman · Sandbox", "Postman · Sandbox")}
         </a>
       </div>
-      <div id="integration-guide" hidden={!expanded}>
-        {expanded && <Documentation environment={environment} />}
+      <div id="integration-guide">
+        <Documentation setup={setup} />
       </div>
     </section>
   );

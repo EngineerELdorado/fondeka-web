@@ -2,6 +2,15 @@
 import Link from "next/link";
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  BarChart3,
+  Package,
+  ReceiptText,
+  Settings2,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
@@ -14,9 +23,20 @@ import { Badge, PageHeading, Loading, Empty, ErrorState, Pagination } from "@/co
 import { useWorkspace } from "@/components/workspace-provider";
 import { StoreForm } from "@/components/store-form";
 import { ProductForm } from "@/components/product-form";
+import { ProductImage } from "@/components/product-image";
+import { MediaVideo } from "@/components/media-video";
 import { CustomersPanel, StaffPanel } from "@/components/store-people";
 import { ReportsPanel, SalesPanel } from "@/components/store-sales";
 import { LinkSharing } from "@/components/link-sharing";
+import { StoreMedia } from "@/components/store-media";
+const storeTabIcons: Record<string, LucideIcon> = {
+  products: Package,
+  sales: ReceiptText,
+  customers: Users,
+  reports: BarChart3,
+  staff: ShieldCheck,
+  settings: Settings2,
+};
 export default function StoreDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { t } = useI18n();
@@ -114,24 +134,25 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
       ) : (
         s && (
           <>
-            <PageHeading
-              title={s.name}
-              description={s.description || t("Manage your store", "Gérer votre boutique")}
-            >
-              <button className="button secondary" onClick={refresh}>
-                {t("Refresh", "Actualiser")}
-              </button>
-              {isStoreOwner(s) && (
-                <button className="button secondary" onClick={() => setEditing(true)}>
-                  {t("Edit store", "Modifier la boutique")}
+            <section className="store-profile-header">
+              <StoreMedia store={s} profile />
+              <PageHeading title={s.name} description="">
+                <button className="button secondary" onClick={refresh}>
+                  {t("Refresh", "Actualiser")}
                 </button>
-              )}
-              {canUseStore(s, "POS") && (
-                <Link href={`/stores/${s.id}/pos`} className="button primary">
-                  {t("Open POS", "Ouvrir le POS")}
-                </Link>
-              )}
-            </PageHeading>
+                {isStoreOwner(s) && (
+                  <button className="button secondary" onClick={() => setEditing(true)}>
+                    {t("Edit store", "Modifier la boutique")}
+                  </button>
+                )}
+                {canUseStore(s, "POS") && (
+                  <Link href={`/stores/${s.id}/pos`} className="button primary">
+                    {t("Open POS", "Ouvrir le POS")}
+                  </Link>
+                )}
+              </PageHeading>
+              {s.description && <p className="store-profile-description">{s.description}</p>}
+            </section>
             <div className="store-detail-summary">
               <Badge value={s.status} />
               <Badge value={s.visibility} />
@@ -152,21 +173,26 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                 className="owner-tabs"
                 aria-label={t("Store sections", "Sections de la boutique")}
               >
-                {permitted.map(([key, title]) => (
-                  <button
-                    key={key}
-                    aria-current={tab === key ? "page" : undefined}
-                    className={tab === key ? "active" : ""}
-                    onClick={() =>
-                      update({ tab: key, page: null, product: null, customer: null, sale: null })
-                    }
-                  >
-                    {title}
-                  </button>
-                ))}
+                {permitted.map(([key, title]) => {
+                  const Icon = storeTabIcons[key];
+                  return (
+                    <button
+                      key={key}
+                      aria-current={tab === key ? "page" : undefined}
+                      className={tab === key ? "active" : ""}
+                      onClick={() =>
+                        update({ tab: key, page: null, product: null, customer: null, sale: null })
+                      }
+                    >
+                      <Icon size={17} aria-hidden="true" />
+                      {title}
+                    </button>
+                  );
+                })}
               </nav>
               {!authorized ? (
                 <Empty
+                  icon={ShieldCheck}
                   title={t("Permission required", "Autorisation requise")}
                   description={t(
                     "Ask the store owner to update your staff permissions.",
@@ -187,6 +213,7 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                     <ErrorState message={products.error} retry={refresh} />
                   ) : !products.data?.content.length ? (
                     <Empty
+                      icon={Package}
                       title={t("Add your first product", "Ajoutez votre premier produit")}
                       description={t(
                         "Sell products, digital files and services from your store.",
@@ -217,15 +244,27 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                           {products.data.content.map((p) => (
                             <tr key={p.id}>
                               <td>
-                                <button
-                                  className="text-button table-name"
-                                  onClick={() => update({ product: p.id })}
-                                >
-                                  {p.name}
-                                </button>
-                                <small className="table-subtitle">
-                                  {label(p.type)} {p.sku ? `· ${p.sku}` : ""}
-                                </small>
+                                <div className="owner-product-identity">
+                                  <span className="owner-product-thumb">
+                                    <ProductImage product={p} />
+                                  </span>
+                                  <div>
+                                    <button
+                                      className="text-button table-name"
+                                      onClick={() => update({ product: p.id })}
+                                    >
+                                      {p.name}
+                                    </button>
+                                    <small className="table-subtitle">
+                                      {label(p.type)} {p.sku ? `· ${p.sku}` : ""}
+                                    </small>
+                                    <MediaVideo
+                                      url={p.videoUrl}
+                                      title={p.name}
+                                      duration={p.videoDurationSeconds}
+                                    />
+                                  </div>
+                                </div>
                               </td>
                               <td className="amount">{money(p.priceAmount, p.priceCurrency)}</td>
                               <td>

@@ -155,11 +155,22 @@ export function GuidedFlow<T extends object>({
   const leaving = useRef(false);
   const current = useRef({ busy: false, dirty, onDiscard, onClose });
   const root = useRef<HTMLDivElement>(null);
+  const stepPath = useRef<HTMLOListElement>(null);
   const prefix = useId();
   const origin = useRef(typeof window === "undefined" ? "" : window.location.pathname);
   const busy = submitting || externalBusy;
   current.current = { busy: busy || !enabled, dirty, onDiscard, onClose };
   const errors = attempted === step.id ? step.validate?.(value) || {} : {};
+  useEffect(() => {
+    const path = stepPath.current;
+    const active = path?.children[index] as HTMLElement | undefined;
+    if (!path || !active) return;
+    if (
+      active.offsetLeft < path.scrollLeft ||
+      active.offsetLeft + active.offsetWidth > path.scrollLeft + path.clientWidth
+    )
+      path.scrollTo({ left: Math.max(0, active.offsetLeft - 12), behavior: "instant" });
+  }, [index]);
   useEffect(() => {
     if (!loading && (navigation.values.get("flow") !== id || requested !== step.id))
       navigation.update({ flow: id, step: step.id }, true);
@@ -346,6 +357,29 @@ export function GuidedFlow<T extends object>({
         </button>
         <progress max={steps.length} value={index + 1} aria-label={t("Progress", "Progression")} />
       </header>
+      <nav className="guided-step-path" aria-label={t("Steps", "Étapes")}>
+        <ol ref={stepPath}>
+          {steps.map((item, position) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                aria-current={position === index ? "step" : undefined}
+                className={position < index ? "visited" : ""}
+                disabled={busy || !enabled || loading || !!dependencyError || position >= index}
+                onClick={() => go(item.id)}
+              >
+                <span aria-hidden="true">
+                  {position < index ? <Check size={13} /> : position + 1}
+                </span>
+                <span className="sr-only">
+                  {t("Step", "Étape")} {position + 1}:{" "}
+                </span>
+                {item.title}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
       <form
         noValidate
         onSubmit={(event) => {

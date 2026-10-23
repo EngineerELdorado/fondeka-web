@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Calculator } from "lucide-react";
 import { useQuery } from "@/lib/use-query";
 import { useI18n } from "@/lib/i18n";
 import { canUseStore } from "@/lib/commerce";
@@ -15,6 +16,7 @@ export function StorePos({ id }: { id: string }) {
   return (
     <>
       <PageHeading
+        icon={Calculator}
         title="POS"
         description={store.data?.name || t("Your point of sale", "Votre point de vente")}
       >
@@ -30,6 +32,7 @@ export function StorePos({ id }: { id: string }) {
         <PosRegister key={store.data.id} store={store.data} />
       ) : (
         <Empty
+          icon={Calculator}
           title={t("POS access required", "Accès POS requis")}
           description={t(
             "Ask the store owner for POS permission, or choose another store.",

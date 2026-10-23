@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Plus, Search, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Plus, Search, RefreshCw, Store as StoreIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
@@ -10,6 +10,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { Badge, PageHeading, Loading, ErrorState, Empty, Pagination } from "@/components/ui";
 import { StoreForm } from "@/components/store-form";
 import { PosStoreChooser } from "@/components/pos-store-chooser";
+import { StoreMedia } from "@/components/store-media";
 export default function Stores() {
   const { values, update } = useUrlState();
   const forPos = values.get("mode") === "pos";
@@ -31,6 +32,7 @@ function StoreList() {
   return (
     <>
       <PageHeading
+        icon={StoreIcon}
         title={t("Online Stores", "Boutiques en ligne")}
         description={t(
           "Create an online store, share its link and sell products, services and trainings.",
@@ -66,6 +68,7 @@ function StoreList() {
         <ErrorState message={stores.error} retry={refresh} />
       ) : !list?.length ? (
         <Empty
+          icon={StoreIcon}
           title={t("Your online stores", "Vos boutiques en ligne")}
           description={t(
             "Create your first store and bring your products together, or try a different search.",
@@ -80,13 +83,15 @@ function StoreList() {
         <div className="stores-grid">
           {list.map((s, i) => (
             <Link className="store-card" key={s.id} href={`/stores/${s.id}`}>
-              <div className={`store-cover tone-${i % 3}`}>
-                <span className="store-cover-icon">{s.name.slice(0, 1)}</span>
-                <span className="store-cover-currency">{s.defaultCurrency}</span>
-              </div>
+              <StoreMedia store={s} tone={i} />
               <div className="store-card-content">
-                <h2>{s.name}</h2>
-                <p>{s.description}</p>
+                <div className="store-card-title">
+                  <h2>{s.name}</h2>
+                  <span className="store-card-open" aria-hidden="true">
+                    <ArrowUpRight size={17} />
+                  </span>
+                </div>
+                {s.description && <p>{s.description}</p>}
                 <div className="store-card-footer">
                   <Badge value={s.status} />
                   <span>

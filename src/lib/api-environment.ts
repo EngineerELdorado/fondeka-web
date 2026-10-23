@@ -1,4 +1,25 @@
 import type { ApiEnvironment, ApiKey, ApiTransaction } from "./types";
+import { isBusinessApiPaymentStatus } from "./business-api-status";
+
+export function resolveApiEnvironment(
+  selected: string | null,
+  current: ApiEnvironment,
+): ApiEnvironment {
+  return selected === "LIVE" || selected === "SANDBOX" ? selected : current;
+}
+
+/** Environment changes return to a list; they never carry a payment or key-creation dialog. */
+export function apiEnvironmentSelection(environment: ApiEnvironment) {
+  return {
+    environment,
+    apiPage: null,
+    apiReference: null,
+    apiDetailBusiness: null,
+    createKey: null,
+    flow: null,
+    step: null,
+  };
+}
 
 /** Missing environment is supported only for historical LIVE responses. */
 export function apiEnvironment(value: unknown): ApiEnvironment {
@@ -26,6 +47,10 @@ export function assertTransactionEnvironment(
   tx: ApiTransaction["transaction"],
   expected: ApiEnvironment,
 ) {
+  if (tx && !isBusinessApiPaymentStatus(tx.status))
+    throw new Error(
+      "The backend returned an outdated Business API payment status. Refresh or contact support.",
+    );
   if (
     !tx ||
     apiEnvironment(tx.environment) !== expected ||

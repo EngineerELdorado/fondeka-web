@@ -45,6 +45,19 @@ test("POS chooses zero, one or multiple stores before navigating and respects ba
   assert.equal(posDestination(normalizePosStores([])), "/stores?mode=pos&state=empty");
 });
 
+test("POS accepts the backend Spring Data VIA_DTO envelope for empty, single and paged store lists", () => {
+  const stable = (content: Store[], total = content.length) => ({
+    content,
+    page: { size: 20, number: 0, totalElements: total, totalPages: Math.ceil(total / 20) },
+  });
+  assert.equal(posDestination(normalizePosStores(stable([]))), "/stores?mode=pos&state=empty");
+  assert.equal(posDestination(normalizePosStores(stable([store]))), "/stores/42/pos");
+  const many = normalizePosStores(stable([store], 42));
+  assert.equal(many.totalElements, 42);
+  assert.equal(many.totalPages, 3);
+  assert.equal(posDestination(many), "/stores?mode=pos");
+});
+
 test("POS cannot infer a count or construct a destination from malformed IDs or a failed response", () => {
   for (const value of [
     null,
@@ -116,6 +129,30 @@ test("browser Back reuses loaded stores; stale reads and explicit refresh preser
   }
 });
 
+test("returning to POS after inactivity routes from loaded stores while revalidating in the background", async () => {
+  let now = 1000;
+  let reads = 0;
+  const next = deferred<unknown>();
+  const client = new PosStoresClient(
+    async () => (++reads === 1 ? page([store]) : next.promise),
+    () => now,
+  );
+  try {
+    await client.load();
+    now += 180_000;
+    assert.equal(await resolvePosDestination(client, "en", () => true), "/stores/42/pos");
+    assert.equal(client.page().data?.content[0].id, 42);
+    next.resolve(page([]));
+    await client.load();
+    assert.equal(reads, 2);
+    assert.equal(
+      await resolvePosDestination(client, "en", () => true),
+      "/stores?mode=pos&state=empty",
+    );
+  } finally {
+    client.dispose();
+  }
+});
 test("store create/delete invalidation refreshes the POS count and unrelated queries leave it intact", async () => {
   let total = 0;
   let reads = 0;

@@ -3,7 +3,7 @@ import { useUiText } from "@/lib/use-ui-text";
 
 import Link from "next/link";
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, AlertCircle, Inbox, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, AlertCircle, Inbox, X, type LucideIcon } from "lucide-react";
 import { label } from "@/lib/format";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
@@ -55,31 +55,40 @@ export function PageHeading({
   title,
   mobileTitle,
   description,
+  icon: Icon,
   children,
 }: {
   eyebrow?: string;
   title: string;
   mobileTitle?: string;
-  description: string;
+  description?: string;
+  icon?: LucideIcon;
   children?: ReactNode;
 }) {
   useUiText();
 
   return (
-    <div className="page-heading">
-      <div>
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1>
-          {mobileTitle ? (
-            <>
-              <span className="desktop-page-title">{title}</span>
-              <span className="mobile-page-title">{mobileTitle}</span>
-            </>
-          ) : (
-            title
-          )}
-        </h1>
-        <p className="muted">{description}</p>
+    <div className={`page-heading ${Icon ? "visual-page-heading" : ""}`}>
+      <div className="page-heading-identity">
+        {Icon && (
+          <span className="page-heading-icon" aria-hidden="true">
+            <Icon size={26} strokeWidth={1.8} />
+          </span>
+        )}
+        <div>
+          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          <h1>
+            {mobileTitle ? (
+              <>
+                <span className="desktop-page-title">{title}</span>
+                <span className="mobile-page-title">{mobileTitle}</span>
+              </>
+            ) : (
+              title
+            )}
+          </h1>
+          {description && <p className="muted">{description}</p>}
+        </div>
       </div>
       <div className="heading-actions">{children}</div>
     </div>
@@ -119,16 +128,22 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
 export function Empty({
   title,
   description,
+  icon: Icon = Inbox,
   children,
 }: {
   title: string;
   description: string;
+  icon?: LucideIcon;
   children?: ReactNode;
 }) {
   return (
     <div className="empty-state">
-      <span className="empty-icon">
-        <Inbox size={25} />
+      <span className="empty-scene" aria-hidden="true">
+        <span className="empty-scene-card" />
+        <span className="empty-scene-dot" />
+        <span className="empty-icon">
+          <Icon size={28} strokeWidth={1.6} />
+        </span>
       </span>
       <h3>{title}</h3>
       <p>{description}</p>

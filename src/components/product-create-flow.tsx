@@ -61,7 +61,6 @@ export function ProductCreateFlow({
     ["name", "price", "currency", "images", "video", "duration", "description", "type", "stock"],
   );
   const [uploading, setUploading] = useState(false);
-  const [photos, setPhotos] = useState(Math.max(1, draft.value.images.filter(Boolean).length));
   const currencies = useCurrencies([draft.value.currency, store.defaultCurrency]);
   const steps: GuidedStep<Draft>[] = [
     {
@@ -123,38 +122,17 @@ export function ProductCreateFlow({
       ),
       render: ({ value, set }) => (
         <>
-          {value.images
-            .slice(
-              0,
-              Math.max(
-                photos,
-                value.images.reduce((last, url, index) => (url ? index + 1 : last), 1),
-              ),
-            )
-            .map((url, index) => (
-              <MediaUpload
-                key={index}
-                disabled={uploading}
-                label={t("Photo ", "Photo ") + (index + 1)}
-                value={url}
-                scope="commerce-product-images"
-                storeId={store.id}
-                onBusy={setUploading}
-                onChange={(next) =>
-                  set({ images: value.images.map((old, i) => (i === index ? next : old)) })
-                }
-              />
-            ))}
-          {photos < 4 && (
-            <button
-              type="button"
-              className="text-button"
-              disabled={uploading}
-              onClick={() => setPhotos((n) => n + 1)}
-            >
-              {t("Add another photo", "Ajouter une photo")}
-            </button>
-          )}
+          <MediaUpload
+            disabled={uploading}
+            label={t("Primary photo", "Photo principale")}
+            ownerName={value.name}
+            aspect={1}
+            value={value.images[0]}
+            scope="commerce-product-images"
+            storeId={store.id}
+            onBusy={setUploading}
+            onChange={(url) => set({ images: value.images.map((old, i) => (i === 0 ? url : old)) })}
+          />
           <details>
             <summary>
               {t("Add a short video (optional)", "Ajouter une courte vidéo (facultatif)")}
@@ -164,6 +142,8 @@ export function ProductCreateFlow({
               label={t("Product video", "Vidéo du produit")}
               kind="video"
               value={value.video}
+              duration={value.duration}
+              ownerName={value.name}
               scope="commerce-product-videos"
               storeId={store.id}
               maxBytes={store.effectiveProductVideoMaxBytes}
@@ -375,7 +355,10 @@ export function ProductCreateFlow({
           priceCurrency: v.currency,
           description: v.description.trim(),
           type: v.type,
-          ...Object.fromEntries(v.images.map((url, i) => ["image" + (i + 1), url || null])),
+          image1: v.images[0] || null,
+          image2: null,
+          image3: null,
+          image4: null,
           videoUrl: v.video || null,
           videoDurationSeconds: v.duration || null,
           inventoryPolicy: v.type === "PHYSICAL" ? "TRACKED" : "UNLIMITED",

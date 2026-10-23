@@ -2,10 +2,15 @@
 import { useUiText } from "@/lib/use-ui-text";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowDownLeft, ArrowUpRight, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
+import {
+  Activity,
+  ArrowDownLeft,
+  ArrowUpRight,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Badge, MobileRecord, Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
-import { ApiCredentials } from "./api-credentials";
-import { ApiWallets } from "./api-wallets";
 import { CryptoPaymentInstructions } from "./crypto-payment-instructions";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
@@ -17,15 +22,11 @@ import {
   transactionStatuses,
   type PortalFilters,
 } from "@/lib/portal-query";
-import type { ApiEnvironment, ApiKey, ApiTransaction, Business, Page } from "@/lib/types";
-import {
-  apiKeysPath,
-  apiTransactionPath,
-  assertKeyEnvironment,
-  assertTransactionEnvironment,
-} from "@/lib/api-environment";
+import type { ApiEnvironment, ApiTransaction, Business, Page } from "@/lib/types";
+import { apiTransactionPath, assertTransactionEnvironment } from "@/lib/api-environment";
+import { isTerminalBusinessApiPayment } from "@/lib/business-api-status";
 
-export function ApiWorkspace({
+export function ApiTransactions({
   business,
   environment,
 }: {
@@ -64,7 +65,6 @@ export function ApiWorkspace({
     });
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
-  const keys = useQuery<ApiKey[]>(apiKeysPath(business.id, environment), undefined, revision);
   let historyPath: string | null = null;
   let routeFilterError = "";
   try {
@@ -73,16 +73,7 @@ export function ApiWorkspace({
     routeFilterError = uiText(e instanceof Error ? e.message : "Check your filters.");
   }
   const history = useQuery<Page<ApiTransaction>>(historyPath, undefined, revision);
-  let keysError = keys.error;
   let historyError = routeFilterError || history.error;
-  try {
-    if (keys.data) assertKeyEnvironment(keys.data, environment);
-  } catch (error) {
-    keysError =
-      error instanceof Error
-        ? error.message
-        : uiText("Couldn’t read credentials for this environment.");
-  }
   try {
     history.data?.content.forEach((row) =>
       assertTransactionEnvironment(row.transaction, environment),
@@ -207,41 +198,6 @@ export function ApiWorkspace({
   );
   return (
     <>
-      <div className="business-summary">
-        <div>
-          <span className="quiet-label">{uiText("BUSINESS PROFILE")}</span>
-          <h2>{business.legalName || business.name}</h2>
-          <span className="muted">
-            {business.countryCode || uiText("Country not provided")}
-            {uiText("· Business #")}
-            {business.id}
-          </span>
-        </div>
-        <div className="business-status">
-          <span>
-            <small>{uiText("Operational status")}</small>
-            <Badge value={business.status} />
-          </span>
-          <span>
-            <small>{uiText("Verification")}</small>
-            <Badge value={business.kybStatus} />
-          </span>
-        </div>
-      </div>
-      <ApiWallets
-        businessId={business.id}
-        environment={environment}
-        revision={revision}
-        refresh={refresh}
-        onOpenPayment={(businessId, reference) => setSelected({ businessId, reference })}
-      />
-      <ApiCredentials
-        key={`${business.id}:${environment}`}
-        businessId={business.id}
-        environment={environment}
-        keys={{ ...keys, error: keysError }}
-        refresh={refresh}
-      />
       <section className="panel history-panel">
         <div className="panel-heading">
           <div>
@@ -292,6 +248,7 @@ export function ApiWorkspace({
           <ErrorState message={historyError} retry={refresh} />
         ) : !history.data?.content.length ? (
           <Empty
+            icon={Activity}
             title={
               activeFilters
                 ? uiText("No matching transactions")
@@ -426,7 +383,7 @@ export function ApiWorkspace({
     </>
   );
 }
-function TransactionDetail({
+export function TransactionDetail({
   businessId,
   reference,
   environment,
@@ -441,25 +398,77 @@ function TransactionDetail({
 }) {
   const uiText = useUiText();
 
-  const [revision, setRevision] = useState(0);
-  const refresh = () => setRevision((value) => value + 1);
-  const detail = useQuery<ApiTransaction>(
-    apiTransactionPath(businessId, reference, environment),
-    undefined,
-    revision,
-  );
+  const detail = useQuery<ApiTransaction>(apiTransactionPath(businessId, reference, environment));
+  const refresh = detail.refetch;
   const tx = detail.data?.transaction;
   let error = detail.error;
   try {
-    if (tx) assertTransactionEnvironment(tx, environment);
+    if (detail.data) assertTransactionEnvironment(detail.data.transaction, environment);
   } catch (failure) {
     error =
       failure instanceof Error ? failure.message : uiText("Couldn’t read transaction environment.");
   }
   const status = !error ? tx?.status : undefined;
   useEffect(() => {
-    if (status && ["COMPLETED", "FAILED", "CANCELED", "CANCELLED"].includes(status)) onTerminal();
+    if (status && isTerminalBusinessApiPayment(status)) onTerminal();
   }, [status, onTerminal]);
+  useEffect(() => {
+    if (status !== "PROCESSING" || error) return;
+    let active = true;
+    let running = false;
+    let delay = 3000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const started = Date.now();
+    const schedule = () => {
+      if (
+        !active ||
+        running ||
+        timer ||
+        document.visibilityState !== "visible" ||
+        Date.now() - started >= 300_000
+      )
+        return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        void check();
+      }, delay);
+    };
+    const check = async () => {
+      if (
+        !active ||
+        running ||
+        document.visibilityState !== "visible" ||
+        Date.now() - started >= 300_000
+      )
+        return;
+      running = true;
+      try {
+        const latest = await refresh();
+        if (latest && latest.transaction?.status !== "PROCESSING") {
+          active = false;
+          return;
+        }
+      } finally {
+        running = false;
+        delay = Math.min(30_000, Math.round(delay * 1.5));
+        schedule();
+      }
+    };
+    const resume = () => {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+      if (document.visibilityState === "visible") schedule();
+    };
+    schedule();
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [businessId, reference, environment, status, error, refresh]);
   const crypto = tx?.cryptoDetails;
   return (
     <Modal
@@ -514,24 +523,24 @@ function TransactionDetail({
                 </div>
               ))}
             </dl>
-            {tx.failureMessage && <p className="info-box">{tx.failureMessage}</p>}
-            {["UNKNOWN", "MANUAL_INTERVENTION_REQUIRED"].includes(tx.status) && (
+            {tx.status === "FAILED" && (tx.failureMessage || tx.failureCode) && (
+              <p className="info-box">{tx.failureMessage || tx.failureCode}</p>
+            )}
+            {tx.status === "PROCESSING" && (
               <div className="info-box">
                 {uiText(
-                  "This transaction needs investigation. Its status does not confirm failure or a refund. Contact Fondeka with the transaction reference.",
+                  "Payment processing. Long-running payments may need provider or manual reconciliation. Keep this reference and investigate before creating a replacement payment.",
                 )}
               </div>
             )}
             {crypto && <CryptoPaymentInstructions details={crypto} environment={environment} />}
-            {!crypto &&
-              environment === "LIVE" &&
-              ["PROCESSING", "INITIATED", "SUBMITTED"].includes(tx.status) && (
-                <div className="info-box">
-                  {uiText(
-                    "Payment instructions may still be on their way. Refresh to check the latest status.",
-                  )}
-                </div>
-              )}
+            {!crypto && environment === "LIVE" && tx.status === "PROCESSING" && (
+              <div className="info-box">
+                {uiText(
+                  "Payment instructions may still be on their way. Refresh to check the latest status.",
+                )}
+              </div>
+            )}
             <div className="modal-actions">
               <button className="button secondary" onClick={refresh}>
                 <RefreshCw size={15} />
@@ -547,4 +556,3 @@ function TransactionDetail({
     </Modal>
   );
 }
-export { IntegrationGuide } from "./integration-guide";

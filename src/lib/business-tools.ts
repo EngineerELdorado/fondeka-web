@@ -98,6 +98,7 @@ export interface PaymentTransaction {
     network?: string;
     amountInCrypto?: number;
     exchangeRate?: number;
+    exchangeRateCurrency?: string;
     invoiceUrl?: string;
     expiresAt?: string;
   } | null;
@@ -123,7 +124,7 @@ export function businessDestination(value: string): string | undefined {
   }
   if (
     url.origin !== "https://portal.invalid" ||
-    !/^\/(overview|business|developers|payment-requests|pos|stores(?:\/\d+(?:\/pos)?)?)$/.test(
+    !/^\/(overview|business|developers(?:\/(?:wallets|transactions|guides))?|payment-requests|pos|stores(?:\/\d+(?:\/pos)?)?)$/.test(
       url.pathname,
     )
   )
@@ -164,12 +165,17 @@ export function businessDestination(value: string): string | undefined {
   if (/^\/stores\/\d+$/.test(url.pathname))
     for (const key of ["newProduct", "newCustomer", "invite"]) copy(key, /^1$/);
   if (url.pathname === "/developers") copy("createKey", /^1$/);
-  if (url.pathname === "/developers")
+  if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname))
     copy(
       "doc",
       /^(overview|quickstart|mobile-money-collection|mobile-money-payout|crypto-collection|crypto-payout|concepts|webhooks|testing|go-live|changelog)$/,
     );
-  if (url.pathname === "/developers") {
+  if ((url.pathname === "/developers/guides" || url.pathname === "/developers") && query.has("doc"))
+    copy(
+      "lesson",
+      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|fund|convert|execute-conversion|history|prepare|release)$/,
+    );
+  if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname)) {
     for (const key of ["business", "businessPage", "apiPage", "apiDetailBusiness"])
       copy(key, /^\d{1,12}$/);
     copy("guide", /^1$/);

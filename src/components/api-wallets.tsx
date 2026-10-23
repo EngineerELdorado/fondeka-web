@@ -1,7 +1,9 @@
 "use client";
 import { useUiText } from "@/lib/use-ui-text";
+import { currencyPresentations } from "@/lib/currency-choices";
+import { CurrencyIdentity } from "./currency-identity";
 
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowDownLeft, ArrowUpRight, ArrowRightLeft, Plus, RefreshCw, Wallet } from "lucide-react";
 import { useWorkspace } from "./workspace-provider";
 import { Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
@@ -16,7 +18,6 @@ import {
   parseApiWallets,
   parseSandboxEntries,
   sandboxEntriesPath,
-  walletCurrency,
 } from "@/lib/api-wallets";
 import type { ApiEnvironment, ApiWallet } from "@/lib/types";
 
@@ -37,24 +38,18 @@ export function ApiWallets({
   const uiText = useUiText();
 
   const { accountKey } = useWorkspace();
-  const [currency, setCurrency] = useState("");
-  const [draft, setDraft] = useState("");
-  const [formError, setFormError] = useState("");
+  const currencyProducts = useQuery<unknown>("/customer-api/fiat-wallets/currencies");
+  const currencyMedia = currencyPresentations(currencyProducts.data);
   const [ledger, setLedger] = useState<string>();
   const [fundingOpen, setFundingOpen] = useState(false);
   const [funding, setFunding] = useState<SandboxFundingClient>();
   const [conversion, setConversion] = useState<SandboxConversionClient>();
   const [conversionOpen, setConversionOpen] = useState(false);
-  const query = useQuery<unknown>(
-    apiWalletsPath(businessId, environment, currency),
-    undefined,
-    revision,
-  );
+  const query = useQuery<unknown>(apiWalletsPath(businessId, environment), undefined, revision);
   let error = query.error;
   let wallets: ApiWallet[] | undefined;
   try {
-    if (!query.loading && !query.error)
-      wallets = parseApiWallets(query.data, environment, currency);
+    if (!query.loading && !query.error) wallets = parseApiWallets(query.data, environment);
   } catch (failure) {
     error =
       failure instanceof Error ? failure.message : uiText("Wallet balances could not be read.");
@@ -90,26 +85,6 @@ export function ApiWallets({
       conversions.dispose();
     };
   }, [accountKey, businessId, environment, refresh]);
-  useEffect(() => {
-    const resume = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    window.addEventListener("focus", resume);
-    document.addEventListener("visibilitychange", resume);
-    return () => {
-      window.removeEventListener("focus", resume);
-      document.removeEventListener("visibilitychange", resume);
-    };
-  }, [refresh]);
-  function checkCurrency(event: FormEvent) {
-    event.preventDefault();
-    try {
-      setCurrency(draft.trim() ? walletCurrency(draft) : "");
-      setFormError("");
-    } catch (failure) {
-      setFormError(failure instanceof Error ? failure.message : uiText("Check the currency."));
-    }
-  }
   return (
     <section
       className={`panel api-wallet-panel ${environment === "SANDBOX" ? "sandbox" : ""}`}
@@ -167,47 +142,19 @@ export function ApiWallets({
           </button>
         </div>
       </div>
+      {query.refreshError && (
+        <div className="wallet-recovery" role="status">
+          <span>{uiText("Couldn’t refresh balances. Showing the last loaded balances.")}</span>
+          <button type="button" className="text-button" onClick={refresh}>
+            {uiText("Refresh")}
+          </button>
+        </div>
+      )}
       {environment === "SANDBOX" && funding && (
         <FundingRecovery client={funding} onOpen={() => setFundingOpen(true)} />
       )}
       {environment === "SANDBOX" && conversion && (
         <ConversionRecovery client={conversion} onOpen={() => setConversionOpen(true)} />
-      )}
-      <form className="wallet-currency-filter" onSubmit={checkCurrency}>
-        <label>
-          {uiText("Fiat currency")}
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            maxLength={3}
-            placeholder={uiText("All")}
-            aria-describedby="wallet-currency-help"
-          />
-        </label>
-        <button className="button secondary small" type="submit">
-          {uiText("Check balance")}
-        </button>
-        {currency && (
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setDraft("");
-              setCurrency("");
-              setFormError("");
-            }}
-          >
-            {uiText("All balances")}
-          </button>
-        )}
-        <small id="wallet-currency-help">
-          {uiText("Enter a three-letter code to check a currency, including one without a wallet.")}
-        </small>
-      </form>
-      {formError && (
-        <p className="form-error" role="alert">
-          {formError}
-        </p>
       )}
       {query.loading ? (
         <Loading rows={2} />
@@ -217,11 +164,14 @@ export function ApiWallets({
         <div className="api-wallet-grid">
           {wallets.map((wallet) => (
             <div className="api-wallet-card" key={wallet.currency}>
-              <div>
+              <div className="api-wallet-card-heading">
+                <CurrencyIdentity
+                  currency={wallet.currency}
+                  metadata={currencyMedia.get(wallet.currency)}
+                />
                 <span className={`environment-tag ${environment === "SANDBOX" ? "sandbox" : ""}`}>
-                  {environment === "SANDBOX" ? "TEST FUNDS" : "LIVE"}
+                  {environment === "SANDBOX" ? uiText("Test funds") : "LIVE"}
                 </span>
-                <span>{wallet.currency}</span>
               </div>
               <strong>{money(wallet.balance, wallet.currency)}</strong>
               {environment === "SANDBOX" ? (
@@ -237,6 +187,7 @@ export function ApiWallets({
         </div>
       ) : (
         <Empty
+          icon={Wallet}
           title={
             environment === "SANDBOX"
               ? uiText("No sandbox wallets yet")
@@ -244,10 +195,8 @@ export function ApiWallets({
           }
           description={
             environment === "SANDBOX"
-              ? uiText(
-                  "Start with a simulated collection or add test funds. Checking a currency does not create or fund a wallet.",
-                )
-              : uiText("You can check a specific fiat currency above.")
+              ? uiText("Start with a simulated collection or add test funds.")
+              : uiText("Your fiat wallets will appear here.")
           }
         />
       )}
@@ -277,14 +226,14 @@ export function ApiWallets({
       {fundingOpen && funding && (
         <FundingDialog
           client={funding}
-          initialCurrency={currency || wallets?.[0]?.currency || ""}
+          initialCurrency={wallets?.[0]?.currency || ""}
           onClose={() => setFundingOpen(false)}
         />
       )}
       {conversionOpen && conversion && (
         <SandboxConversionDialog
           client={conversion}
-          initialCurrency={currency || wallets?.[0]?.currency || ""}
+          initialCurrency={wallets?.[0]?.currency || ""}
           onClose={() => setConversionOpen(false)}
         />
       )}

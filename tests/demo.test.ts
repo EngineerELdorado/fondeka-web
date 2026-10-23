@@ -48,9 +48,9 @@ test("demo API history paginates and filters directions, exact references, and c
   );
   assert.equal(filtered.content.length, 1);
   assert.equal(filtered.content[0].transaction.currency, "EUR");
-  const unknown = await demoRequest<ApiTransaction>(
+  const unresolved = await demoRequest<ApiTransaction>(
     "/customer-api/businesses/1/api-transactions/TXDEMO8414",
   );
-  assert.equal(unknown.transaction.status, "UNKNOWN");
-  assert.equal(unknown.transaction.refunded, false);
+  assert.equal(unresolved.transaction.status, "PROCESSING");
+  assert.equal(unresolved.transaction.refunded, false);
 });

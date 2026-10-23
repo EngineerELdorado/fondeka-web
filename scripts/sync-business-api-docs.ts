@@ -15,6 +15,20 @@ const source = resolve(
 );
 const check = process.argv.includes("--check");
 const sha256 = (value: Buffer) => createHash("sha256").update(value).digest("hex");
+async function publicationFile(directory: string, file: string, portalCopy = false) {
+  const bytes = await readFile(resolve(directory, file));
+  // Keep the portal's intentionally shorter introduction when syncing the upstream release.
+  return portalCopy && file === "README.md"
+    ? Buffer.from(
+        bytes
+          .toString("utf8")
+          .replace(
+            " Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.",
+            "",
+          ),
+      )
+    : bytes;
+}
 type Release = {
   version: string;
   baseUrl: string;
@@ -22,10 +36,10 @@ type Release = {
   files: Record<string, string>;
 };
 
-async function validate(directory: string) {
+async function validate(directory: string, portalCopy = false) {
   const files: Record<string, string> = {};
   for (const file of businessApiFiles)
-    files[file] = sha256(await readFile(resolve(directory, file)));
+    files[file] = sha256(await publicationFile(directory, file, portalCopy));
   const spec = JSON.parse(await readFile(resolve(directory, "openapi.v1.json"), "utf8"));
   if (
     spec.openapi !== "3.0.3" ||
@@ -61,11 +75,11 @@ async function main() {
       `Business API ${actual.version}: all ${businessApiFiles.length} published files and relative links verified.`,
     );
   } else {
-    const release = await validate(source);
+    const release = await validate(source, true);
     for (const file of businessApiFiles) {
       const destination = resolve(output, file);
       await mkdir(dirname(destination), { recursive: true });
-      await writeFile(destination, await readFile(resolve(source, file)));
+      await writeFile(destination, await publicationFile(source, file, true));
     }
     await writeFile(resolve(output, "release.json"), JSON.stringify(release, null, 2) + "\n");
     console.log(

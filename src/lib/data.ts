@@ -3,7 +3,9 @@
 import { api } from "./api";
 import { demoMode } from "./auth";
 import { demoRequest } from "./demo";
+import { normalizePageResponse } from "./page-response";
 
-export function request<T>(path: string, init?: RequestInit) {
-  return demoMode ? demoRequest<T>(path, init) : api<T>(path, init);
+export async function request<T>(path: string, init?: RequestInit) {
+  const response = await (demoMode ? demoRequest<T>(path, init) : api<T>(path, init));
+  return normalizePageResponse(response);
 }

@@ -37,7 +37,9 @@ export function CryptoPaymentInstructions({
           </div>
           <div>
             <dt>Synthetic exchange rate</dt>
-            <dd>{details.exchangeRate ?? "—"}</dd>
+            <dd>
+              {details.exchangeRate ?? "—"} {details.exchangeRateCurrency}
+            </dd>
           </div>
           {details.address && (
             <div>
@@ -104,6 +106,15 @@ function PayableCryptoInstructions({
               : date(crypto.expiresAt)}
           </dd>
         </div>
+        {crypto.exchangeRate != null && (
+          <div>
+            <dt>{fr ? "Taux de change" : "Exchange rate"}</dt>
+            <dd>
+              {crypto.exchangeRate} {crypto.exchangeRateCurrency || "—"} /{" "}
+              {crypto.cryptoCurrency || (fr ? "jeton" : "token")}
+            </dd>
+          </div>
+        )}
       </dl>
       {crypto.address && (
         <div className="copy-field">

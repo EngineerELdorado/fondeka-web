@@ -969,7 +969,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
 function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
   if (environment === "SANDBOX")
     return Array.from({ length: 5 }, (_, i) => {
-      const status = ["COMPLETED", "FAILED", "COMPLETED", "PROCESSING", "CANCELED"][i];
+      const status = (["COMPLETED", "FAILED", "COMPLETED", "PROCESSING", "FAILED"] as const)[i];
       const amount = [10, 25, 40, 15, 12][i];
       return {
         requestId: 100 + i,
@@ -991,13 +991,13 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
           settlementAmount: status === "COMPLETED" ? amount : null,
           settlementNet: status === "COMPLETED" ? amount : null,
           refunded: false,
-          ...(status === "FAILED"
-            ? {
-                failureCode: "INVALID_DESTINATION",
-                failureMessage: "Sandbox simulation: invalid destination.",
-              }
-            : status === "CANCELED"
-              ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
+          ...(i === 4
+            ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
+            : status === "FAILED"
+              ? {
+                  failureCode: "INVALID_DESTINATION",
+                  failureMessage: "Sandbox simulation: invalid destination.",
+                }
               : {}),
           cryptoDetails:
             i === 2
@@ -1024,7 +1024,7 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
       reference: `TXDEMO${8421 - i}`,
       clientReference: `order-${i + 1}`,
       action: i % 3 === 0 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
-      status: i === 3 ? "PROCESSING" : i === 7 ? "UNKNOWN" : "COMPLETED",
+      status: i === 3 || i === 7 ? "PROCESSING" : "COMPLETED",
       amount: [125, 84, 260][i % 3],
       grossAmount: [125.5, 84.5, 260.5][i % 3],
       allFees: 0.5,

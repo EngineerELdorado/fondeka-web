@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Code2, FlaskConical, RotateCcw, ShieldCheck } from "lucide-react";
+import { Code2, FlaskConical, RotateCcw, Settings2, ShieldCheck } from "lucide-react";
 import { Modal, PageHeading } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace-provider";
 import { authConfigured, demoMode } from "@/lib/auth";
@@ -13,6 +13,7 @@ export default function Settings() {
   return (
     <>
       <PageHeading
+        icon={Settings2}
         mobileTitle="Settings"
         eyebrow="WORKSPACE"
         title="Make yourself at home."

@@ -13,7 +13,7 @@ def verify(raw,timestamp,signature,event_id,secret,business_id,environment='SAND
     data=event['data']
     uuid.UUID(event['id'])
     operation={'BUSINESS_API_COLLECTION':'collection','BUSINESS_API_PAYOUT':'payout'}.get(data.get('action'))
-    if event['id']!=event_id or not operation or data.get('status') not in ('COMPLETED','FAILED','CANCELED') or event.get('type')!='business_api.'+operation+'.'+data['status'].lower() or event.get('environment')!=environment or data.get('environment')!=environment or str(data.get('businessId'))!=str(business_id):
+    if event['id']!=event_id or not operation or data.get('status') not in ('COMPLETED','FAILED') or event.get('type')!='business_api.'+operation+'.'+data['status'].lower() or event.get('environment')!=environment or data.get('environment')!=environment or str(data.get('businessId'))!=str(business_id):
         raise ValueError('Unexpected webhook envelope or ownership')
     return event
 

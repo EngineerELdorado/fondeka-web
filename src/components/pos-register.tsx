@@ -27,6 +27,7 @@ import { CustomerForm } from "@/components/store-people";
 import { CollectionDialog } from "@/components/collection-dialog";
 import { SaleDetail } from "@/components/store-sales";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { PosCatalog } from "./pos-catalog";
 export function PosRegister({ store }: { store: Store }) {
   const { t } = useI18n();
   const { refresh, notify } = useWorkspace();
@@ -718,27 +719,12 @@ export function PosRegister({ store }: { store: Store }) {
               )}
             />
           ) : (
-            <div className="product-grid">
-              {products.data.content.map((p, i) => (
-                <button
-                  key={p.id}
-                  className="pos-product"
-                  disabled={busy || uncertain || p.status !== "ACTIVE"}
-                  onClick={() => add(p)}
-                >
-                  <span className={`product-illustration product-color-${i % 6}`}>
-                    {p.image1 || p.imageUrl ? (
-                      <img src={p.image1 || p.imageUrl} alt="" />
-                    ) : (
-                      <span>{p.name.slice(0, 1)}</span>
-                    )}
-                  </span>
-                  <strong>{p.name}</strong>
-                  <small>{p.sku || p.barcodeOrQrCode}</small>
-                  <span className="product-price">{money(p.priceAmount, p.priceCurrency)}</span>
-                </button>
-              ))}
-            </div>
+            <PosCatalog
+              products={products.data.content}
+              cart={cart}
+              disabled={busy || uncertain}
+              onAdd={add}
+            />
           )}
           {products.data && (
             <Pagination

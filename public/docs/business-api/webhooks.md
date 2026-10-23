@@ -4,7 +4,7 @@ Configure your HTTPS destination when issuing an API key. The destination and si
 
 ## Events and envelope
 
-The API emits `business_api.collection.completed`, `.failed`, `.canceled`, and the corresponding `business_api.payout.completed`, `.failed`, `.canceled`. `UNKNOWN` and `MANUAL_INTERVENTION_REQUIRED` do not generate terminal events. Sandbox funding/conversions do not generate payment events.
+The API emits `business_api.collection.completed`, `business_api.collection.failed`, `business_api.payout.completed` and `business_api.payout.failed`. Event data has status COMPLETED or FAILED, matching the event type. Cancellation and expiration produce failed events. Payments still PROCESSING do not generate terminal events, including payments awaiting provider reconciliation. Sandbox funding/conversions do not generate payment events.
 
 The envelope contains `id` (UUID), `type`, `createdAt`, `environment`, and `data`, the complete transaction resource. The [OpenAPI callback and event schemas](openapi.v1.json) define every field. Check both envelope and data environments, Business ownership, reference, status and amount before fulfilling an order.
 

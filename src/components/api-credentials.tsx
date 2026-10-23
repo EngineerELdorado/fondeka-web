@@ -180,6 +180,7 @@ export function ApiCredentials({
           <ErrorState message={keys.error} retry={refresh} />
         ) : !keys.data?.length ? (
           <Empty
+            icon={KeyRound}
             title={uiText("No API credentials yet")}
             description={uiText(
               "Generate your first key and configure where Fondeka should deliver signed webhooks.",

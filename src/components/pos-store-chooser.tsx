@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, Plus, RefreshCw, Store as StoreIcon } from "lucide-react";
+import { ArrowRight, Calculator, Plus, RefreshCw } from "lucide-react";
 import { canUseStore } from "@/lib/commerce";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { usePosStoresPage } from "./pos-stores-provider";
 import { Empty, ErrorState, Loading, PageHeading, Pagination } from "./ui";
+import { StoreAvatar } from "./store-media";
 
 export function PosStoreChooser() {
   const { t } = useI18n();
@@ -23,6 +24,7 @@ export function PosStoreChooser() {
   return (
     <div className="pos-chooser">
       <PageHeading
+        icon={Calculator}
         title={t("Select a store", "Sélectionner une boutique")}
         description={t(
           "Choose the store you want to manage with POS.",
@@ -43,6 +45,7 @@ export function PosStoreChooser() {
         <Loading rows={3} />
       ) : stores.data?.totalElements === 0 ? (
         <Empty
+          icon={Calculator}
           title={t("Your counter is almost ready", "Votre caisse est presque prête")}
           description={t(
             "Create a store to start using POS.",
@@ -62,9 +65,7 @@ export function PosStoreChooser() {
           >
             {list?.map((store) => (
               <Link className="pos-chooser-row" href={`/stores/${store.id}/pos`} key={store.id}>
-                <span className="pos-chooser-icon">
-                  <StoreIcon size={22} />
-                </span>
+                <StoreAvatar store={store} className="pos-chooser-avatar" />
                 <span>
                   <strong>{store.name}</strong>
                   <small>{store.defaultCurrency}</small>

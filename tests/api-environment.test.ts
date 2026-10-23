@@ -6,10 +6,39 @@ import {
   apiTransactionPath,
   assertKeyEnvironment,
   assertTransactionEnvironment,
+  resolveApiEnvironment,
+  apiEnvironmentSelection,
 } from "../src/lib/api-environment";
 import { emptyFilters, portalQuery } from "../src/lib/portal-query";
 import { demoRequest } from "../src/lib/demo";
 import type { ApiKey, ApiTransaction, Page } from "../src/lib/types";
+
+test("the shared API environment follows valid bookmarks and clears stale detail/create selections on change", () => {
+  assert.equal(resolveApiEnvironment("SANDBOX", "LIVE"), "SANDBOX");
+  assert.equal(resolveApiEnvironment("LIVE", "SANDBOX"), "LIVE");
+  assert.equal(resolveApiEnvironment(null, "SANDBOX"), "SANDBOX");
+  assert.equal(resolveApiEnvironment("unknown", "LIVE"), "LIVE");
+  const values = new URLSearchParams({
+    business: "42",
+    environment: "LIVE",
+    apiReference: "TX001",
+    apiDetailBusiness: "42",
+    apiPage: "3",
+    createKey: "1",
+    flow: "api-key",
+    step: "review",
+    api_currency: "CDF",
+  });
+  for (const [key, value] of Object.entries(apiEnvironmentSelection("SANDBOX"))) {
+    if (value === null) values.delete(key);
+    else values.set(key, value);
+  }
+  assert.deepEqual(Object.fromEntries(values), {
+    business: "42",
+    environment: "SANDBOX",
+    api_currency: "CDF",
+  });
+});
 
 test("portal key, list and detail queries carry the selected environment with existing filters", () => {
   assert.equal(apiEnvironment(undefined), "LIVE");

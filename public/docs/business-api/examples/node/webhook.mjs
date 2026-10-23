@@ -12,7 +12,7 @@ export function verify({raw,timestamp,signature,eventId,secret,businessId,enviro
   if(!timingSafeEqual(expected,Buffer.from(signature.slice(3),'hex'))) throw new Error('Invalid webhook authentication');
   const event=JSON.parse(raw.toString('utf8'));
   const action=event.data?.action==='BUSINESS_API_COLLECTION'?'collection':event.data?.action==='BUSINESS_API_PAYOUT'?'payout':null;
-  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(event.id || '') || event.id!==eventId || !action || !['COMPLETED','FAILED','CANCELED'].includes(event.data?.status)
+  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(event.id || '') || event.id!==eventId || !action || !['COMPLETED','FAILED'].includes(event.data?.status)
       || event.type!==`business_api.${action}.${event.data.status.toLowerCase()}` || event.environment!==environment || event.data.environment!==environment
       || String(event.data.businessId)!==String(businessId)) throw new Error('Unexpected webhook envelope or ownership');
   return event;

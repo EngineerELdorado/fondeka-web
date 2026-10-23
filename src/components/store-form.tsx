@@ -6,6 +6,7 @@ import { useQuery } from "@/lib/use-query";
 import { useI18n } from "@/lib/i18n";
 import { label } from "@/lib/format";
 import { request } from "@/lib/data";
+import { managedVideoCleanupCandidates } from "@/lib/media";
 import { storeEditInput } from "@/lib/commerce";
 import { invalidateQueryPaths } from "@/lib/query-cache";
 import type { Store, StoreInput } from "@/lib/types";
@@ -104,11 +105,16 @@ function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void })
         },
       );
       let cleanupWarning = "";
-      if (current?.videoUrl && current.videoUrl !== saved.videoUrl) {
+      for (const url of managedVideoCleanupCandidates(
+        "commerce-store-videos",
+        [current?.videoUrl],
+        [saved.videoUrl],
+        process.env.NEXT_PUBLIC_MEDIA_BASE_URL,
+      )) {
         try {
           await request("/customer-api/storage/object", {
             method: "DELETE",
-            body: JSON.stringify({ url: current.videoUrl }),
+            body: JSON.stringify({ publicUrl: url, url }),
           });
         } catch {
           cleanupWarning = t(
@@ -259,6 +265,8 @@ function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void })
               <MediaUpload
                 disabled={uploading}
                 label={t("Logo", "Logo")}
+                ownerName={store?.name}
+                aspect={1}
                 value={form.logoUrl}
                 scope="commerce-store-images"
                 onBusy={setUploading}
@@ -267,6 +275,12 @@ function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void })
               <MediaUpload
                 disabled={uploading}
                 label={t("Banner", "Bannière")}
+                ownerName={store?.name}
+                aspect={2.1}
+                helper={t(
+                  "The cover at the top of your public store.",
+                  "La couverture en haut de votre boutique publique.",
+                )}
                 value={form.bannerUrl}
                 scope="commerce-store-images"
                 onBusy={setUploading}
@@ -274,12 +288,11 @@ function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void })
               />
               <MediaUpload
                 disabled={uploading}
-                label={t(
-                  "Store video (up to 30 seconds)",
-                  "Vidéo de la boutique (30 secondes maximum)",
-                )}
+                label={t("Store video", "Vidéo de la boutique")}
                 kind="video"
                 value={form.videoUrl}
+                ownerName={store?.name}
+                duration={form.videoDurationSeconds}
                 scope="commerce-store-videos"
                 onBusy={setUploading}
                 onChange={(v, d) => {

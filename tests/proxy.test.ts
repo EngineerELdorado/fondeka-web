@@ -39,7 +39,7 @@ test("gateway forwards device proof and filters, never cookies or API keys", asy
   try {
     const response = await GET(
       new NextRequest(
-        "http://localhost:4200/api/backend/customer-api/businesses/42/api-transactions?status=UNKNOWN&currency=CDF",
+        "http://localhost:4200/api/backend/customer-api/businesses/42/api-transactions?status=PROCESSING&currency=CDF",
         {
           headers: {
             Authorization: "Bearer header.payload.signature",
@@ -57,7 +57,7 @@ test("gateway forwards device proof and filters, never cookies or API keys", asy
     assert.equal(response.status, 200);
     assert.equal(
       upstream?.url,
-      "https://backend.example/customer-api/businesses/42/api-transactions?status=UNKNOWN&currency=CDF",
+      "https://backend.example/customer-api/businesses/42/api-transactions?status=PROCESSING&currency=CDF",
     );
     const headers = new Headers(upstream?.init?.headers);
     assert.equal(headers.get("X-Device-Id"), "browser-123");

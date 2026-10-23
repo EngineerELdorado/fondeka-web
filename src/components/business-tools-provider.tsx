@@ -92,7 +92,7 @@ function ScopedProvider({
     const resume = () => {
       if (document.visibilityState !== "visible") return;
       const state = scoped.getSnapshot();
-      if (proactiveGate || state.forced) void scoped.reload();
+      if (proactiveGate || state.forced) void scoped.revalidate();
     };
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
@@ -270,7 +270,8 @@ function Experience({
     // A selected locale also determines backend plan/error localization.
     if (previousLanguage.current === language) return;
     previousLanguage.current = language;
-    if (proactiveGate || client.getSnapshot().forced) void client.reload();
+    if (proactiveGate || client.getSnapshot().forced)
+      void client.reload(false, { background: true });
   }, [client, language]);
   const enter = useCallback(
     (destination: string) => {

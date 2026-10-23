@@ -158,6 +158,7 @@ export interface ApiKey {
   createdAt: string;
   environment?: ApiEnvironment;
 }
+export type BusinessApiPaymentStatus = "PROCESSING" | "COMPLETED" | "FAILED";
 export interface ApiTransaction {
   requestId: number;
   apiKeyName: string;
@@ -171,7 +172,7 @@ export interface ApiTransaction {
     failureMessage?: string;
     reference: string;
     clientReference?: string;
-    status: string;
+    status: BusinessApiPaymentStatus;
     amount?: number;
     currency?: string;
     action?: string;
@@ -186,6 +187,7 @@ export interface ApiTransaction {
       network?: string;
       amountInCrypto?: number;
       exchangeRate?: number;
+      exchangeRateCurrency?: string;
       invoiceUrl?: string;
       expiresAt?: string;
     } | null;
@@ -230,6 +232,7 @@ export interface Product {
   description?: string;
   slug?: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   image1?: string;
   image2?: string;
   image3?: string;

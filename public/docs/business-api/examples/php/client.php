@@ -26,8 +26,8 @@ function api(string $method,string $path,?array $body=null,?string $idempotency=
 function poll(string $reference): array {
     for($i=0;$i<30;$i++) {
         $payment=api('GET','/transactions/'.rawurlencode($reference));
-        if(in_array($payment['status'],['COMPLETED','FAILED','CANCELED'],true)) return $payment;
-        if(in_array($payment['status'],['UNKNOWN','MANUAL_INTERVENTION_REQUIRED'],true)) throw new RuntimeException('Reconcile '.$reference.'; do not create a replacement.');
+        if(in_array($payment['status'],['COMPLETED','FAILED'],true)) return $payment;
+        if($payment['status']!=='PROCESSING') throw new RuntimeException('Unexpected payment status for '.$reference.'; preserve its reference and do not create a replacement.');
         sleep(2);
     }
     throw new RuntimeException('Continue polling '.$reference.' later; preserve its idempotency key.');

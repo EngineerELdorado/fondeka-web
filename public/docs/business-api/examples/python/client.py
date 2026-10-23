@@ -33,8 +33,8 @@ class Client:
     def poll(self,reference):
         for _ in range(30):
             result=self.request('GET','/transactions/'+urllib.parse.quote(reference,safe=''))
-            if result['status'] in ('COMPLETED','FAILED','CANCELED'): return result
-            if result['status'] in ('UNKNOWN','MANUAL_INTERVENTION_REQUIRED'): raise RuntimeError('Reconcile '+reference+'; do not submit a replacement.')
+            if result['status'] in ('COMPLETED','FAILED'): return result
+            if result['status']!='PROCESSING': raise RuntimeError('Unexpected payment status for '+reference+'; preserve its reference and do not submit a replacement.')
             time.sleep(2)
         raise TimeoutError('Continue polling '+reference+' later. Preserve the original idempotency key.')
 

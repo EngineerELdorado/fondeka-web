@@ -1,4 +1,5 @@
 import type { ApiEnvironment } from "./types";
+import { businessApiPaymentStatuses, isBusinessApiPaymentStatus } from "./business-api-status";
 
 export interface PortalFilters {
   action: string;
@@ -18,19 +19,7 @@ export const emptyFilters: PortalFilters = {
   fromDate: "",
   toDate: "",
 };
-export const transactionStatuses = [
-  "NONE",
-  "INITIATED",
-  "SUBMITTED",
-  "PROCESSING",
-  "FUNDED",
-  "EXECUTING",
-  "COMPLETED",
-  "FAILED",
-  "CANCELED",
-  "MANUAL_INTERVENTION_REQUIRED",
-  "UNKNOWN",
-];
+export const transactionStatuses = businessApiPaymentStatuses;
 export function portalQuery(
   filters: PortalFilters,
   page: number,
@@ -40,6 +29,8 @@ export function portalQuery(
   for (const key of ["action", "status", "currency", "reference", "clientReference"] as const) {
     const value = filters[key].trim();
     if (!value) continue;
+    if (key === "status" && !isBusinessApiPaymentStatus(value))
+      throw new Error("Choose PROCESSING, COMPLETED or FAILED, or clear the status filter.");
     if ((key === "reference" || key === "clientReference") && value.length > 128)
       throw new Error("References must be 128 characters or fewer.");
     if (key === "currency" && !/^[A-Za-z]{3}$/.test(value))

@@ -4,6 +4,7 @@ import { useCurrencies } from "@/lib/use-currencies";
 import { useI18n } from "@/lib/i18n";
 import { label, parseAmount } from "@/lib/format";
 import { request } from "@/lib/data";
+import { managedVideoCleanupCandidates } from "@/lib/media";
 import { invalidateQueryPaths } from "@/lib/query-cache";
 import type { Product, Store } from "@/lib/types";
 import { Modal, SubmitButton } from "./ui";
@@ -100,11 +101,16 @@ function ProductEditor({
           : `/customer-api/commerce/stores/${store.id}/products`,
         { method: product ? "PATCH" : "POST", body: JSON.stringify(body) },
       );
-      if (product?.videoUrl && product.videoUrl !== video) {
+      for (const url of managedVideoCleanupCandidates(
+        "commerce-product-videos",
+        [product?.videoUrl],
+        [saved.videoUrl],
+        process.env.NEXT_PUBLIC_MEDIA_BASE_URL,
+      )) {
         try {
           await request("/customer-api/storage/object", {
             method: "DELETE",
-            body: JSON.stringify({ url: product.videoUrl }),
+            body: JSON.stringify({ publicUrl: url, url }),
           });
         } catch {
           notify(
@@ -183,22 +189,33 @@ function ProductEditor({
         </section>
         <section className="form-section">
           <h3>3. {t("Photos and video", "Photos et vidéo")}</h3>
-          {images.map((v, i) => (
-            <MediaUpload
-              disabled={uploading}
-              key={i}
-              scope="commerce-product-images"
-              label={`${t("Photo", "Photo")} ${i + 1}`}
-              value={v}
-              onBusy={setUploading}
-              onChange={(v) => setImages(images.map((p, j) => (i === j ? v : p)))}
-            />
-          ))}
+          <div className="product-media-slots">
+            {images.map((v, i) => (
+              <MediaUpload
+                disabled={uploading}
+                key={i}
+                compact={i > 0}
+                scope="commerce-product-images"
+                label={
+                  i === 0
+                    ? t("Primary photo", "Photo principale")
+                    : `${t("Gallery photo", "Photo de galerie")} ${i + 1}`
+                }
+                ownerName={product?.name}
+                aspect={1}
+                value={v}
+                onBusy={setUploading}
+                onChange={(v) => setImages(images.map((p, j) => (i === j ? v : p)))}
+              />
+            ))}
+          </div>
           <MediaUpload
             disabled={uploading}
             label={t("Product video", "Vidéo du produit")}
             kind="video"
             value={video}
+            duration={duration}
+            ownerName={product?.name}
             storeId={store.id}
             scope="commerce-product-videos"
             maxBytes={store.effectiveProductVideoMaxBytes}

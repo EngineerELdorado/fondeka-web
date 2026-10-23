@@ -21,6 +21,6 @@ Use a SANDBOX key for tests, with an optional test-scenario header. You can fund
 
 An accepted payout reserves/debits gross immediately; completion does not debit a second time. Save its reference, poll and process the signed terminal event. Do not mark your disbursement paid from the 202 response alone.
 
-For FAILED/CANCELED, inspect `refunded`. Automatic refunds depend on policy; a failed payout with `refunded:false` can require manual refund. GET shows later updates. UNKNOWN/manual-review outcomes can represent an ambiguous provider submission, so retain the reserved funds and contact support with the payment reference/request ID. Reuse the original idempotency key after transport errors; never create a replacement automatically.
+For FAILED, inspect `refunded`. Automatic refunds depend on policy; a failed payout with `refunded:false` can require manual refund. GET shows later updates. PROCESSING also covers an unresolved provider submission: retain the payment reference and contact support if it remains unresolved. Reuse the original idempotency key after transport errors; never create a replacement automatically.
 
 See [wallet effects](../concepts.md), [webhooks](../webhooks.md), and the [API reference](../openapi.v1.json).
