@@ -370,7 +370,7 @@ test("method-specific selection uses returned IDs and never adds wallet fields t
   });
   assert.throws(() => buildSelection({ id: 5, name: "USDT", type: "CRYPTO" }, "USD"), /network/);
 });
-test("owner data stays unmounted during access reads, errors, navigation and revocation", async () => {
+test("owner data stays unmounted until account access is known and shares the grant between tools", async () => {
   const wait = deferred<unknown>();
   const calls: string[] = [];
   const subject = client(async (path) => {
@@ -383,7 +383,7 @@ test("owner data stays unmounted during access reads, errors, navigation and rev
   wait.resolve(access({ accessGranted: true }));
   await opening;
   assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores/42", true), true);
-  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/pos", true), false);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/pos", true), true);
   const unavailable = client(async () => {
     throw new Error("404 contract not deployed");
   });
@@ -408,20 +408,93 @@ test("admin or migration grants open tools without a payment request", async () 
   assert.deepEqual(calls, [accessPath]);
   assert.equal(refreshed, 1);
 });
-test("returning to an already opened owner route checks access again before mounting data", async () => {
+test("workspace startup reads once and menu/deep-link navigation immediately reuses account access", async () => {
+  let reads = 0;
+  let grants = 0;
+  const subject = client(
+    async (path) => {
+      assert.equal(path, accessPath);
+      reads++;
+      return access({ accessGranted: true });
+    },
+    { onGranted: () => grants++ },
+  );
+  await subject.ensureAccess();
+  for (const destination of [
+    "/overview",
+    "/stores",
+    "/stores/42?tab=products",
+    "/pos?store=42",
+    "/payment-requests?request=7",
+    "/developers",
+    "/stores",
+  ]) {
+    const entering = subject.enter(destination);
+    assert.equal(subject.getSnapshot().loading, false);
+    assert.equal(mayMountOwnerData(subject.getSnapshot(), destination, true), true);
+    await entering;
+  }
+  assert.equal(reads, 1);
+  assert.equal(grants, 1);
+});
+test("explicit access refresh still blocks owner reads and honors backend expiry", async () => {
   const wait = deferred<unknown>();
   let reads = 0;
   const subject = client(async () =>
     ++reads === 1 ? access({ accessGranted: true }) : wait.promise,
   );
   await subject.enter("/stores");
-  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), true);
-  const returning = subject.enter("/stores");
+  const refreshing = subject.reload();
   assert.equal(reads, 2);
   assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), false);
+  const navigating = subject.enter("/pos");
+  assert.equal(reads, 2); // Navigation shares the in-flight refresh.
   wait.resolve(access({ status: "EXPIRED" }));
-  await returning;
-  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), false);
+  await Promise.all([refreshing, navigating]);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/pos", true), false);
+});
+test("startup and concurrent deep links share one request without opening an unknown account", async () => {
+  const wait = deferred<unknown>();
+  let reads = 0;
+  const subject = client(async () => {
+    reads++;
+    return wait.promise;
+  });
+  const startup = subject.ensureAccess();
+  const one = subject.enter("/stores");
+  const two = subject.enter("/developers");
+  assert.equal(reads, 1);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/developers", true), false);
+  wait.resolve(access({ accessGranted: true }));
+  await Promise.all([startup, one, two]);
+  assert.equal(subject.getSnapshot().destination, "/developers");
+  assert.equal(reads, 1);
+});
+test("inactive accounts reuse their status and pending purchase; access errors are retried rather than cached as unpaid", async () => {
+  let reads = 0;
+  const pending = client(async () => {
+    reads++;
+    return access({
+      pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 7 },
+    });
+  });
+  await pending.ensureAccess();
+  await pending.enter("/pos");
+  await pending.enter("/stores");
+  assert.equal(reads, 1);
+  assert.equal(pending.getSnapshot().purchase?.id, purchaseId);
+  assert.equal(mayMountOwnerData(pending.getSnapshot(), "/stores", true), false);
+  let attempts = 0;
+  const recovering = client(async () => {
+    if (++attempts === 1) throw new Error("Offline");
+    return access({ accessGranted: true });
+  });
+  await recovering.ensureAccess();
+  assert.match(recovering.getSnapshot().error!, /Offline/);
+  assert.equal(recovering.getSnapshot().access, undefined);
+  await recovering.enter("/developers");
+  assert.equal(attempts, 2);
+  assert.equal(mayMountOwnerData(recovering.getSnapshot(), "/developers", true), true);
 });
 test("an unavailable saved purchase lookup stays in recovery across repeated access checks", async () => {
   const saved = storage();
@@ -667,6 +740,9 @@ test("revocation supersedes older in-flight access and an owned-resource denial 
   assert.equal(active.getSnapshot().resourceUnavailable, true);
   assert.equal(mayMountOwnerData(active.getSnapshot(), "/stores/42", true), false);
   await assert.rejects(active.purchase(selection, quote()), /existing access/);
+  await active.enter("/developers");
+  assert.equal(mayMountOwnerData(active.getSnapshot(), "/developers", true), true);
+  assert.equal(mayMountOwnerData(active.getSnapshot(), "/stores/42", true), false);
 });
 test("session changes clear recovery and ignore late responses from the previous account", async () => {
   const saved = storage();
@@ -684,6 +760,9 @@ test("session changes clear recovery and ignore late responses from the previous
   wait.resolve(access({ accessGranted: true }));
   await opening;
   assert.equal(grants, 0);
+  const fresh = client(async () => access());
+  assert.equal(fresh.getSnapshot().access, undefined);
+  assert.equal(mayMountOwnerData(fresh.getSnapshot(), "/stores", true), false);
   clearBusinessToolsRecovery(saved);
   assert.equal(saved.getItem(recoveryPrefix + "customer-b"), null);
 });

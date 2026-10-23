@@ -1,4 +1,5 @@
 "use client";
+import { useUiText } from "@/lib/use-ui-text";
 
 import Link from "next/link";
 import { useEffect, useId, useRef, type ReactNode } from "react";
@@ -6,6 +7,8 @@ import { ArrowLeft, ArrowRight, AlertCircle, Inbox, X } from "lucide-react";
 import { label } from "@/lib/format";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
+  const uiText = useUiText();
+
   return (
     <span className="brand">
       <svg width="33" height="33" viewBox="0 0 60 60" aria-hidden="true">
@@ -14,13 +17,16 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       </svg>
       {!compact && (
         <span>
-          Fondeka<span className="brand-business">BUSINESS</span>
+          {uiText("Fondeka")}
+          <span className="brand-business">{uiText("BUSINESS")}</span>
         </span>
       )}
     </span>
   );
 }
 export function Badge({ value }: { value?: string }) {
+  useUiText();
+
   const status = value?.toUpperCase() ?? "";
   const tone = [
     "ACTIVE",
@@ -57,6 +63,8 @@ export function PageHeading({
   description: string;
   children?: ReactNode;
 }) {
+  useUiText();
+
   return (
     <div className="page-heading">
       <div>
@@ -78,25 +86,30 @@ export function PageHeading({
   );
 }
 export function Loading({ rows = 4 }: { rows?: number }) {
+  const uiText = useUiText();
+
   return (
-    <div className="loading-state" aria-label="Loading" role="status">
+    <div className="loading-state" aria-label={uiText("Loading")} role="status">
       {Array.from({ length: rows }, (_, i) => (
         <div className="skeleton" key={i} style={{ width: `${100 - (i % 3) * 12}%` }} />
       ))}
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{uiText("Loading…")}</span>
     </div>
   );
 }
 export function ErrorState({ message, retry }: { message: string; retry?: () => void }) {
+  const uiText = useUiText();
+
   return (
     <div className="error-state" role="alert">
       <AlertCircle size={20} />
       <div>
-        <strong>We couldn’t load this information</strong>
-        <p>{message}</p>
+        <strong>{uiText("We couldn’t load this information")}</strong>
+        <p>{uiText(message)}</p>
         {retry && (
           <button className="text-button" onClick={retry}>
-            Try again <ArrowRight size={14} />
+            {uiText("Try again")}
+            <ArrowRight size={14} />
           </button>
         )}
       </div>
@@ -134,15 +147,19 @@ export function Pagination({
   total: number;
   onChange: (page: number) => void;
 }) {
+  const uiText = useUiText();
+
   return (
     <div className="pagination">
       <span>
-        {total} {total === 1 ? "result" : "results"} · Page {page + 1} of {Math.max(1, pages)}
+        {total} {uiText(total === 1 ? "result" : "results")}
+        {" · "}
+        {uiText("Page")} {page + 1} {uiText("of")} {Math.max(1, pages)}
       </span>
       <div>
         <button
           className="icon-button"
-          aria-label="Previous page"
+          aria-label={uiText("Previous page")}
           disabled={page === 0}
           onClick={() => onChange(page - 1)}
         >
@@ -150,7 +167,7 @@ export function Pagination({
         </button>
         <button
           className="icon-button"
-          aria-label="Next page"
+          aria-label={uiText("Next page")}
           disabled={page + 1 >= pages}
           onClick={() => onChange(page + 1)}
         >
@@ -167,6 +184,9 @@ export function Modal({
   onClose,
   busy = false,
   variant = "dialog",
+  className = "",
+  closeLabel,
+  hideHeader = false,
 }: {
   title: string;
   description?: string;
@@ -174,23 +194,35 @@ export function Modal({
   onClose: () => void;
   busy?: boolean;
   variant?: "dialog" | "sheet";
+  className?: string;
+  closeLabel?: string;
+  hideHeader?: boolean;
 }) {
+  const uiText = useUiText();
+
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
     const element = dialog.current;
+    const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element?.showModal();
+    element
+      ?.querySelector<HTMLElement>(
+        "[data-step-content] input:not([type=hidden]), [data-step-content] textarea, [data-step-content] select, input[autofocus], [data-autofocus]",
+      )
+      ?.focus();
     return () => {
       element?.close();
       document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
   }, []);
   return (
     <dialog
       ref={dialog}
-      className={`modal ${variant === "sheet" ? "modal-sheet" : ""}`}
+      className={`modal ${variant === "sheet" ? "modal-sheet" : ""} ${className}`}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onClose();
@@ -201,20 +233,27 @@ export function Modal({
       aria-labelledby={titleId}
     >
       <div className="modal-inner">
-        <div className="modal-header">
-          <div>
-            <h2 id={titleId}>{title}</h2>
-            {description && <p className="muted">{description}</p>}
+        {hideHeader ? (
+          <h2 className="sr-only" id={titleId}>
+            {title}
+          </h2>
+        ) : (
+          <div className="modal-header">
+            <div>
+              <h2 id={titleId}>{title}</h2>
+              {description && <p className="muted">{description}</p>}
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={closeLabel || uiText("Close dialog")}
+              disabled={busy}
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
           </div>
-          <button
-            className="icon-button"
-            aria-label="Close dialog"
-            disabled={busy}
-            onClick={onClose}
-          >
-            <X size={20} />
-          </button>
-        </div>
+        )}
         {children}
       </div>
     </dialog>
@@ -277,11 +316,14 @@ export function SubmitButton({
   children: ReactNode;
   disabled?: boolean;
 }) {
+  const uiText = useUiText();
+
   return (
     <button className="button primary" type="submit" disabled={busy || disabled}>
       {busy ? (
         <>
-          <span className="spinner" /> Please wait…
+          <span className="spinner" />
+          {uiText("Please wait…")}
         </>
       ) : (
         children

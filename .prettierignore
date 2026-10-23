@@ -2,3 +2,6 @@ node_modules
 .next
 package-lock.json
 next-env.d.ts
+
+# Reviewed upstream documentation is copied byte-for-byte.
+public/docs/business-api

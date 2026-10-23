@@ -1,56 +1,62 @@
 "use client";
-
-import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Building2, Link2, Plus, Store, Zap } from "lucide-react";
-import { Badge, MobileRecord, ErrorState, Loading, PageHeading } from "@/components/ui";
-import { useWorkspace } from "@/components/workspace-provider";
-import { useQuery } from "@/lib/use-query";
-import type { Business, Page, PaymentRequest, Store as StoreType } from "@/lib/types";
-import { money } from "@/lib/format";
+import { BusinessToolLink as Link } from "@/components/business-tool-link";
+import { ArrowRight, ArrowUpRight, Plus, Zap } from "lucide-react";
+import { PageHeading } from "@/components/ui";
 import { PlatformGraphic } from "@/components/platform-graphic";
-
+import { OwnerOverview } from "@/components/owner-overview";
 import { BusinessToolsGate } from "@/components/business-tools-provider";
 import { businessTools } from "@/components/business-tools-screen";
+import { useI18n } from "@/lib/i18n";
 
 export default function Overview() {
+  const { t, language } = useI18n();
   return (
     <>
       <PageHeading
-        mobileTitle="Overview"
-        eyebrow="YOUR WORKSPACE"
-        title="Business, without boundaries."
-        description="Manage your commerce, payments, and integrations in one place."
+        mobileTitle={t("Overview", "Vue d’ensemble")}
+        eyebrow={t("YOUR WORKSPACE", "VOTRE ESPACE")}
+        title={t("Business, without boundaries.", "Votre entreprise, sans frontières.")}
+        description={t(
+          "Manage your commerce, payments, and integrations in one place.",
+          "Gérez votre commerce, vos paiements et vos intégrations au même endroit.",
+        )}
       >
         <Link
           className="button primary"
           href="/payment-requests?new=1"
-          aria-label="Create payment request"
+          aria-label={t("Create payment request", "Créer une demande de paiement")}
         >
           <Plus size={17} />
-          Request a payment
+          {t("Request a payment", "Demander un paiement")}
         </Link>
       </PageHeading>
       <div className="welcome-banner">
         <div className="welcome-copy">
           <span className="welcome-kicker">
-            <span /> THE FONDEKA BUSINESS PLATFORM
+            <span />
+            {t("THE FONDEKA BUSINESS PLATFORM", "LA PLATEFORME FONDEKA BUSINESS")}
           </span>
           <h2>
-            Your business.
+            {t("Your business.", "Votre entreprise.")}
             <br />
-            Fully connected.
+            {t("Fully connected.", "Entièrement connectée.")}
           </h2>
           <p>
-            From your storefront to your next integration,
+            {t(
+              "From your storefront to your next integration,",
+              "De votre boutique à votre prochaine intégration,",
+            )}
             <br />
-            bring every part of your business together.
+            {t("bring every part of your business together.", "réunissez toutes vos activités.")}
           </p>
           <div className="welcome-actions">
             <Link href="/pos" className="button cream">
-              Open point of sale <ArrowRight size={16} />
+              {t("Open point of sale", "Ouvrir le POS")}
+              <ArrowRight size={16} />
             </Link>
             <Link href="/developers" className="welcome-secondary">
-              Explore the API <ArrowUpRight size={15} />
+              {t("Explore the API", "Découvrir l’API")}
+              <ArrowUpRight size={15} />
             </Link>
           </div>
         </div>
@@ -58,186 +64,36 @@ export default function Overview() {
       </div>
       <div className="section-heading">
         <div>
-          <h2>Your business toolkit</h2>
-          <p className="muted">Four tools. One account-level activation.</p>
+          <h2>{t("Your business toolkit", "Vos outils Business")}</h2>
+          <p className="muted">
+            {t(
+              "Four tools. One account-level activation.",
+              "Quatre outils. Une activation pour votre compte.",
+            )}
+          </p>
         </div>
         <span className="quiet-label">
           <Zap size={14} />
-          Made for business
+          {t("Made for business", "Pensé pour votre activité")}
         </span>
       </div>
       <div className="tools-grid business-tools-grid">
-        {businessTools.map(({ icon: Icon, title, description, href, color }) => (
-          <Link href={href} key={title} className="tool-card">
-            <span className={`tool-icon ${color}`}>
-              <Icon size={23} />
-            </span>
-            <h3>{title}</h3>
-            <p>{description}</p>
-            <ArrowUpRight className="tool-arrow" size={20} />
-          </Link>
-        ))}
+        {businessTools.map(
+          ({ icon: Icon, title, titleFr, description, descriptionFr, href, color }) => (
+            <Link href={href} key={href} className="tool-card">
+              <span className={"tool-icon " + color}>
+                <Icon size={23} />
+              </span>
+              <h3>{language === "fr" ? titleFr : title}</h3>
+              <p>{language === "fr" ? descriptionFr : description}</p>
+              <ArrowUpRight className="tool-arrow" size={20} />
+            </Link>
+          ),
+        )}
       </div>
       <BusinessToolsGate destination="/overview">
         <OwnerOverview />
       </BusinessToolsGate>
-    </>
-  );
-}
-
-function OwnerOverview() {
-  const stores = useQuery<Page<StoreType>>("/customer-api/commerce/stores?page=0&size=3");
-  const payments = useQuery<Page<PaymentRequest>>("/customer-api/payment_requests?page=0&size=5");
-  const businesses = useQuery<Page<Business>>("/customer-api/businesses?page=0&size=1");
-  const { refresh } = useWorkspace();
-  return (
-    <>
-      <div className="stats-grid">
-        {[
-          {
-            title: "Your stores",
-            value: stores.data?.totalElements,
-            icon: Store,
-            detail: "Online and in person",
-            href: "/stores",
-          },
-          {
-            title: "Payment requests",
-            value: payments.data?.totalElements,
-            icon: Link2,
-            detail: "Simple links. Easier payments.",
-            href: "/payment-requests",
-          },
-          {
-            title: "Business profiles",
-            value: businesses.data?.totalElements,
-            icon: Building2,
-            detail: "Your registered businesses",
-            href: "/developers",
-          },
-        ].map(({ title, value, icon: Icon, detail, href }) => (
-          <Link href={href} className="stat-card" key={title}>
-            <div className="stat-top">
-              <span>{title}</span>
-              <Icon size={18} />
-            </div>
-            <strong>
-              {value ?? "—"}
-              <ArrowUpRight size={18} />
-            </strong>
-            <p>{detail}</p>
-          </Link>
-        ))}
-      </div>
-      <div className="overview-bottom">
-        <section className="panel">
-          <div className="panel-heading">
-            <h2>Recent payment requests</h2>
-            <Link href="/payment-requests" className="text-button">
-              View all <ArrowRight size={15} />
-            </Link>
-          </div>
-          {payments.loading ? (
-            <Loading />
-          ) : payments.error ? (
-            <ErrorState message={payments.error} retry={refresh} />
-          ) : payments.data?.content.length ? (
-            <>
-              <div className="table-wrap desktop-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Request</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.data.content.map((item) => (
-                      <tr key={item.id}>
-                        <td>
-                          <Link href="/payment-requests" className="table-name">
-                            {item.title || "Untitled request"}
-                          </Link>
-                          <small className="table-subtitle">
-                            {item.type === "INVOICE"
-                              ? "Invoice"
-                              : item.type === "DONATION"
-                                ? "Donation"
-                                : "Payment link"}
-                          </small>
-                        </td>
-                        <td className="amount">{money(item.amount, item.currency)}</td>
-                        <td>
-                          <Badge value={item.lifecycle} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mobile-record-list">
-                {payments.data.content.map((item) => (
-                  <MobileRecord
-                    key={item.id}
-                    title={item.title || "Untitled request"}
-                    subtitle={item.type === "INVOICE" ? "Invoice" : "Payment link"}
-                    amount={money(item.amount, item.currency)}
-                    status={item.lifecycle}
-                    href="/payment-requests"
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="inline-empty">
-              Your payment requests will appear here.{" "}
-              <Link href="/payment-requests?new=1">
-                Create your first request <ArrowRight size={14} />
-              </Link>
-            </div>
-          )}
-        </section>
-        <section className="panel">
-          <div className="panel-heading">
-            <h2>Your stores</h2>
-            <Link href="/stores" className="text-button">
-              Manage <ArrowRight size={15} />
-            </Link>
-          </div>
-          {stores.loading ? (
-            <Loading rows={3} />
-          ) : stores.error ? (
-            <ErrorState message={stores.error} retry={refresh} />
-          ) : stores.data?.content.length ? (
-            <div className="store-mini-list">
-              {stores.data.content.map((store, i) => (
-                <Link key={store.id} href={`/stores/${store.id}`} className="store-mini">
-                  <span className={`store-monogram tone-${i % 3}`}>{store.name.slice(0, 1)}</span>
-                  <span>
-                    <strong>{store.name}</strong>
-                    <small>
-                      {store.defaultCurrency} · {store.countryCode || "Online store"}
-                    </small>
-                  </span>
-                  <Badge value={store.status} />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="inline-empty">
-              A home for your products.
-              <Link href="/stores">
-                Create a store <ArrowRight size={14} />
-              </Link>
-            </div>
-          )}
-          <div className="panel-note">
-            <span className="status-dot" />
-            Your tools work with your existing Fondeka account.
-          </div>
-        </section>
-      </div>
     </>
   );
 }

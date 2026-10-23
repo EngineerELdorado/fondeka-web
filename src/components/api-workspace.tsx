@@ -1,19 +1,13 @@
 "use client";
+import { useUiText } from "@/lib/use-ui-text";
 
-import { useState, type FormEvent } from "react";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Code2,
-  KeyRound,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  Webhook,
-} from "lucide-react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { ArrowDownLeft, ArrowUpRight, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Badge, MobileRecord, Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
 import { ApiCredentials } from "./api-credentials";
+import { ApiWallets } from "./api-wallets";
 import { CryptoPaymentInstructions } from "./crypto-payment-instructions";
+import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
 import { useMobileLayout } from "@/lib/use-mobile-layout";
 import { date, label, money } from "@/lib/format";
@@ -38,28 +32,56 @@ export function ApiWorkspace({
   business: Business;
   environment: ApiEnvironment;
 }) {
-  const [page, setPage] = useState(0);
+  const uiText = useUiText();
+
+  const navigation = useUrlState();
+  const page = Math.max(0, Number(navigation.values.get("apiPage")) || 0);
+  const setPage = (v: number) => navigation.update({ apiPage: v });
+  const filters: PortalFilters = Object.fromEntries(
+    Object.keys(emptyFilters).map((key) => [key, navigation.values.get(`api_${key}`) || ""]),
+  ) as unknown as PortalFilters;
+  const filterKey = JSON.stringify(filters);
+  const setFilters = (v: PortalFilters) =>
+    navigation.update({
+      ...Object.fromEntries(Object.entries(v).map(([key, value]) => [`api_${key}`, value || null])),
+      apiPage: 0,
+    });
   const mobile = useMobileLayout();
   const [draft, setDraft] = useState<PortalFilters>(emptyFilters);
-  const [filters, setFilters] = useState<PortalFilters>(emptyFilters);
+  useEffect(() => {
+    setDraft(JSON.parse(filterKey));
+  }, [filterKey]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterError, setFilterError] = useState("");
-  const [selected, setSelected] = useState<string>();
+  const reference = navigation.values.get("apiReference");
+  const selected = reference
+    ? { businessId: Number(navigation.values.get("apiDetailBusiness")) || business.id, reference }
+    : undefined;
+  const setSelected = (value?: { businessId: number; reference: string }) =>
+    navigation.update({
+      apiDetailBusiness: value?.businessId ?? null,
+      apiReference: value?.reference ?? null,
+    });
   const [revision, setRevision] = useState(0);
-  const refresh = () => setRevision((value) => value + 1);
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
   const keys = useQuery<ApiKey[]>(apiKeysPath(business.id, environment), undefined, revision);
-  const history = useQuery<Page<ApiTransaction>>(
-    `/customer-api/businesses/${business.id}/api-transactions?${portalQuery(filters, page, environment)}`,
-    undefined,
-    revision,
-  );
+  let historyPath: string | null = null;
+  let routeFilterError = "";
+  try {
+    historyPath = `/customer-api/businesses/${business.id}/api-transactions?${portalQuery(filters, page, environment)}`;
+  } catch (e) {
+    routeFilterError = uiText(e instanceof Error ? e.message : "Check your filters.");
+  }
+  const history = useQuery<Page<ApiTransaction>>(historyPath, undefined, revision);
   let keysError = keys.error;
-  let historyError = history.error;
+  let historyError = routeFilterError || history.error;
   try {
     if (keys.data) assertKeyEnvironment(keys.data, environment);
   } catch (error) {
     keysError =
-      error instanceof Error ? error.message : "Couldn’t read credentials for this environment.";
+      error instanceof Error
+        ? error.message
+        : uiText("Couldn’t read credentials for this environment.");
   }
   try {
     history.data?.content.forEach((row) =>
@@ -67,7 +89,9 @@ export function ApiWorkspace({
     );
   } catch (error) {
     historyError =
-      error instanceof Error ? error.message : "Couldn’t read activity for this environment.";
+      error instanceof Error
+        ? error.message
+        : uiText("Couldn’t read activity for this environment.");
   }
   const activeFilters = Object.values(filters).filter(Boolean).length;
   function apply(event: FormEvent) {
@@ -75,11 +99,10 @@ export function ApiWorkspace({
     try {
       portalQuery(draft, 0, environment);
       setFilters({ ...draft });
-      setPage(0);
       setFilterError("");
       if (mobile) setFilterOpen(false);
     } catch (error) {
-      setFilterError(error instanceof Error ? error.message : "Check your filters.");
+      setFilterError(error instanceof Error ? error.message : uiText("Check your filters."));
     }
   }
   function update(key: keyof PortalFilters, value: string) {
@@ -89,17 +112,17 @@ export function ApiWorkspace({
     <form className="filter-form" onSubmit={apply}>
       <div className="filter-grid">
         <label>
-          Direction
+          {uiText("Direction")}
           <select value={draft.action} onChange={(e) => update("action", e.target.value)}>
-            <option value="">Collections & payouts</option>
-            <option value="BUSINESS_API_COLLECTION">Collections</option>
-            <option value="BUSINESS_API_PAYOUT">Payouts</option>
+            <option value="">{uiText("Collections & payouts")}</option>
+            <option value="BUSINESS_API_COLLECTION">{uiText("Collections")}</option>
+            <option value="BUSINESS_API_PAYOUT">{uiText("Payouts")}</option>
           </select>
         </label>
         <label>
-          Status
+          {uiText("Status")}
           <select value={draft.status} onChange={(e) => update("status", e.target.value)}>
-            <option value="">All statuses</option>
+            <option value="">{uiText("All statuses")}</option>
             {transactionStatuses.map((status) => (
               <option key={status} value={status}>
                 {label(status)}
@@ -108,34 +131,38 @@ export function ApiWorkspace({
           </select>
         </label>
         <label>
-          Fiat currency
+          {uiText("Fiat currency")}
           <input
             value={draft.currency}
             onChange={(e) => update("currency", e.target.value)}
             maxLength={3}
-            placeholder="e.g. USD"
+            placeholder={uiText("e.g. USD")}
           />
         </label>
         <label>
-          Fondeka reference
+          {uiText("Fondeka reference")}
           <input
             value={draft.reference}
             onChange={(e) => update("reference", e.target.value)}
             maxLength={128}
-            placeholder={environment === "SANDBOX" ? "Exact SBX reference" : "Exact TX reference"}
+            placeholder={
+              environment === "SANDBOX"
+                ? uiText("Exact SBX reference")
+                : uiText("Exact TX reference")
+            }
           />
         </label>
         <label>
-          Merchant reference
+          {uiText("Merchant reference")}
           <input
             value={draft.clientReference}
             onChange={(e) => update("clientReference", e.target.value)}
             maxLength={128}
-            placeholder="Exact client reference"
+            placeholder={uiText("Exact client reference")}
           />
         </label>
         <label>
-          From date
+          {uiText("From date")}
           <input
             type="date"
             min="1970-01-01"
@@ -144,7 +171,7 @@ export function ApiWorkspace({
           />
         </label>
         <label>
-          To date
+          {uiText("To date")}
           <input
             type="date"
             min="1970-01-01"
@@ -159,22 +186,21 @@ export function ApiWorkspace({
         </p>
       )}
       <div className="filter-actions">
-        <small>Exact references · inclusive dates in your local timezone</small>
+        <small>{uiText("Exact references · inclusive dates in your local timezone")}</small>
         <button
           type="button"
           className="text-button"
           onClick={() => {
             setDraft(emptyFilters);
             setFilters(emptyFilters);
-            setPage(0);
             setFilterError("");
           }}
         >
-          Clear filters
+          {uiText("Clear filters")}
         </button>
         <button className="button primary small">
           <Search size={14} />
-          Apply filters
+          {uiText("Apply filters")}
         </button>
       </div>
     </form>
@@ -183,23 +209,32 @@ export function ApiWorkspace({
     <>
       <div className="business-summary">
         <div>
-          <span className="quiet-label">BUSINESS PROFILE</span>
+          <span className="quiet-label">{uiText("BUSINESS PROFILE")}</span>
           <h2>{business.legalName || business.name}</h2>
           <span className="muted">
-            {business.countryCode || "Country not provided"} · Business #{business.id}
+            {business.countryCode || uiText("Country not provided")}
+            {uiText("· Business #")}
+            {business.id}
           </span>
         </div>
         <div className="business-status">
           <span>
-            <small>Operational status</small>
+            <small>{uiText("Operational status")}</small>
             <Badge value={business.status} />
           </span>
           <span>
-            <small>Verification</small>
+            <small>{uiText("Verification")}</small>
             <Badge value={business.kybStatus} />
           </span>
         </div>
       </div>
+      <ApiWallets
+        businessId={business.id}
+        environment={environment}
+        revision={revision}
+        refresh={refresh}
+        onOpenPayment={(businessId, reference) => setSelected({ businessId, reference })}
+      />
       <ApiCredentials
         key={`${business.id}:${environment}`}
         businessId={business.id}
@@ -210,8 +245,15 @@ export function ApiWorkspace({
       <section className="panel history-panel">
         <div className="panel-heading">
           <div>
-            <h2>{environment === "SANDBOX" ? "Sandbox API activity" : "Live API activity"}</h2>
-            <p className="muted">Collections and payouts for {business.name}.</p>
+            <h2>
+              {environment === "SANDBOX"
+                ? uiText("Sandbox API activity")
+                : uiText("Live API activity")}
+            </h2>
+            <p className="muted">
+              {uiText("Collections and payouts for")}
+              {business.name}.
+            </p>
           </div>
           <div className="heading-actions">
             <button
@@ -220,11 +262,12 @@ export function ApiWorkspace({
               aria-expanded={filterOpen}
             >
               <SlidersHorizontal size={15} />
-              Filters{activeFilters ? <span className="count-pill">{activeFilters}</span> : null}
+              {uiText("Filters")}
+              {activeFilters ? <span className="count-pill">{activeFilters}</span> : null}
             </button>
             <button
               className="icon-button bordered"
-              aria-label="Refresh API activity"
+              aria-label={uiText("Refresh API activity")}
               onClick={refresh}
             >
               <RefreshCw size={16} />
@@ -233,7 +276,11 @@ export function ApiWorkspace({
         </div>
         {filterOpen &&
           (mobile ? (
-            <Modal title="Filter API activity" variant="sheet" onClose={() => setFilterOpen(false)}>
+            <Modal
+              title={uiText("Filter API activity")}
+              variant="sheet"
+              onClose={() => setFilterOpen(false)}
+            >
               {filterForm}
             </Modal>
           ) : (
@@ -245,11 +292,17 @@ export function ApiWorkspace({
           <ErrorState message={historyError} retry={refresh} />
         ) : !history.data?.content.length ? (
           <Empty
-            title={activeFilters ? "No matching transactions" : "Your API story starts here"}
+            title={
+              activeFilters
+                ? uiText("No matching transactions")
+                : uiText("Your API story starts here")
+            }
             description={
               activeFilters
-                ? "Try changing your filters or widening the date range."
-                : "Accepted collections and payouts will appear here when your integration starts sending requests."
+                ? uiText("Try changing your filters or widening the date range.")
+                : uiText(
+                    "Accepted collections and payouts will appear here when your integration starts sending requests.",
+                  )
             }
           />
         ) : (
@@ -258,14 +311,14 @@ export function ApiWorkspace({
               <table>
                 <thead>
                   <tr>
-                    <th>Transaction</th>
-                    <th>Direction</th>
-                    <th>{environment === "SANDBOX" ? "Test amount" : "Amount"}</th>
-                    <th>Integration</th>
-                    <th>Accepted</th>
-                    <th>Status</th>
+                    <th>{uiText("Transaction")}</th>
+                    <th>{uiText("Direction")}</th>
+                    <th>{environment === "SANDBOX" ? uiText("Test amount") : uiText("Amount")}</th>
+                    <th>{uiText("Integration")}</th>
+                    <th>{uiText("Accepted")}</th>
+                    <th>{uiText("Status")}</th>
                     <th>
-                      <span className="sr-only">Details</span>
+                      <span className="sr-only">{uiText("Details")}</span>
                     </th>
                   </tr>
                 </thead>
@@ -276,12 +329,14 @@ export function ApiWorkspace({
                         <td>
                           <button
                             className="table-name text-button"
-                            onClick={() => setSelected(tx.reference)}
+                            onClick={() =>
+                              setSelected({ businessId: business.id, reference: tx.reference })
+                            }
                           >
                             {tx.reference}
                           </button>
                           <small className="table-subtitle">
-                            {tx.clientReference || "No merchant reference"}
+                            {tx.clientReference || uiText("No merchant reference")}
                           </small>
                         </td>
                         <td>
@@ -291,7 +346,9 @@ export function ApiWorkspace({
                             ) : (
                               <ArrowDownLeft size={16} />
                             )}{" "}
-                            {tx.action === "BUSINESS_API_PAYOUT" ? "Payout" : "Collection"}
+                            {tx.action === "BUSINESS_API_PAYOUT"
+                              ? uiText("Payout")
+                              : uiText("Collection")}
                           </span>
                         </td>
                         <td className="amount">{money(tx.amount, tx.currency)}</td>
@@ -303,8 +360,10 @@ export function ApiWorkspace({
                         <td>
                           <button
                             className="icon-button"
-                            aria-label={`View transaction ${tx.reference}`}
-                            onClick={() => setSelected(tx.reference)}
+                            aria-label={uiText("View transaction") + " " + tx.reference}
+                            onClick={() =>
+                              setSelected({ businessId: business.id, reference: tx.reference })
+                            }
                           >
                             <ArrowUpRight size={16} />
                           </button>
@@ -321,7 +380,7 @@ export function ApiWorkspace({
                   key={requestId}
                   title={tx.clientReference || tx.reference}
                   subtitle={tx.reference}
-                  meta={`${tx.action === "BUSINESS_API_PAYOUT" ? "Payout" : "Collection"} · ${date(createdAt)}`}
+                  meta={`${tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection")} · ${date(createdAt)}`}
                   amount={money(tx.amount, tx.currency)}
                   status={tx.status}
                   icon={
@@ -331,7 +390,7 @@ export function ApiWorkspace({
                       <ArrowDownLeft size={20} />
                     )
                   }
-                  onClick={() => setSelected(tx.reference)}
+                  onClick={() => setSelected({ businessId: business.id, reference: tx.reference })}
                 />
               ))}
             </div>
@@ -347,16 +406,21 @@ export function ApiWorkspace({
         )}
         <div className="panel-note">
           {environment === "SANDBOX"
-            ? "Simulated amounts only. Sandbox activity is separate from real transactions and financial reporting."
-            : "Amounts use each transaction’s fiat currency. Processing and unknown states are not confirmed failures."}
+            ? uiText(
+                "Simulated amounts only. Sandbox activity is separate from real transactions and financial reporting.",
+              )
+            : uiText(
+                "Amounts use each transaction’s fiat currency. Processing and unknown states are not confirmed failures.",
+              )}
         </div>
       </section>
       {selected && (
         <TransactionDetail
-          businessId={business.id}
+          businessId={selected.businessId}
           environment={environment}
-          reference={selected}
+          reference={selected.reference}
           onClose={() => setSelected(undefined)}
+          onTerminal={refresh}
         />
       )}
     </>
@@ -367,12 +431,16 @@ function TransactionDetail({
   reference,
   environment,
   onClose,
+  onTerminal,
 }: {
   businessId: number;
   reference: string;
   environment: ApiEnvironment;
   onClose: () => void;
+  onTerminal: () => void;
 }) {
+  const uiText = useUiText();
+
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision((value) => value + 1);
   const detail = useQuery<ApiTransaction>(
@@ -385,12 +453,21 @@ function TransactionDetail({
   try {
     if (tx) assertTransactionEnvironment(tx, environment);
   } catch (failure) {
-    error = failure instanceof Error ? failure.message : "Couldn’t read transaction environment.";
+    error =
+      failure instanceof Error ? failure.message : uiText("Couldn’t read transaction environment.");
   }
+  const status = !error ? tx?.status : undefined;
+  useEffect(() => {
+    if (status && ["COMPLETED", "FAILED", "CANCELED", "CANCELLED"].includes(status)) onTerminal();
+  }, [status, onTerminal]);
   const crypto = tx?.cryptoDetails;
   return (
     <Modal
-      title={environment === "SANDBOX" ? "Sandbox payment details" : "Transaction details"}
+      title={
+        environment === "SANDBOX"
+          ? uiText("Sandbox payment details")
+          : uiText("Transaction details")
+      }
       description={reference}
       onClose={onClose}
     >
@@ -403,8 +480,9 @@ function TransactionDetail({
           <>
             {environment === "SANDBOX" && (
               <div className="info-box">
-                SANDBOX · Simulated payment. No real wallet debit, credit or provider payment
-                occurred. Do not fulfill real orders from this record.
+                {uiText(
+                  "SANDBOX · Simulated payment. No real wallet debit, credit or provider payment occurred. Fees, debits, credits and refunds shown here apply only to virtual funds. Do not fulfill real orders from this record.",
+                )}
               </div>
             )}
             <div className="transaction-hero">
@@ -413,16 +491,22 @@ function TransactionDetail({
             </div>
             <dl className="detail-list">
               {[
-                ["Environment", environment],
-                ["Direction", tx.action === "BUSINESS_API_PAYOUT" ? "Payout" : "Collection"],
-                ["Merchant reference", tx.clientReference || "—"],
-                ["Integration", detail.data?.apiKeyName || "—"],
-                ["Accepted", date(detail.data?.createdAt)],
-                ["Last updated", date(detail.data?.updatedAt)],
-                ["Gross amount", money(tx.grossAmount, tx.currency)],
-                ["Fees", money(tx.allFees, tx.currency)],
-                ["Settlement net", money(tx.settlementNet, tx.currency)],
-                ["Refunded", tx.refunded === true ? "Yes" : tx.refunded === false ? "No" : "—"],
+                [uiText("Environment"), environment],
+                [
+                  uiText("Direction"),
+                  tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection"),
+                ],
+                [uiText("Merchant reference"), tx.clientReference || "—"],
+                [uiText("Integration"), detail.data?.apiKeyName || "—"],
+                [uiText("Accepted"), date(detail.data?.createdAt)],
+                [uiText("Last updated"), date(detail.data?.updatedAt)],
+                [uiText("Gross amount"), money(tx.grossAmount, tx.currency)],
+                [uiText("Fees"), money(tx.allFees, tx.currency)],
+                [uiText("Settlement net"), money(tx.settlementNet, tx.currency)],
+                [
+                  environment === "SANDBOX" ? uiText("Virtual refund posted") : uiText("Refunded"),
+                  tx.refunded === true ? uiText("Yes") : tx.refunded === false ? uiText("No") : "—",
+                ],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt>{key}</dt>
@@ -433,8 +517,9 @@ function TransactionDetail({
             {tx.failureMessage && <p className="info-box">{tx.failureMessage}</p>}
             {["UNKNOWN", "MANUAL_INTERVENTION_REQUIRED"].includes(tx.status) && (
               <div className="info-box">
-                This transaction needs investigation. Its status does not confirm failure or a
-                refund. Contact Fondeka with the transaction reference.
+                {uiText(
+                  "This transaction needs investigation. Its status does not confirm failure or a refund. Contact Fondeka with the transaction reference.",
+                )}
               </div>
             )}
             {crypto && <CryptoPaymentInstructions details={crypto} environment={environment} />}
@@ -442,17 +527,18 @@ function TransactionDetail({
               environment === "LIVE" &&
               ["PROCESSING", "INITIATED", "SUBMITTED"].includes(tx.status) && (
                 <div className="info-box">
-                  Payment instructions may still be on their way. Refresh to check the latest
-                  status.
+                  {uiText(
+                    "Payment instructions may still be on their way. Refresh to check the latest status.",
+                  )}
                 </div>
               )}
             <div className="modal-actions">
               <button className="button secondary" onClick={refresh}>
                 <RefreshCw size={15} />
-                Refresh status
+                {uiText("Refresh status")}
               </button>
               <button className="button primary" onClick={onClose}>
-                Done
+                {uiText("Done")}
               </button>
             </div>
           </>
@@ -461,87 +547,4 @@ function TransactionDetail({
     </Modal>
   );
 }
-export function IntegrationGuide({ environment = "LIVE" }: { environment?: ApiEnvironment }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className={`integration-guide-disclosure ${expanded ? "expanded" : ""}`}>
-      <button
-        type="button"
-        className="integration-guide-toggle"
-        onClick={() => setExpanded(!expanded)}
-        aria-expanded={expanded}
-        aria-controls="integration-guide"
-      >
-        <Code2 size={19} />
-        <span>
-          Integration guide<small>Connect your backend to Fondeka</small>
-        </span>
-        <span aria-hidden="true">{expanded ? "−" : "+"}</span>
-      </button>
-      <section className="integration-guide" id="integration-guide">
-        <div>
-          <span className="tool-icon lilac">
-            <Code2 size={24} />
-          </span>
-          <h2>Built to work with your business.</h2>
-          <p>
-            Connect your backend to Fondeka for mobile-money and crypto collections and payouts.
-            Monitor accepted requests here.
-          </p>
-          <div className="guide-facts">
-            <span>
-              <KeyRound size={16} />
-              API keys stay on your server.
-            </span>
-            <span>
-              <Webhook size={16} />
-              Verify signed terminal webhooks.
-            </span>
-            <span>
-              <RefreshCw size={16} />
-              Keep the same idempotency key on retries.
-            </span>
-          </div>
-          <p className="guide-footnote">
-            Generate credentials for the selected environment above and store them on your backend.
-            Amounts are fiat-wallet amounts, including crypto. A 202 response means accepted for
-            processing.
-          </p>
-          {environment === "SANDBOX" && (
-            <details className="sandbox-guide">
-              <summary>Sandbox scenarios and webhooks</summary>
-              <p>
-                Use the same collection/payout routes with an fdk_biz_test_ key.
-                X-Fondeka-Test-Scenario defaults to SUCCESS; the header must never be sent with a
-                LIVE key.
-              </p>
-              <ul>
-                <li>SUCCESS → completed</li>
-                <li>INVALID_DESTINATION, INSUFFICIENT_FUNDS, PAYMENT_NOT_APPROVED → failed</li>
-                <li>CANCELED, EXPIRED → canceled</li>
-                <li>PENDING → keeps processing, without a terminal webhook</li>
-              </ul>
-              <p>
-                Completion is asynchronous. There is no force-complete or cancel endpoint. Use a new
-                idempotency key for a new test intent. Sandbox keys and signing secrets are separate
-                from LIVE; validate the webhook environment and signature before fulfilling orders.
-                Test events must never fulfill real orders.
-              </p>
-            </details>
-          )}
-        </div>
-        <div className="code-window">
-          <div>
-            <span />
-            <span />
-            <span />
-            <small>YOUR BACKEND · {environment} COLLECTION</small>
-          </div>
-          <pre>
-            <code>{`POST /business-api/v1/businesses/{businessId}/collections\nX-API-Key: <${environment === "SANDBOX" ? "fdk_biz_test_ sandbox" : "server-side LIVE"} key>\nIdempotency-Key: ${environment === "SANDBOX" ? "sandbox-order-001\nX-Fondeka-Test-Scenario: SUCCESS" : "order-2026-0001"}\nContent-Type: application/json\n\n{\n  "amount": 10.00,\n  "currency": "USD",\n  "paymentMethodName": "MPESA_KENYA",\n  "accountRef": "${environment === "SANDBOX" ? "+254700000000" : "+254707371664"}",\n  "clientReference": "invoice-0001",\n  "feeApplicationMode": "EXCLUSIVE"\n}`}</code>
-          </pre>
-        </div>
-      </section>
-    </div>
-  );
-}
+export { IntegrationGuide } from "./integration-guide";

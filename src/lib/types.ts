@@ -58,7 +58,7 @@ export interface PaymentRequest {
   description?: string;
   type: "QUICK_CHARGE" | "INVOICE" | "DONATION";
   currency: string;
-  amount: number;
+  amount: number | null;
   totalCollected: number;
   lifecycle: string;
   approvalStatus?: string;
@@ -68,7 +68,7 @@ export interface PaymentRequest {
 export interface PaymentInput {
   title: string;
   description: string;
-  type: "QUICK_CHARGE" | "INVOICE";
+  type: "QUICK_CHARGE" | "INVOICE" | "DONATION";
   currency: string;
   amount: number;
   feeInclusion: "ABSORBED" | "ON_TOP";
@@ -90,8 +90,8 @@ export interface PosInput {
   items: { productId: number; quantity: number }[];
   billingCurrency: string;
   paymentCurrency: string;
-  paymentMode: "CASH";
-  paymentStatus: "PAID";
+  paymentMode: "CASH" | "FONDEKA";
+  paymentStatus: "PAID" | "PARTIALLY_PAID" | "ON_CREDIT";
   buyerName?: string;
 }
 export interface Quote {
@@ -111,6 +111,44 @@ export interface Business {
   countryCode?: string;
 }
 export type ApiEnvironment = "LIVE" | "SANDBOX";
+export interface ApiWallet {
+  currency: string;
+  balance: number;
+  environment: ApiEnvironment;
+}
+export interface SandboxWalletEntry {
+  id: string;
+  currency: string;
+  kind: string;
+  amount: number;
+  balanceAfter: number;
+  businessId: number;
+  paymentReference: string | null;
+  createdAt: string;
+  environment: "SANDBOX";
+  sequence: number;
+  conversionId?: string | null;
+}
+export interface SandboxConversionInput {
+  sourceCurrency: string;
+  targetCurrency: string;
+  amount: number;
+}
+export interface SandboxConversion {
+  id: string | null;
+  status: "QUOTED" | "COMPLETED";
+  sourceCurrency: string;
+  targetCurrency: string;
+  sourceAmount: number;
+  feeAmount: number;
+  netSourceAmount: number;
+  targetAmount: number;
+  rate: number;
+  sourceWallet: ApiWallet;
+  targetWallet: ApiWallet;
+  createdAt: string | null;
+  environment: "SANDBOX";
+}
 export interface ApiKey {
   id: number;
   name: string;
@@ -152,4 +190,199 @@ export interface ApiTransaction {
       expiresAt?: string;
     } | null;
   };
+}
+
+export interface Store {
+  ownerAccountId?: number;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  videoUrl?: string | null;
+  videoDurationSeconds?: number | null;
+  reportCurrency?: string;
+  whatsappNumber?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  tiktokUrl?: string;
+  effectiveProductVideoMaxBytes?: number;
+  effectiveProductVideoMaxDurationSeconds?: number;
+  verificationStatus?: string;
+}
+export interface StoreInput {
+  slug?: string;
+  visibility?: string;
+  reportCurrency?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  videoUrl?: string | null;
+  videoDurationSeconds?: number | null;
+  whatsappNumber?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  youtubeUrl?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  tiktokUrl?: string;
+}
+export interface Product {
+  description?: string;
+  slug?: string;
+  imageUrl?: string;
+  image1?: string;
+  image2?: string;
+  image3?: string;
+  image4?: string;
+  videoUrl?: string;
+  videoDurationSeconds?: number;
+  videoThumbnailUrl?: string;
+  barcodeOrQrCode?: string;
+  requiresShipping?: boolean;
+  fulfillmentUrl?: string;
+  fulfillmentInstructions?: string;
+  digitalAssetKey?: string;
+  storefrontEnabled?: boolean;
+  directLinkEnabled?: boolean;
+  marketplaceEnabled?: boolean;
+  marketplaceApproved?: boolean;
+  marketplaceCategory?: string;
+  productUrl?: string;
+  publicUrl?: string;
+}
+export interface PayerField {
+  key: string;
+  label: string;
+  required: boolean;
+}
+export interface InvoiceItem {
+  name: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal?: number;
+}
+export interface PaymentRequest {
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  goalAmount?: number | null;
+  minimumAmountEnabled?: boolean;
+  showRecentPaymentsPublicly?: boolean;
+  allowPartial?: boolean;
+  feeInclusion?: string;
+  activationAt?: string;
+  expiresAt?: string;
+  image1?: string | null;
+  image2?: string | null;
+  image3?: string | null;
+  image4?: string | null;
+  metadata?: Record<string, unknown>;
+  payerFields?: PayerField[];
+  items?: InvoiceItem[];
+  settlement?: {
+    paymentMethodId: number;
+    paymentMethodType?: string;
+    accountRef?: string;
+    networkId?: number;
+    currency?: string;
+  } | null;
+}
+export interface RequestPayment {
+  id: number;
+  transactionId?: number;
+  payerName?: string;
+  payerReference?: string;
+  phoneNumber?: string;
+  amount: number;
+  payerAnonymous?: boolean;
+  payerFields?: Record<string, string>;
+  createdAt: string;
+}
+export interface Customer {
+  id: number;
+  storeId: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  note?: string;
+}
+export interface Staff {
+  storeId?: number;
+  id: number;
+  email: string;
+  name?: string;
+  permissions: string[];
+  createdAt?: string;
+}
+export interface SaleItem {
+  productId?: number;
+  productName?: string;
+  quantity: number;
+  unitPriceAmount?: number;
+  unitPriceCurrency?: string;
+  totalAmount?: number;
+  totalCurrency?: string;
+  lineTotalAmount?: number;
+  lineTotalCurrency?: string;
+}
+export interface Order {
+  accessToken?: string;
+  customerId?: number;
+  buyerEmail?: string;
+  buyerPhone?: string;
+  items?: SaleItem[];
+  paymentTransactionId?: number;
+  paymentTransactionReference?: string;
+  paymentTransactionStatus?: string;
+  posPaymentMode?: string;
+  amountPaid?: number;
+  amountPaidCurrency?: string;
+  balanceDue?: number;
+  balanceDueCurrency?: string;
+  outstandingAmount?: number;
+  outstandingCurrency?: string;
+  paymentDueDate?: string;
+  paymentAmount?: number;
+  paymentCurrency?: string;
+  feeAmount?: number;
+  feeCurrency?: string;
+  cryptoDetails?: ApiTransaction["transaction"]["cryptoDetails"];
+}
+export interface PosInput {
+  customerId?: number;
+  buyerEmail?: string;
+  buyerPhone?: string;
+  amountPaid?: number;
+  amountPaidCurrency?: string;
+  paymentDueDate?: string;
+}
+export interface SalesReport {
+  period: string;
+  currency: string;
+  availableCurrencies: string[];
+  fromDate: string;
+  toDate: string;
+  totalSalesAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+  merchantProceedsAmount: number;
+  orderCount: number;
+  paidOrderCount: number;
+  partialOrderCount: number;
+  creditOrderCount: number;
+  topProducts: {
+    productId: number;
+    productName: string;
+    quantitySold: number;
+    salesAmount: number;
+    salesCurrency: string;
+  }[];
+  unpaidCustomers: {
+    customerId?: number;
+    customerName?: string;
+    buyerName?: string;
+    balanceDue?: number;
+    balanceDueCurrency: string;
+  }[];
+  salesByStatus?: { key: string; count: number }[];
 }

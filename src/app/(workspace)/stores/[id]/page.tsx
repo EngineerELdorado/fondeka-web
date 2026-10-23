@@ -1,344 +1,344 @@
 "use client";
-
 import Link from "next/link";
-import { use, useState, type FormEvent } from "react";
-import { ArrowLeft, ExternalLink, Monitor, Package, Pencil, Plus } from "lucide-react";
-import {
-  Badge,
-  MobileRecord,
-  Empty,
-  ErrorState,
-  Loading,
-  Modal,
-  PageHeading,
-  Pagination,
-  SubmitButton,
-} from "@/components/ui";
-import { StoreForm } from "@/components/store-form";
-import { useWorkspace } from "@/components/workspace-provider";
+import { use, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n";
+import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
 import { request } from "@/lib/data";
-import { date, label, money, parseAmount, safeLink } from "@/lib/format";
-import type { Order, Page, Product, Store } from "@/lib/types";
-
+import { invalidateQueryPaths } from "@/lib/query-cache";
+import { canUseStore, isStoreOwner, storeTabAllowed, storeUpdateInput } from "@/lib/commerce";
+import { money, label } from "@/lib/format";
+import type { Store, Product, Page } from "@/lib/types";
+import { Badge, PageHeading, Loading, Empty, ErrorState, Pagination } from "@/components/ui";
+import { useWorkspace } from "@/components/workspace-provider";
+import { StoreForm } from "@/components/store-form";
+import { ProductForm } from "@/components/product-form";
+import { CustomersPanel, StaffPanel } from "@/components/store-people";
+import { ReportsPanel, SalesPanel } from "@/components/store-sales";
+import { LinkSharing } from "@/components/link-sharing";
 export default function StoreDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { t } = useI18n();
+  const { values, update, page } = useUrlState();
+  const { refresh, notify } = useWorkspace();
+  const router = useRouter();
   const store = useQuery<Store>(/^\d+$/.test(id) ? `/customer-api/commerce/stores/${id}` : null);
-  const [tab, setTab] = useState("products");
-  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const adding = values.get("newProduct") === "1";
+  const setAdding = (value: boolean) =>
+    update({ newProduct: value ? 1 : null, step: null, flow: null });
+  const [deleting, setDeleting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const s = store.data;
+  const tabs = [
+    ["products", t("Products", "Produits")],
+    ["sales", t("Sales", "Ventes")],
+    ["customers", t("Customers", "Clients")],
+    ["reports", t("Reports", "Rapports")],
+    ["staff", t("Team", "Équipe")],
+    ["settings", t("Settings", "Paramètres")],
+  ];
+  const permitted = s ? tabs.filter(([tab]) => storeTabAllowed(s, tab)) : [];
+  const requested = values.get("tab");
+  const tab = requested || permitted[0]?.[0] || "";
+  const authorized = !!s && storeTabAllowed(s, tab);
   const products = useQuery<Page<Product>>(
-    tab === "products" && /^\d+$/.test(id)
-      ? `/customer-api/commerce/stores/${id}/products?page=${page}&size=10`
+    s && authorized && tab === "products"
+      ? `/customer-api/commerce/stores/${id}/products?page=${page}&size=20`
       : null,
   );
-  const orders = useQuery<Page<Order>>(
-    tab === "orders" && /^\d+$/.test(id)
-      ? `/customer-api/commerce/stores/${id}/orders?page=${page}&size=10`
+  const productId = values.get("product");
+  const product = useQuery<Product>(
+    s && canUseStore(s, "PRODUCTS") && productId && /^\d+$/.test(productId)
+      ? `/customer-api/commerce/products/${productId}`
       : null,
   );
-  const { refresh } = useWorkspace();
-  const link = safeLink(store.data?.storefrontUrl || store.data?.publicUrl);
-  if (!/^\d+$/.test(id))
+  async function mutate(mode: "delete" | "publish") {
+    if (!s || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const current =
+        mode === "publish" ? await request<Store>("/customer-api/commerce/stores/" + id) : s;
+      await request(
+        `/customer-api/commerce/stores/${id}`,
+        mode === "delete"
+          ? { method: "DELETE" }
+          : {
+              method: "PATCH",
+              body: JSON.stringify(
+                storeUpdateInput(current, { status: "ACTIVE", visibility: "PUBLIC" }),
+              ),
+            },
+      );
+      invalidateQueryPaths([
+        "/customer-api/commerce/stores?",
+        "/customer-api/commerce/stores/" + id,
+      ]);
+      notify(
+        t(
+          mode === "delete" ? "Store deleted." : "Store published.",
+          mode === "delete" ? "Boutique supprimée." : "Boutique publiée.",
+        ),
+      );
+      if (mode === "delete") router.push("/stores");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : t("Unable to update store.", "Impossible de modifier la boutique."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (adding && s && canUseStore(s, "PRODUCTS"))
     return (
-      <Empty title="Store not found" description="Choose a store from your workspace.">
-        <Link className="button primary" href="/stores">
-          Back to stores
-        </Link>
-      </Empty>
+      <ProductForm
+        store={s}
+        onClose={() => setAdding(false)}
+        onSaved={(p) => update({ product: p.id })}
+      />
     );
   return (
     <>
-      <Link className="back-link" href="/stores">
-        <ArrowLeft size={15} />
-        All stores
+      <Link href="/stores" className="back-link">
+        ← {t("Online Stores", "Boutiques en ligne")}
       </Link>
       {store.loading ? (
         <Loading />
       ) : store.error ? (
         <ErrorState message={store.error} retry={refresh} />
       ) : (
-        store.data && (
+        s && (
           <>
             <PageHeading
-              eyebrow="YOUR STORE"
-              title={store.data.name}
-              description={store.data.description || "Your products, your orders, your business."}
+              title={s.name}
+              description={s.description || t("Manage your store", "Gérer votre boutique")}
             >
-              <button
-                className="button secondary"
-                aria-label="Edit store"
-                onClick={() => setEditing(true)}
-              >
-                <Pencil size={15} />
-                Edit store
+              <button className="button secondary" onClick={refresh}>
+                {t("Refresh", "Actualiser")}
               </button>
-              <Link
-                className="button primary"
-                aria-label="Open point of sale"
-                href={`/pos?store=${id}`}
-              >
-                <Monitor size={17} />
-                Open point of sale
-              </Link>
+              {isStoreOwner(s) && (
+                <button className="button secondary" onClick={() => setEditing(true)}>
+                  {t("Edit store", "Modifier la boutique")}
+                </button>
+              )}
+              {canUseStore(s, "POS") && (
+                <Link href={`/stores/${s.id}/pos`} className="button primary">
+                  {t("Open POS", "Ouvrir le POS")}
+                </Link>
+              )}
             </PageHeading>
             <div className="store-detail-summary">
-              <Badge value={store.data.status} />
+              <Badge value={s.status} />
+              <Badge value={s.visibility} />
               <span>
-                Currency <strong>{store.data.defaultCurrency}</strong>
+                {label(s.accessType)}
+                {s.ownerAccountId
+                  ? ` · ${t("Owner account", "Compte propriétaire")} #${s.ownerAccountId}`
+                  : ""}
               </span>
-              <span>
-                Country <strong>{store.data.countryCode || "—"}</strong>
-              </span>
-              {link && (
-                <a className="text-button" href={link} target="_blank" rel="noopener noreferrer">
-                  Visit storefront <ExternalLink size={14} />
-                </a>
-              )}
+              <strong>{s.defaultCurrency}</strong>
             </div>
+            <details className="store-share">
+              <summary>{t("Store link and QR code", "Lien et code QR de la boutique")}</summary>
+              <LinkSharing url={s.storefrontUrl || s.publicUrl} title={s.name} />
+            </details>
             <section className="panel">
-              <div className="panel-heading">
-                <div className="tabs" role="tablist" aria-label="Store sections">
-                  {["products", "orders"].map((item) => (
-                    <button
-                      key={item}
-                      role="tab"
-                      aria-selected={tab === item}
-                      className={tab === item ? "active" : ""}
-                      onClick={() => {
-                        setTab(item);
-                        setPage(0);
-                      }}
-                    >
-                      {item === "products" ? "Products" : "Orders"}
-                    </button>
-                  ))}
-                </div>
-                {tab === "products" && (
-                  <button className="button primary small" onClick={() => setAdding(true)}>
-                    <Plus size={15} />
-                    Add product
-                  </button>
-                )}
-              </div>
-              {tab === "products" ? (
-                products.loading ? (
-                  <Loading />
-                ) : products.error ? (
-                  <ErrorState message={products.error} retry={refresh} />
-                ) : !products.data?.content.length ? (
-                  <Empty
-                    title="Make room for your products"
-                    description="Add your first product to start selling online and at the counter."
+              <nav
+                className="owner-tabs"
+                aria-label={t("Store sections", "Sections de la boutique")}
+              >
+                {permitted.map(([key, title]) => (
+                  <button
+                    key={key}
+                    aria-current={tab === key ? "page" : undefined}
+                    className={tab === key ? "active" : ""}
+                    onClick={() =>
+                      update({ tab: key, page: null, product: null, customer: null, sale: null })
+                    }
                   >
-                    <button className="button primary" onClick={() => setAdding(true)}>
-                      <Plus size={16} />
-                      Add product
+                    {title}
+                  </button>
+                ))}
+              </nav>
+              {!authorized ? (
+                <Empty
+                  title={t("Permission required", "Autorisation requise")}
+                  description={t(
+                    "Ask the store owner to update your staff permissions.",
+                    "Demandez au propriétaire de mettre à jour vos autorisations.",
+                  )}
+                />
+              ) : tab === "products" ? (
+                <>
+                  <div className="panel-heading">
+                    <h2>{t("Products", "Produits")}</h2>
+                    <button className="button primary small" onClick={() => setAdding(true)}>
+                      {t("Add product", "Ajouter un produit")}
                     </button>
-                  </Empty>
-                ) : (
-                  <>
-                    <div className="table-wrap desktop-table">
+                  </div>
+                  {products.loading ? (
+                    <Loading />
+                  ) : products.error ? (
+                    <ErrorState message={products.error} retry={refresh} />
+                  ) : !products.data?.content.length ? (
+                    <Empty
+                      title={t("Add your first product", "Ajoutez votre premier produit")}
+                      description={t(
+                        "Sell products, digital files and services from your store.",
+                        "Vendez des produits, des fichiers numériques et des services.",
+                      )}
+                    >
+                      <button className="button primary" onClick={() => setAdding(true)}>
+                        {t("Add product", "Ajouter un produit")}
+                      </button>
+                    </Empty>
+                  ) : (
+                    <div className="table-wrap">
                       <table>
                         <thead>
                           <tr>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>Price</th>
-                            <th>Inventory</th>
-                            <th>Status</th>
+                            {[
+                              t("Product", "Produit"),
+                              t("Price", "Prix"),
+                              t("Stock", "Stock"),
+                              t("Status", "Statut"),
+                              t("Visibility", "Visibilité"),
+                            ].map((h) => (
+                              <th key={h}>{h}</th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {products.data.content.map((product) => (
-                            <tr key={product.id}>
+                          {products.data.content.map((p) => (
+                            <tr key={p.id}>
                               <td>
-                                <span className="product-table-name">
-                                  <span className="product-thumb">
-                                    <Package size={19} />
-                                  </span>
-                                  <strong>{product.name}</strong>
-                                </span>
+                                <button
+                                  className="text-button table-name"
+                                  onClick={() => update({ product: p.id })}
+                                >
+                                  {p.name}
+                                </button>
+                                <small className="table-subtitle">
+                                  {label(p.type)} {p.sku ? `· ${p.sku}` : ""}
+                                </small>
                               </td>
-                              <td>{product.sku || "—"}</td>
-                              <td className="amount">
-                                {money(product.priceAmount, product.priceCurrency)}
+                              <td className="amount">{money(p.priceAmount, p.priceCurrency)}</td>
+                              <td>
+                                {p.inventoryPolicy === "TRACKED"
+                                  ? (p.inventoryQuantity ?? 0)
+                                  : t("Unlimited", "Illimité")}
                               </td>
                               <td>
-                                {product.inventoryPolicy === "TRACKED"
-                                  ? `${product.inventoryQuantity ?? 0} in stock`
-                                  : "Unlimited"}
+                                <Badge value={p.status} />
                               </td>
                               <td>
-                                <Badge value={product.status} />
+                                {p.storefrontEnabled === false
+                                  ? t("Hidden", "Masqué")
+                                  : t("Storefront", "Boutique")}
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                    <div className="mobile-record-list">
-                      {products.data.content.map((product) => (
-                        <MobileRecord
-                          key={product.id}
-                          title={product.name}
-                          subtitle={
-                            product.inventoryPolicy === "TRACKED"
-                              ? `${product.inventoryQuantity ?? 0} in stock`
-                              : "Unlimited inventory"
-                          }
-                          amount={money(product.priceAmount, product.priceCurrency)}
-                          status={product.status !== "ACTIVE" ? product.status : undefined}
-                          icon={<Package size={20} />}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )
-              ) : orders.loading ? (
-                <Loading />
-              ) : orders.error ? (
-                <ErrorState message={orders.error} retry={refresh} />
-              ) : !orders.data?.content.length ? (
-                <Empty
-                  title="Your first sale is waiting"
-                  description="Orders from your store and point of sale will appear here."
-                />
-              ) : (
-                <>
-                  <div className="table-wrap desktop-table">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Reference</th>
-                          <th>Customer</th>
-                          <th>Channel</th>
-                          <th>Amount</th>
-                          <th>Date</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orders.data.content.map((order) => (
-                          <tr key={order.id}>
-                            <td className="table-name">{order.reference}</td>
-                            <td>{order.buyerName || "Walk-in customer"}</td>
-                            <td>{order.channel}</td>
-                            <td className="amount">
-                              {money(order.totalAmount, order.totalCurrency)}
-                            </td>
-                            <td>{date(order.createdAt)}</td>
-                            <td>
-                              <Badge value={order.posPaymentStatus || order.status} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mobile-record-list">
-                    {orders.data.content.map((order) => (
-                      <MobileRecord
-                        key={order.id}
-                        title={order.buyerName || "Walk-in customer"}
-                        subtitle={order.reference}
-                        meta={`${date(order.createdAt)} · ${order.channel === "POS" ? "Point of sale" : label(order.channel)}`}
-                        amount={money(order.totalAmount, order.totalCurrency)}
-                        status={order.posPaymentStatus || order.status}
-                      />
-                    ))}
-                  </div>
+                  )}
+                  {products.data && (
+                    <Pagination
+                      page={page}
+                      pages={products.data.totalPages}
+                      total={products.data.totalElements}
+                      onChange={(p) => update({ page: p })}
+                    />
+                  )}
                 </>
-              )}
-              {(tab === "products" ? products.data : orders.data) && (
-                <Pagination
-                  page={page}
-                  pages={(tab === "products" ? products.data : orders.data)!.totalPages}
-                  total={(tab === "products" ? products.data : orders.data)!.totalElements}
-                  onChange={setPage}
-                />
+              ) : tab === "sales" ? (
+                <SalesPanel storeId={s.id} />
+              ) : tab === "customers" ? (
+                <CustomersPanel storeId={s.id} />
+              ) : tab === "reports" ? (
+                <ReportsPanel storeId={s.id} />
+              ) : tab === "staff" ? (
+                <StaffPanel storeId={s.id} />
+              ) : (
+                <div className="store-settings-actions">
+                  <h2>{t("Store settings", "Paramètres de la boutique")}</h2>
+                  <p className="muted">
+                    {t(
+                      "Manage branding, contact details, visibility and media.",
+                      "Gérez l’identité visuelle, les coordonnées, la visibilité et les médias.",
+                    )}
+                  </p>
+                  <div className="parity-actions">
+                    <button className="button secondary" onClick={() => setEditing(true)}>
+                      {t("Edit store", "Modifier la boutique")}
+                    </button>
+                    {(s.visibility !== "PUBLIC" || s.status !== "ACTIVE") && (
+                      <button
+                        className="button primary"
+                        disabled={busy}
+                        onClick={() => void mutate("publish")}
+                      >
+                        {t("Publish", "Publier")}
+                      </button>
+                    )}
+                    <button className="text-button danger-text" onClick={() => setDeleting(true)}>
+                      {t("Delete store", "Supprimer la boutique")}
+                    </button>
+                  </div>
+                  {deleting && (
+                    <div className="confirmation-box">
+                      <p>
+                        {t(
+                          "Delete this store? It will no longer be available to customers or your team.",
+                          "Supprimer cette boutique ? Elle ne sera plus accessible aux clients ni à votre équipe.",
+                        )}
+                      </p>
+                      <div className="parity-actions">
+                        <button
+                          className="button secondary"
+                          onClick={() => setDeleting(false)}
+                          disabled={busy}
+                        >
+                          {t("Back", "Retour")}
+                        </button>
+                        <button
+                          className="button danger"
+                          disabled={busy}
+                          onClick={() => void mutate("delete")}
+                        >
+                          {t("Confirm deletion", "Confirmer la suppression")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {error && (
+                    <p role="alert" className="form-error">
+                      {error}
+                    </p>
+                  )}
+                </div>
               )}
             </section>
-            {editing && <StoreForm store={store.data} onClose={() => setEditing(false)} />}{" "}
-            {adding && <ProductForm store={store.data} onClose={() => setAdding(false)} />}
+            {editing && isStoreOwner(s) && (
+              <StoreForm store={s} onClose={() => setEditing(false)} />
+            )}
+            {productId && product.loading && <Loading rows={2} />}{" "}
+            {product.error && <ErrorState message={product.error} retry={refresh} />}{" "}
+            {product.data && product.data.storeId === s.id && (
+              <ProductForm
+                store={s}
+                product={product.data}
+                onClose={() => update({ product: null })}
+              />
+            )}
           </>
         )
       )}
     </>
-  );
-}
-function ProductForm({ store, onClose }: { store: Store; onClose: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const { refresh, notify } = useWorkspace();
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    setError("");
-    try {
-      const priceAmount = parseAmount(String(form.get("amount")), store.defaultCurrency);
-      await request(`/customer-api/commerce/stores/${store.id}/products`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: String(form.get("name")).trim(),
-          sku: String(form.get("sku")).trim(),
-          priceAmount,
-          priceCurrency: store.defaultCurrency,
-          type: "PHYSICAL",
-          status: "ACTIVE",
-          inventoryPolicy: "UNLIMITED",
-          storefrontEnabled: true,
-        }),
-      });
-      refresh();
-      notify("Product added to your catalog.");
-      onClose();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Couldn’t add your product.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal
-      title="Add a product"
-      description={`A new addition to ${store.name}.`}
-      onClose={onClose}
-      busy={busy}
-    >
-      <form onSubmit={submit} className="form-stack">
-        <label>
-          Product name
-          <input name="name" required maxLength={180} autoFocus placeholder="e.g. Canvas tote" />
-        </label>
-        <div className="form-grid">
-          <label>
-            Price ({store.defaultCurrency})
-            <input name="amount" required inputMode="decimal" placeholder="0.00" />
-          </label>
-          <label>
-            SKU
-            <input name="sku" maxLength={120} placeholder="Optional" />
-          </label>
-        </div>
-        <div className="info-box">
-          This product will be active with unlimited inventory and available on your storefront.
-        </div>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="modal-actions">
-          <button className="button secondary" type="button" disabled={busy} onClick={onClose}>
-            Cancel
-          </button>
-          <SubmitButton busy={busy}>Add product</SubmitButton>
-        </div>
-      </form>
-    </Modal>
   );
 }

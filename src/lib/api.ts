@@ -3,6 +3,7 @@
 import { accessToken, customerScope } from "./auth";
 import { deviceHeaders, isDeviceError } from "./device";
 import { needsBusinessToolsRecovery } from "./business-tools";
+import { clearQueryCache } from "./query-cache";
 import { tokenCustomerScope } from "./session-scope";
 
 export class ApiError extends Error {
@@ -65,6 +66,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!response.ok) {
     const code = body?.code ?? body?.errorCode;
+    if (response.status === 401 || code === "BUSINESS_TOOLS_ACCESS_REQUIRED") clearQueryCache();
     if (isDeviceError(code))
       window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
     else if (response.status === 401) window.dispatchEvent(new Event("fondeka:session-expired"));

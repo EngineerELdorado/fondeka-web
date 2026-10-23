@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { defaultTheme, themeInitScript } from "@/lib/theme";
+import { languageInitScript } from "@/lib/locale";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +29,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
-        <script id="fondeka-theme" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script
+          id="fondeka-language"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: languageInitScript }}
+        />
+        <Script
+          id="fondeka-theme"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
       </head>
       <body>
         <a className="skip-link" href="#main-content">

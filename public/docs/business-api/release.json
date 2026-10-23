@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "baseUrl": "https://api.fondeka.com",
+  "apiMajor": "/business-api/v1",
+  "files": {
+    "README.md": "3740f26d8c44833bbb2e5ee579080edaad79ba12200fe797c8305766211aa982",
+    "quickstart.md": "4bb0a02d6fbc28872ad32cb40f81741c2d582bc7dc5b1efb1966362a32a7730e",
+    "guides/mobile-money-collection.md": "c4106bc313f99004538313ff0b83d0f1bde609e30ff7e5b3d09e7b0578873b26",
+    "guides/mobile-money-payout.md": "dae3bec2061920438e4cc44ab0d9b75d34963dacf8efbe54c482022643f25cdd",
+    "guides/crypto-collection.md": "308ef1d1f1fa5405b8ec90c52f6aa35620b3de36afeaf478a845b034d77d767a",
+    "guides/crypto-payout.md": "8b2e810a119aa712690d0eb418723ed171527f570ba5a8387989da4be5d52f6e",
+    "concepts.md": "9abec730926231680ec1c9f3d8a35da79381c0cffff2e2bf4353479898f48bfa",
+    "webhooks.md": "708df5c56b9e0e426181ff356632ac27e635982e0f1b008a9d441297c1c42776",
+    "testing.md": "7ac96749a55fe981464b5c6def2dc4fa9504e717483c4a422625f6a2aa3f2c6d",
+    "go-live.md": "e214d138b0f811c202e50d324f2c60de84412d2af9fd4a2adf70266b2f2328a2",
+    "changelog.md": "0a6c3b92fc570fbac2bc9a00de9ae947924e9df9fa2d5aaff47f46bc6ad47131",
+    "openapi.v1.json": "292c2f2e7ad8d4520773e40c2c8e7f3c5451c2fbf67d02e20b5c3d4a3b55a2da",
+    "postman.v1.json": "a4d0efd49be0d22d278e361f8bd8c1b0d478868ec0d3836922170e9915a10806",
+    "examples/curl/quickstart.sh": "86db3bc5ea2adaf4e353ee4dac22f3207ef35149a40b493254ec99bc404a5645",
+    "examples/node/client.mjs": "57e822df0fe9f3b4bc4c0b4221e99ffa62b92685f60138a0e42a9b4f96798aa7",
+    "examples/node/webhook.mjs": "e74a51c97701c5bdeb3afa3c2d69287ae335c287b57c326b97326430abfacb7d",
+    "examples/node/webhook.test.mjs": "7daf5c8c81ca981ca3f5cc844256612aaab38863fa9c6649567afc06979f893c",
+    "examples/python/client.py": "45b39b861e13ff5fe835a09440c04dfabae3bd98d78c1fb8f9e7131cd5900660",
+    "examples/python/webhook.py": "4a48c34722d4db583dece7f67110330569aa0bce75a64efb71f698b7ad9fe0ee",
+    "examples/python/test_examples.py": "19698d2a1fe0344f95d30fd3b007bcc8dba34c1d8ed522cbf2c0c72a73ecb075",
+    "examples/php/client.php": "b121bed63b3c7bb19d579ffb9fc190f97f23d03dd3b30fd1e0dc2b454aed8104"
+  }
+}

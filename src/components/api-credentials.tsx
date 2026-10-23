@@ -1,18 +1,22 @@
 "use client";
+import { useUiText } from "@/lib/use-ui-text";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, KeyRound, Plus, ShieldAlert, Trash2, Webhook } from "lucide-react";
 import { api } from "@/lib/api";
 import { demoMode } from "@/lib/auth";
 import {
   credentialPayload,
+  credentialCreationNeedsReview,
   parseIssuedCredentials,
   type IssuedCredentials,
 } from "@/lib/credential-form";
 import type { ApiEnvironment, ApiKey } from "@/lib/types";
 import { date } from "@/lib/format";
-import { Badge, Empty, ErrorState, Loading, Modal, SubmitButton } from "./ui";
+import { Badge, Empty, ErrorState, Loading, Modal } from "./ui";
 
+import { CredentialCreateFlow } from "./credential-create-flow";
+import { useUrlState } from "@/lib/use-url-state";
 export function ApiCredentials({
   businessId,
   environment,
@@ -24,9 +28,13 @@ export function ApiCredentials({
   keys: { data?: ApiKey[]; loading: boolean; error?: string };
   refresh: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const uiText = useUiText();
+
+  const { values, update } = useUrlState();
+  const open = values.get("createKey") === "1" && !demoMode;
+  const setOpen = (open: boolean) => update({ createKey: open ? 1 : null, flow: null, step: null });
+  const closeRequest = useRef<(() => void) | null>(null);
+  const [uncertain, setUncertain] = useState(false);
   const [issued, setIssued] = useState<IssuedCredentials>();
   const [revoke, setRevoke] = useState<ApiKey>();
   const [busy, setBusy] = useState(false);
@@ -40,34 +48,49 @@ export function ApiCredentials({
   }, []);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  useEffect(() => {
+    if (!issued) return;
+    const route = window.location.pathname;
+    const pop = (event: PopStateEvent) => {
+      if (
+        window.location.pathname !== route ||
+        new URLSearchParams(window.location.search).get("createKey") === "1"
+      )
+        return;
+      if (
+        !window.confirm(uiText("Have you saved both secrets securely? They cannot be shown again."))
+      ) {
+        event.stopImmediatePropagation();
+        window.history.forward();
+      } else {
+        setIssued(undefined);
+        setCopyStatus("");
+      }
+    };
+    window.addEventListener("popstate", pop, true);
+    return () => window.removeEventListener("popstate", pop, true);
+  }, [issued, uiText]);
+
   const path = "/customer-api/businesses/" + businessId + "/api-keys";
 
   function close() {
     if (locked.current) return;
     if (
       issued &&
-      !window.confirm("Have you saved both secrets securely? They cannot be shown again.")
+      !window.confirm(uiText("Have you saved both secrets securely? They cannot be shown again."))
     )
       return;
     setIssued(undefined);
     setOpen(false);
     setRevoke(undefined);
-    setName("");
-    setWebhookUrl("");
+    setUncertain(false);
     setError("");
     setCopyStatus("");
   }
-  async function create(event: FormEvent) {
-    event.preventDefault();
+  async function create(name: string, webhookUrl: string) {
     if (locked.current || demoMode) return;
     setError("");
-    let payload: ReturnType<typeof credentialPayload>;
-    try {
-      payload = credentialPayload(name, webhookUrl, environment);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Check the integration details.");
-      return;
-    }
+    const payload = credentialPayload(name, webhookUrl, environment);
     locked.current = true;
     setBusy(true);
     try {
@@ -80,10 +103,16 @@ export function ApiCredentials({
       refresh();
     } catch (failure) {
       if (!mounted.current) return;
+      if (!credentialCreationNeedsReview(failure)) throw failure;
       setError(
-        (failure instanceof Error ? failure.message : "Could not generate credentials.") +
-          " If the result is uncertain, refresh the key list and revoke any unexpected key before trying again.",
+        (failure instanceof Error
+          ? uiText(failure.message)
+          : uiText("Could not generate credentials.")) +
+          uiText(
+            " If the result is uncertain, refresh the key list and revoke any unexpected key before trying again.",
+          ),
       );
+      setUncertain(true);
       refresh(); // Do not automatically retry a credential-creation POST.
     } finally {
       locked.current = false;
@@ -102,7 +131,9 @@ export function ApiCredentials({
       refresh();
     } catch (failure) {
       if (!mounted.current) return;
-      setError(failure instanceof Error ? failure.message : "Could not revoke the key.");
+      setError(
+        failure instanceof Error ? uiText(failure.message) : uiText("Could not revoke the key."),
+      );
     } finally {
       locked.current = false;
       if (mounted.current) setBusy(false);
@@ -111,9 +142,9 @@ export function ApiCredentials({
   async function copy(value: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyStatus(label + " copied. Store it securely on your backend.");
+      setCopyStatus(label + uiText(" copied. Store it securely on your backend."));
     } catch {
-      setCopyStatus("Copy failed. Select the value and copy it manually.");
+      setCopyStatus(uiText("Copy failed. Select the value and copy it manually."));
     }
   }
 
@@ -123,9 +154,13 @@ export function ApiCredentials({
         <div className="panel-heading">
           <div>
             <h2>
-              <KeyRound size={18} /> API credentials
+              <KeyRound size={18} />
+              {uiText("API credentials")}
             </h2>
-            <p className="muted">{environment} credentials for your backend integrations.</p>
+            <p className="muted">
+              {environment}
+              {uiText("credentials for your backend integrations.")}
+            </p>
           </div>
           <button
             className="button primary small"
@@ -135,7 +170,8 @@ export function ApiCredentials({
               setError("");
             }}
           >
-            <Plus size={16} /> Generate API credentials
+            <Plus size={16} />
+            {uiText("Generate API credentials")}
           </button>
         </div>
         {keys.loading ? (
@@ -144,8 +180,10 @@ export function ApiCredentials({
           <ErrorState message={keys.error} retry={refresh} />
         ) : !keys.data?.length ? (
           <Empty
-            title="No API credentials yet"
-            description="Generate your first key and configure where Fondeka should deliver signed webhooks."
+            title={uiText("No API credentials yet")}
+            description={uiText(
+              "Generate your first key and configure where Fondeka should deliver signed webhooks.",
+            )}
           />
         ) : (
           <>
@@ -153,13 +191,13 @@ export function ApiCredentials({
               <table>
                 <thead>
                   <tr>
-                    <th>Integration</th>
-                    <th>Key prefix</th>
-                    <th>Environment</th>
-                    <th>Webhook destination</th>
-                    <th>Created</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>{uiText("Integration")}</th>
+                    <th>{uiText("Key prefix")}</th>
+                    <th>{uiText("Environment")}</th>
+                    <th>{uiText("Webhook destination")}</th>
+                    <th>{uiText("Created")}</th>
+                    <th>{uiText("Status")}</th>
+                    <th>{uiText("Actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -177,7 +215,7 @@ export function ApiCredentials({
                       <td>
                         <span className="webhook-url">
                           <Webhook size={14} />
-                          {key.webhookUrl || "Not configured"}
+                          {key.webhookUrl || uiText("Not configured")}
                         </span>
                       </td>
                       <td>{date(key.createdAt)}</td>
@@ -193,9 +231,10 @@ export function ApiCredentials({
                               setRevoke(key);
                               setError("");
                             }}
-                            aria-label={"Revoke " + key.name}
+                            aria-label={uiText("Revoke ") + key.name}
                           >
-                            <Trash2 size={14} /> Revoke
+                            <Trash2 size={14} />
+                            {uiText("Revoke")}
                           </button>
                         )}
                       </td>
@@ -219,15 +258,15 @@ export function ApiCredentials({
                     {environment}
                   </span>
                   <details>
-                    <summary>Integration details</summary>
+                    <summary>{uiText("Integration details")}</summary>
                     <dl className="detail-list">
                       <div>
-                        <dt>Created</dt>
+                        <dt>{uiText("Created")}</dt>
                         <dd>{date(key.createdAt)}</dd>
                       </div>
                       <div>
-                        <dt>Webhook</dt>
-                        <dd>{key.webhookUrl || "Not configured"}</dd>
+                        <dt>{uiText("Webhook")}</dt>
+                        <dd>{key.webhookUrl || uiText("Not configured")}</dd>
                       </div>
                     </dl>
                     {key.enabled && (
@@ -238,10 +277,10 @@ export function ApiCredentials({
                           setRevoke(key);
                           setError("");
                         }}
-                        aria-label={`Revoke ${key.name}`}
+                        aria-label={uiText("Revoke ") + key.name}
                       >
                         <Trash2 size={16} />
-                        Revoke key
+                        {uiText("Revoke key")}
                       </button>
                     )}
                   </details>
@@ -253,32 +292,41 @@ export function ApiCredentials({
         <div className="panel-note">
           <KeyRound size={14} />
           {demoMode
-            ? "Credential generation and revocation require a real authenticated customer account."
-            : "Secrets are shown once at generation. Store them on your backend. Admins can still manage your credentials."}
+            ? uiText(
+                "Credential generation and revocation require a real authenticated customer account.",
+              )
+            : uiText(
+                "Secrets are shown once at generation. Store them on your backend. Admins can still manage your credentials.",
+              )}
         </div>
       </section>
       {open && (
         <Modal
           title={
-            issued ? `Save your ${environment} credentials` : `Generate ${environment} credentials`
+            (issued ? uiText("Save your credentials") : uiText("Generate credentials")) +
+            " · " +
+            environment
           }
           description={
             issued
-              ? "This is the only time both secrets will be displayed."
-              : "Choose an integration name and a public HTTPS webhook URL."
+              ? uiText("This is the only time both secrets will be displayed.")
+              : uiText("Choose an integration name and a public HTTPS webhook URL.")
           }
-          onClose={close}
+          onClose={() => (issued || uncertain ? close() : closeRequest.current?.())}
           busy={busy}
+          hideHeader={!issued && !uncertain}
+          className={!issued && !uncertain ? "guided-dialog" : undefined}
         >
           {issued ? (
             <div>
               <p className="panel-note">
                 <ShieldAlert size={18} />
-                Never embed these secrets in browser or mobile code, or share them in support
-                messages.
+                {uiText(
+                  "Never embed these secrets in browser or mobile code, or share them in support messages.",
+                )}
               </p>
               <label>
-                API key
+                {uiText("API key")}
                 <div className="copy-field">
                   <input
                     style={{ flex: 1, minWidth: 0 }}
@@ -286,19 +334,19 @@ export function ApiCredentials({
                     readOnly
                     autoComplete="off"
                     spellCheck={false}
-                    aria-label="New API key"
+                    aria-label={uiText("New API key")}
                   />
                   <button
                     className="icon-button"
-                    aria-label="Copy API key"
-                    onClick={() => void copy(issued.apiKey, "API key")}
+                    aria-label={uiText("Copy API key")}
+                    onClick={() => void copy(issued.apiKey, uiText("API key"))}
                   >
                     <Copy size={16} />
                   </button>
                 </div>
               </label>
               <label>
-                Webhook signing secret
+                {uiText("Webhook signing secret")}
                 <div className="copy-field">
                   <input
                     style={{ flex: 1, minWidth: 0 }}
@@ -306,12 +354,12 @@ export function ApiCredentials({
                     readOnly
                     autoComplete="off"
                     spellCheck={false}
-                    aria-label="New webhook signing secret"
+                    aria-label={uiText("New webhook signing secret")}
                   />
                   <button
                     className="icon-button"
-                    aria-label="Copy webhook signing secret"
-                    onClick={() => void copy(issued.webhookSecret, "Webhook secret")}
+                    aria-label={uiText("Copy webhook signing secret")}
+                    onClick={() => void copy(issued.webhookSecret, uiText("Webhook secret"))}
                   >
                     <Copy size={16} />
                   </button>
@@ -322,71 +370,49 @@ export function ApiCredentials({
               </p>
               <div className="modal-actions">
                 <button className="button primary" onClick={close}>
-                  I have saved both secrets
+                  {uiText("I have saved both secrets")}
                 </button>
               </div>
             </div>
+          ) : uncertain ? (
+            <div className="form-stack">
+              <p role="alert" className="form-error">
+                {error}
+              </p>
+              <button
+                className="button primary"
+                onClick={() => {
+                  refresh();
+                  close();
+                }}
+              >
+                {uiText("Review API credentials")}
+              </button>
+            </div>
           ) : (
-            <form className="form-stack" onSubmit={(event) => void create(event)}>
-              <div className="info-box">
-                <strong>{environment}</strong> ·{" "}
-                {environment === "SANDBOX"
-                  ? "Test credentials simulate payments without real funds. Use a public HTTPS webhook, including a public tunnel for local development."
-                  : "These credentials can authorize real API payments from your integration server."}{" "}
-                The environment cannot be changed later.
-              </div>
-              <label>
-                Integration name
-                <input
-                  required
-                  maxLength={100}
-                  value={name}
-                  autoComplete="off"
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={
-                    environment === "SANDBOX"
-                      ? "e.g. Development checkout"
-                      : "e.g. Production checkout"
-                  }
-                />
-              </label>
-              <label>
-                Webhook URL
-                <input
-                  required
-                  type="url"
-                  maxLength={2048}
-                  value={webhookUrl}
-                  autoComplete="off"
-                  onChange={(event) => setWebhookUrl(event.target.value)}
-                  placeholder="https://your-backend.example/webhooks/fondeka"
-                />
-              </label>
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
-                </p>
-              )}
-              <div className="modal-actions">
-                <button className="button secondary" type="button" disabled={busy} onClick={close}>
-                  Cancel
-                </button>
-                <SubmitButton busy={busy}>Generate credentials</SubmitButton>
-              </div>
-            </form>
+            <CredentialCreateFlow
+              environment={environment}
+              onClose={close}
+              onCreate={create}
+              closeRequest={closeRequest}
+            />
           )}
         </Modal>
       )}
       {revoke && (
         <Modal
-          title={"Revoke " + revoke.name + "?"}
+          title={uiText("Revoke ") + revoke.name + "?"}
           onClose={close}
           busy={busy}
-          description="This key will stop accepting new API requests. Accepted payments, their webhooks and transaction history remain intact."
+          description={uiText(
+            "This key will stop accepting new API requests. Accepted payments, their webhooks and transaction history remain intact.",
+          )}
         >
           <p className="panel-note">
-            {environment} credential · Retain its webhook signing secret on your server until
-            accepted requests and pending deliveries are settled.
+            {environment}
+            {uiText(
+              "credential · Retain its webhook signing secret on your server until accepted requests and pending deliveries are settled.",
+            )}
           </p>
           {error && (
             <p className="form-error" role="alert">
@@ -395,10 +421,10 @@ export function ApiCredentials({
           )}
           <div className="modal-actions">
             <button className="button secondary" disabled={busy} onClick={close}>
-              Cancel
+              {uiText("Cancel")}
             </button>
             <button className="button primary" disabled={busy} onClick={() => void revokeKey()}>
-              {busy ? "Revoking…" : "Revoke API key"}
+              {busy ? uiText("Revoking…") : uiText("Revoke API key")}
             </button>
           </div>
         </Modal>

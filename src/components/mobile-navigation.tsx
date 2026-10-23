@@ -1,12 +1,13 @@
 "use client";
+import { useUiText } from "@/lib/use-ui-text";
 
-import Link from "next/link";
+import { BusinessToolLink as Link } from "@/components/business-tool-link";
 import {
   Code2,
   House,
   Link2,
   LogOut,
-  Monitor,
+  Calculator as Monitor,
   MoreHorizontal,
   Settings2,
   Store,
@@ -15,8 +16,8 @@ import {
 import { Modal } from "./ui";
 
 const tabs = [
-  { href: "/overview", label: "Home", icon: House },
-  { href: "/stores", label: "Stores", icon: Store },
+  { href: "/overview", label: "Overview", icon: House },
+  { href: "/stores", label: "Online Stores", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
   { href: "/payment-requests", label: "Payment links", icon: Link2 },
 ];
@@ -34,10 +35,12 @@ export function MobileNavigation({
   onClose: () => void;
   onLogout: () => void;
 }) {
+  const uiText = useUiText();
+
   const moreActive = pathname.startsWith("/developers") || pathname.startsWith("/settings");
   return (
     <>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+      <nav className="mobile-bottom-nav" aria-label={uiText("Mobile navigation")}>
         {tabs.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
@@ -48,33 +51,33 @@ export function MobileNavigation({
             <span className="mobile-tab-icon">
               <Icon size={22} strokeWidth={1.8} />
             </span>
-            <span>{label}</span>
+            <span>{uiText(label)}</span>
           </Link>
         ))}
         <button
           type="button"
           className={`mobile-tab ${moreActive || open ? "active" : ""}`}
           onClick={onOpen}
-          aria-label="More options"
+          aria-label={uiText("More options")}
           aria-haspopup="dialog"
           aria-expanded={open}
         >
           <span className="mobile-tab-icon">
             <MoreHorizontal size={23} />
           </span>
-          <span>More</span>
+          <span>{uiText("More")}</span>
         </button>
       </nav>
       {open && (
-        <Modal title="Your workspace" variant="sheet" onClose={onClose}>
+        <Modal title={uiText("Your workspace")} variant="sheet" onClose={onClose}>
           <div className="mobile-more-links">
             <Link href="/developers" onClick={onClose}>
-              <span className="tool-icon lilac">
+              <span className="tool-icon blue">
                 <Code2 size={22} />
               </span>
               <span>
-                <strong>API & developers</strong>
-                <small>Credentials, activity, and integrations</small>
+                <strong>{uiText("API & developers")}</strong>
+                <small>{uiText("Credentials, activity, and integrations")}</small>
               </span>
               <ArrowUpRight size={18} />
             </Link>
@@ -83,15 +86,15 @@ export function MobileNavigation({
                 <Settings2 size={22} />
               </span>
               <span>
-                <strong>Settings</strong>
-                <small>Account and workspace preferences</small>
+                <strong>{uiText("Settings")}</strong>
+                <small>{uiText("Account and workspace preferences")}</small>
               </span>
               <ArrowUpRight size={18} />
             </Link>
           </div>
           <button className="button secondary mobile-signout" onClick={onLogout}>
             <LogOut size={18} />
-            Sign out
+            {uiText("Sign out")}
           </button>
         </Modal>
       )}

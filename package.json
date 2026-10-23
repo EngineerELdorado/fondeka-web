@@ -13,18 +13,24 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "docs:sync": "node --import tsx scripts/sync-business-api-docs.ts",
+    "docs:check": "node --import tsx scripts/sync-business-api-docs.ts --check"
   },
   "dependencies": {
     "aws-amplify": "6.22.2",
     "geist": "^1.8.2",
     "lucide-react": "1.61.0",
     "next": "16.4.2",
+    "qrcode": "^1.5.4",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.39.0",

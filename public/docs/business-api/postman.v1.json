@@ -1,0 +1,455 @@
+{
+  "info": {
+    "name": "Fondeka Business API v1 — Sandbox",
+    "description": "Generated from the merchant contract. Set apiKey locally, businessId and a unique intent. Keep intent on retries. Async payments need polling; running the collection once does not wait for completion. Synthetic fixtures only.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.fondeka.com"
+    },
+    {
+      "key": "businessId",
+      "value": "42"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "intent",
+      "value": "CHANGE_ME_ONCE_PER_LOGICAL_RUN"
+    },
+    {
+      "key": "reference",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const key=pm.variables.get(\"apiKey\") || \"\";",
+          "if (!key.startsWith(\"fdk_biz_test_\")) { pm.execution.skipRequest(); throw new Error(\"This example collection accepts sandbox keys only.\"); }",
+          "if (!pm.variables.get(\"intent\") || pm.variables.get(\"intent\")===\"CHANGE_ME_ONCE_PER_LOGICAL_RUN\") { pm.execution.skipRequest(); throw new Error(\"Set intent to a unique value; keep it unchanged on retries.\"); }"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "List account wallet balances",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/wallets?currency=USD",
+        "description": "LIVE keys read the owning account's real fiat wallets; SANDBOX keys read isolated virtual wallets. Businesses under the same account share balances within their environment. An absent wallet queried by currency has zero balance."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fund a sandbox wallet — fund",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createSandboxTopUp:fund"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/top-ups",
+        "description": "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 100,\n  \"currency\": \"USD\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Collect a payment — crypto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createCollection:crypto"
+          },
+          {
+            "key": "X-Fondeka-Test-Scenario",
+            "value": "SUCCESS"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
+        "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 10,\n  \"clientReference\": \"crypto-order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"paymentMethodName\": \"USDT\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Collect a payment — mobileMoney",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createCollection:mobileMoney"
+          },
+          {
+            "key": "X-Fondeka-Test-Scenario",
+            "value": "SUCCESS"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
+        "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"clientReference\": \"order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve a payment",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/transactions/{{reference}}",
+        "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. FAILED/CANCELED do not imply a refund; inspect refunded."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Send a payout — crypto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createPayout:crypto"
+          },
+          {
+            "key": "X-Fondeka-Test-Scenario",
+            "value": "SUCCESS"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
+        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. Unknown or manual-review outcomes keep funds reserved; do not submit a replacement payment while investigating.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"clientReference\": \"crypto-order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"paymentMethodName\": \"USDT\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Send a payout — mobileMoney",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createPayout:mobileMoney"
+          },
+          {
+            "key": "X-Fondeka-Test-Scenario",
+            "value": "SUCCESS"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
+        "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. Unknown or manual-review outcomes keep funds reserved; do not submit a replacement payment while investigating.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"clientReference\": \"order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Preview a sandbox currency conversion — convert",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/convert/quote",
+        "description": "SANDBOX only. Return QUOTED with no conversion id. Uses configurable synthetic FX fixtures and zero fees. A quote does not reserve funds or lock a rate. Source and target currencies must differ and have configured fixture rates.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 10,\n  \"sourceCurrency\": \"USD\",\n  \"targetCurrency\": \"EUR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Convert sandbox funds — convert",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{intent}}:createSandboxConversion:convert"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/convert",
+        "description": "SANDBOX only. Atomically debit source and credit target using current synthetic rates. Return COMPLETED with a conversion id and both balances. Idempotent across this account's Businesses/keys; conflicting reuse returns 409. No real money, provider call or payment webhook is involved.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 10,\n  \"sourceCurrency\": \"USD\",\n  \"targetCurrency\": \"EUR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List sandbox wallet entries",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/USD/entries",
+        "description": "SANDBOX only. Read append-only account wallet entries, newest sequence first. Includes top-ups, payment credits, payout debits/refunds and conversion entries. LIVE credentials are rejected with 403."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

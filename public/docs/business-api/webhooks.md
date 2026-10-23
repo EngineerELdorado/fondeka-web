@@ -1,0 +1,29 @@
+# Receive and verify webhooks
+
+Configure your HTTPS destination when issuing an API key. The destination and signing secret are immutable for that credential. To change them, issue a replacement key. Accepted payments continue delivering to their original destination/secret after the originating key is revoked, so keep that receiver active until those payments finish.
+
+## Events and envelope
+
+The API emits `business_api.collection.completed`, `.failed`, `.canceled`, and the corresponding `business_api.payout.completed`, `.failed`, `.canceled`. `UNKNOWN` and `MANUAL_INTERVENTION_REQUIRED` do not generate terminal events. Sandbox funding/conversions do not generate payment events.
+
+The envelope contains `id` (UUID), `type`, `createdAt`, `environment`, and `data`, the complete transaction resource. The [OpenAPI callback and event schemas](openapi.v1.json) define every field. Check both envelope and data environments, Business ownership, reference, status and amount before fulfilling an order.
+
+## Authenticate raw bytes
+
+Headers are `X-Fondeka-Event-Id`, `X-Fondeka-Timestamp` (Unix seconds) and `X-Fondeka-Signature` (`v1=` followed by lowercase HMAC-SHA256 hex).
+
+1. Read the exact raw request-body bytes before JSON parsing or body transformation.
+2. Check the timestamp is within your freshness window; the examples use ±300 seconds.
+3. Compute HMAC-SHA256 with the **webhook signing secret**, over the UTF-8 timestamp, a literal `.`, then the raw body bytes.
+4. Compare signatures in constant time. Only then parse JSON and validate ownership/environment, event type and header/body event ID equality.
+5. Insert the verified event into a durable inbox with a unique event ID. Return 2xx after commit, and process it asynchronously.
+
+Use the [Node receiver](examples/node/webhook.mjs) or [Python receiver](examples/python/webhook.py). Both preserve raw bytes, reject tampering/stale events/foreign Businesses/wrong environments, and persist before acknowledgment. They are executable examples; use a shared database inbox and idempotent fulfillment in a production application with multiple instances.
+
+## Delivery and deduplication
+
+Any 2xx acknowledges delivery. A non-2xx, redirect or transport failure schedules another attempt, up to ten attempts. Scheduled retry delays are 30, 60, 120, 240, 480, 960, 1800, 1800 and 1800 seconds; worker scheduling can make actual delivery later. Redirects are not followed.
+
+The event ID, creation time and raw payload remain fixed. Each attempt has a fresh timestamp/signature, so verify freshness again before acknowledging a duplicate. Delivery can repeat after an acknowledgment is lost. Never depend on ordering across payments. Make your own business-side fulfillment idempotent by payment reference as well as storing unique event IDs.
+
+A webhook is a financial snapshot taken after reconciliation. GET returns current state, including a refund that happened after the snapshot. If events stop arriving or all attempts fail, poll the payment reference and investigate the receiver; this version has no public webhook replay/history endpoint.

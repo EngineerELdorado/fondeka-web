@@ -123,18 +123,80 @@ export function businessDestination(value: string): string | undefined {
   }
   if (
     url.origin !== "https://portal.invalid" ||
-    !/^\/(overview|developers|payment-requests|pos|stores(?:\/\d+)?)$/.test(url.pathname)
+    !/^\/(overview|business|developers|payment-requests|pos|stores(?:\/\d+(?:\/pos)?)?)$/.test(
+      url.pathname,
+    )
   )
     return;
   const query = new URLSearchParams();
+  if (url.pathname === "/stores" && url.searchParams.get("mode") === "pos") {
+    query.set("mode", "pos");
+    if (url.searchParams.get("state") === "empty") query.set("state", "empty");
+  }
   if (url.pathname === "/payment-requests" && url.searchParams.get("new") === "1")
     query.set("new", "1");
   if (url.pathname === "/pos" && /^\d+$/.test(url.searchParams.get("store") || ""))
     query.set("store", url.searchParams.get("store")!);
+  if (url.pathname === "/pos" && /^\d{1,9}$/.test(url.searchParams.get("storePage") || ""))
+    query.set("storePage", url.searchParams.get("storePage")!);
+  if (url.pathname === "/payment-requests" && /^\d+$/.test(url.searchParams.get("request") || ""))
+    query.set("request", url.searchParams.get("request")!);
+  if (/^\/stores(?:\/\d+)?$/.test(url.pathname)) {
+    const tab = url.searchParams.get("tab");
+    if (tab && ["products", "sales", "customers", "reports", "staff", "settings"].includes(tab))
+      query.set("tab", tab);
+    for (const key of ["page", "product", "customer", "customerSalesPage"])
+      if (/^\d+$/.test(url.searchParams.get(key) || "")) query.set(key, url.searchParams.get(key)!);
+    const sale = url.searchParams.get("sale");
+    if (sale && /^[A-Za-z0-9_-]{1,128}$/.test(sale)) query.set("sale", sale);
+    if (url.pathname === "/stores" && url.searchParams.get("new") === "1") query.set("new", "1");
+  }
+  // Restore only known in-portal selections; no return URL is accepted.
+  const copy = (key: string, pattern: RegExp) => {
+    const value = url.searchParams.get(key);
+    if (value && pattern.test(value)) query.set(key, value);
+  };
+  copy("flow", /^(store|product|request|customer|staff|api-key|sale)$/);
+  copy(
+    "step",
+    /^(type|name|description|review|amount|settlement|details|items|cover|images|story|settings|price|media|stock|fulfillment|identity|note|permissions|webhook|payment|confirmation)$/,
+  );
+  if (/^\/stores\/\d+$/.test(url.pathname))
+    for (const key of ["newProduct", "newCustomer", "invite"]) copy(key, /^1$/);
+  if (url.pathname === "/developers") copy("createKey", /^1$/);
+  if (url.pathname === "/developers")
+    copy(
+      "doc",
+      /^(overview|quickstart|mobile-money-collection|mobile-money-payout|crypto-collection|crypto-payout|concepts|webhooks|testing|go-live|changelog)$/,
+    );
+  if (url.pathname === "/developers") {
+    for (const key of ["business", "businessPage", "apiPage", "apiDetailBusiness"])
+      copy(key, /^\d{1,12}$/);
+    copy("guide", /^1$/);
+    copy("environment", /^(LIVE|SANDBOX)$/);
+    copy("apiReference", /^[A-Za-z0-9_-]{1,128}$/);
+    copy("api_action", /^(BUSINESS_API_COLLECTION|BUSINESS_API_PAYOUT)$/);
+    copy("api_status", /^[A-Z_]{1,64}$/);
+    copy("api_currency", /^[A-Za-z]{3}$/);
+    for (const key of ["api_reference", "api_clientReference"]) copy(key, /^[^\r\n]{1,128}$/);
+    for (const key of ["api_fromDate", "api_toDate"]) copy(key, /^\d{4}-\d{2}-\d{2}$/);
+  }
+  if (url.pathname === "/payment-requests" || /^\/stores(?:\/\d+)?$/.test(url.pathname)) {
+    copy("page", /^\d{1,12}$/);
+    copy("search", /^[^\r\n]{1,128}$/);
+    if (url.pathname === "/payment-requests") {
+      copy("type", /^(QUICK_CHARGE|INVOICE|DONATION)$/);
+      copy("status", /^(DRAFT|ACTIVE|SUSPENDED|COMPLETED|CANCELLED|EXPIRED)$/);
+    } else {
+      copy("period", /^(today|last_7_days|last_30_days|all|custom)$/);
+      copy("currency", /^[A-Z]{3}$/);
+      for (const key of ["from", "to"]) copy(key, /^\d{4}-\d{2}-\d{2}$/);
+    }
+  }
   return url.pathname + (query.size ? `?${query}` : "");
 }
 export function isOwnerApi(path: string) {
-  return /^\/customer-api\/(commerce\/(stores|products)(?:[/?]|$)|payment_requests(?:[/?]|$)|businesses(?:[/?]|$))/.test(
+  return /^\/customer-api\/(commerce\/(stores|products|orders|customers)(?:[/?]|$)|payment_requests(?:[/?]|$)|businesses(?:[/?]|$))/.test(
     path,
   );
 }
@@ -250,16 +312,53 @@ export function buildSelection(
     throw new Error("Use the payment method’s currency.");
   return selection;
 }
-export function quotePath(selection: PaymentSelection) {
+export type PaymentContext = {
+  action?: string;
+  amount?: number;
+  currency?: string;
+  feeMode?: "INCLUSIVE" | "EXCLUSIVE";
+  paymentRequestId?: number;
+  paymentRequestCode?: string;
+};
+function requestIdentity(context: PaymentContext) {
+  if (context.action !== "PAY_REQUEST") return {};
+  if (!isPositiveId(context.paymentRequestId) && !context.paymentRequestCode?.trim())
+    throw new Error("Select a payment request before collecting.");
+  return {
+    ...(isPositiveId(context.paymentRequestId)
+      ? { paymentRequestId: String(context.paymentRequestId) }
+      : {}),
+    ...(context.paymentRequestCode ? { paymentRequestCode: context.paymentRequestCode } : {}),
+  };
+}
+export function paymentMethodsPath(context: PaymentContext, country?: string) {
+  return (
+    "/customer-api/payment_methods?" +
+    new URLSearchParams({
+      type: "COLLECTION",
+      action: context.action || "BUSINESS_TOOLS_ACCESS",
+      ...(country ? { countryCode: country } : {}),
+      ...requestIdentity(context),
+    })
+  );
+}
+export function collectionMethods(methods: PaymentMethod[], action: string) {
+  return action === "COMMERCE_CHECKOUT_PAYMENT"
+    ? methods.filter((method) => method.type !== "BALANCE")
+    : methods;
+}
+export function quotePath(selection: PaymentSelection, context: PaymentContext = {}) {
   const query = new URLSearchParams({
-    action: "BUSINESS_TOOLS_ACCESS",
-    amount: "0",
+    action: context.action || "BUSINESS_TOOLS_ACCESS",
+    amount: String(context.amount ?? 0),
     paymentMethodId: String(selection.id),
-    currency: selection.currency,
+    currency: context.currency || selection.currency,
     paymentCurrency: selection.currency,
-    feeApplicationMode: "EXCLUSIVE",
+    feeApplicationMode: context.feeMode || "EXCLUSIVE",
+    ...requestIdentity(context),
   });
   if (selection.fiatWalletId) query.set("fiatWalletId", String(selection.fiatWalletId));
+  if (selection.networkId) query.set("networkId", String(selection.networkId));
   return `/customer-api/fees?${query}`;
 }
 export function parseQuote(value: unknown): AccessQuote {

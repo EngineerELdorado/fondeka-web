@@ -1,6 +1,9 @@
+"use client";
+import { useI18n } from "@/lib/i18n";
 import { ArrowDownLeft, Code2, Store } from "lucide-react";
 
 export function PlatformGraphic() {
+  const { t } = useI18n();
   return (
     <div className="platform-graphic" aria-hidden="true">
       <div className="platform-glow" />
@@ -38,7 +41,7 @@ export function PlatformGraphic() {
         </span>
         <span>
           <strong>Fondeka</strong>
-          <small>BUSINESS PLATFORM</small>
+          <small>{t("BUSINESS PLATFORM", "PLATEFORME BUSINESS")}</small>
         </span>
         <span className="platform-core-mark">↗</span>
       </div>
@@ -48,7 +51,7 @@ export function PlatformGraphic() {
         </span>
         <div>
           <strong>Commerce</strong>
-          <small>Online & in person</small>
+          <small>{t("Online & in person", "En ligne et en personne")}</small>
         </div>
         <i />
       </div>
@@ -57,8 +60,8 @@ export function PlatformGraphic() {
           <ArrowDownLeft size={20} />
         </span>
         <div>
-          <strong>Payments</strong>
-          <small>Links & invoices</small>
+          <strong>{t("Payments", "Paiements")}</strong>
+          <small>{t("Links & invoices", "Liens et factures")}</small>
         </div>
         <i />
       </div>
@@ -67,13 +70,17 @@ export function PlatformGraphic() {
           <Code2 size={20} />
         </span>
         <div>
-          <strong>Business API</strong>
-          <small>Built to connect</small>
+          <strong>{t("Business API", "API Business")}</strong>
+          <small>{t("Built to connect", "Pensée pour connecter")}</small>
         </div>
         <i />
       </div>
-      <span className="platform-coordinate coordinate-top">01 / CONNECT</span>
-      <span className="platform-coordinate coordinate-bottom">YOUR BUSINESS. ONE PLATFORM.</span>
+      <span className="platform-coordinate coordinate-top">
+        {t("01 / CONNECT", "01 / CONNECTER")}
+      </span>
+      <span className="platform-coordinate coordinate-bottom">
+        {t("YOUR BUSINESS. ONE PLATFORM.", "VOTRE ENTREPRISE. UNE PLATEFORME.")}
+      </span>
     </div>
   );
 }

@@ -9,9 +9,13 @@ import { Brand, SubmitButton } from "@/components/ui";
 import { accessToken, authConfigured, demoMode, initializeAuth } from "@/lib/auth";
 import { resetDeviceIdentityMemory } from "@/lib/device";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AppRegistration } from "@/components/app-registration";
+import { LanguageSwitch } from "@/components/language-switch";
+import { useI18n } from "@/lib/i18n";
 import { PlatformGraphic } from "@/components/platform-graphic";
 
 export default function Login() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState("email");
@@ -56,7 +60,10 @@ export default function Login() {
     }
     if (result.nextStep.signInStep !== "CONFIRM_SIGN_IN_WITH_CUSTOM_CHALLENGE")
       throw new Error(
-        "This account requires a different authentication step. Please contact Fondeka support.",
+        t(
+          "This account requires a different authentication step. Please contact Fondeka support.",
+          "Ce compte nécessite une autre étape d’authentification. Contactez l’assistance Fondeka.",
+        ),
       );
     setStep("code");
     setCooldown(180);
@@ -72,14 +79,22 @@ export default function Login() {
         const result = await confirmSignIn({ challengeResponse: code });
         if (!result.isSignedIn)
           throw new Error(
-            "That code is incorrect or expired. Check your email for the latest code and try again.",
+            t(
+              "That code is incorrect or expired. Check your email for the latest code and try again.",
+              "Ce code est incorrect ou a expiré. Utilisez le dernier code reçu par e-mail et réessayez.",
+            ),
           );
         setCode("");
         router.replace("/overview");
       }
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "We couldn’t sign you in. Please try again.",
+        error instanceof Error
+          ? error.message
+          : t(
+              "We couldn’t sign you in. Please try again.",
+              "Connexion impossible. Veuillez réessayer.",
+            ),
       );
     } finally {
       setBusy(false);
@@ -88,65 +103,88 @@ export default function Login() {
   return (
     <main id="main-content" className="login-screen">
       <div className="auth-theme-toggle">
+        <LanguageSwitch />
         <ThemeToggle />
       </div>
       <section className="login-story">
         <Brand />
         <div>
-          <span className="welcome-kicker">YOUR BUSINESS, CONNECTED</span>
+          <span className="welcome-kicker">
+            {t("YOUR BUSINESS, CONNECTED", "VOTRE ACTIVITÉ, CONNECTÉE")}
+          </span>
           <h2>
-            Built for the way
+            {t("Built for the way", "Conçu pour votre façon")}
             <br />
-            <span>you do business.</span>
+            <span>{t("you do business.", "de faire des affaires.")}</span>
           </h2>
           <p>
-            Your stores, payments, and integrations.
+            {t(
+              "Your stores, payments, and integrations.",
+              "Vos boutiques, paiements et intégrations.",
+            )}
             <br />
-            Together in one place, ready for what’s next.
+            {t(
+              "Together in one place, ready for what’s next.",
+              "Réunis au même endroit, prêts pour la suite.",
+            )}
           </p>
           <PlatformGraphic />
         </div>
         <small>
           <ShieldCheck size={15} />
-          Built around your business.
+          {t("Built around your business.", "Pensé pour votre activité.")}
         </small>
       </section>
       <section className="login-form-section">
         <div className="login-form-wrap">
-          <span className="eyebrow">YOUR NEXT CHAPTER</span>
+          <span className="eyebrow">{t("YOUR NEXT CHAPTER", "VOTRE PROCHAINE ÉTAPE")}</span>
           <h1>
             <span className="desktop-page-title">
-              {step === "email" ? "Welcome to your workspace." : "Check your inbox."}
+              {step === "email"
+                ? t("Welcome to your workspace.", "Bienvenue dans votre espace.")
+                : t("Check your inbox.", "Consultez vos e-mails.")}
             </span>
             <span className="mobile-page-title">
-              {step === "email" ? "Sign in to Fondeka." : "Enter your code."}
+              {step === "email"
+                ? t("Sign in to Fondeka.", "Connectez-vous à Fondeka.")
+                : t("Enter your code.", "Saisissez votre code.")}
             </span>
           </h1>
           <p className="muted">
             {step === "email"
-              ? "Sign in with the email you use in the Fondeka app."
-              : `We’ve sent a verification code to ${email}.`}
+              ? t(
+                  "Sign in with the email you use in the Fondeka app.",
+                  "Connectez-vous avec l’e-mail utilisé dans l’application Fondeka.",
+                )
+              : t(
+                  `We’ve sent a verification code to ${email}.`,
+                  `Un code de vérification a été envoyé à ${email}.`,
+                )}
           </p>
           {demoMode ? (
             <>
               <div className="info-box">
-                This app is currently running in demo mode. Explore the business tools with sample
-                data.
+                {t(
+                  "This app is currently running in demo mode. Explore the business tools with sample data.",
+                  "Cette application est en mode démonstration. Explorez les outils Business avec des données fictives.",
+                )}
               </div>
               <Link className="button primary full-width" href="/overview">
-                Explore demo workspace <ArrowRight size={17} />
+                {t("Explore demo workspace", "Explorer la démonstration")} <ArrowRight size={17} />
               </Link>
             </>
           ) : !authConfigured ? (
             <div className="info-box">
-              Live sign-in needs your customer Cognito app client. Add the public user pool and
-              client identifiers to the app’s environment, then restart the server.
+              {t(
+                "Sign-in is temporarily unavailable. Please try again later.",
+                "La connexion est temporairement indisponible. Veuillez réessayer plus tard.",
+              )}
             </div>
           ) : (
             <form onSubmit={submit} className="form-stack">
               {step === "email" ? (
                 <label>
-                  Email address
+                  {t("Email address", "Adresse e-mail")}
                   <input
                     type="email"
                     value={email}
@@ -164,7 +202,7 @@ export default function Login() {
                 </label>
               ) : (
                 <label>
-                  Verification code
+                  {t("Verification code", "Code de vérification")}
                   <input
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -186,7 +224,9 @@ export default function Login() {
                 </p>
               )}
               <SubmitButton busy={busy}>
-                {step === "email" ? "Send verification code" : "Open my workspace"}
+                {step === "email"
+                  ? t("Send verification code", "Envoyer le code de vérification")
+                  : t("Open my workspace", "Ouvrir mon espace")}
                 <ArrowRight size={16} />
               </SubmitButton>
               {step === "code" && (
@@ -203,7 +243,9 @@ export default function Login() {
                         .finally(() => setBusy(false));
                     }}
                   >
-                    {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend verification code"}
+                    {cooldown > 0
+                      ? t(`Resend code in ${cooldown}s`, `Renvoyer le code dans ${cooldown}s`)
+                      : t("Resend verification code", "Renvoyer le code de vérification")}
                   </button>
                   <button
                     className="text-button"
@@ -216,15 +258,19 @@ export default function Login() {
                     }}
                   >
                     <ArrowLeft size={14} />
-                    Use a different email
+                    {t("Use a different email", "Utiliser un autre e-mail")}
                   </button>
                 </>
               )}
             </form>
           )}
+          {step === "email" && <AppRegistration disabled={busy} />}
           <p className="login-footnote">
             <ShieldCheck size={14} />
-            Same Fondeka account. A workspace made for business.
+            {t(
+              "Same Fondeka account. A workspace made for business.",
+              "Le même compte Fondeka. Un espace pensé pour votre activité.",
+            )}
           </p>
         </div>
       </section>

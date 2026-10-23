@@ -14,8 +14,12 @@ import { signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import { accessToken, authConfigured, customerScope, demoMode } from "@/lib/auth";
 import { clearBusinessToolsRecovery } from "@/lib/business-tools-client";
+import { clearSandboxFundingRecovery } from "@/lib/sandbox-funding";
+import { clearSandboxConversionRecovery } from "@/lib/sandbox-conversion";
 import { deviceHeaders, resetDeviceIdentityMemory } from "@/lib/device";
 import { DeviceVerification } from "./device-verification";
+import { clearQueryCache, clearCollectionRecovery } from "@/lib/query-cache";
+import { clearFlowDrafts } from "@/lib/guided-flow";
 import type { ApiEnvironment } from "@/lib/types";
 
 const WorkspaceContext = createContext({
@@ -48,7 +52,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (demoMode) return;
     const reset = () => {
+      clearQueryCache();
+      clearCollectionRecovery();
+      clearFlowDrafts();
       clearBusinessToolsRecovery();
+      clearSandboxFundingRecovery();
+      clearSandboxConversionRecovery();
       setApiScope(undefined);
       setAccountKey(null);
       scopeRef.current = null;
@@ -95,7 +104,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         else if (active) {
           const scope = await customerScope();
           if (!active) return;
+          clearCollectionRecovery(scope);
+          clearFlowDrafts(scope);
           clearBusinessToolsRecovery(undefined, scope);
+          clearSandboxFundingRecovery(undefined, scope);
+          clearSandboxConversionRecovery(undefined, scope);
           if (scopeRef.current !== scope) setApiScope(undefined);
           setAccountKey(scope);
           scopeRef.current = scope;
@@ -112,7 +125,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setReady(false);
       setAccountKey(null);
       scopeRef.current = null;
+      clearQueryCache();
+      clearCollectionRecovery();
+      clearFlowDrafts();
       clearBusinessToolsRecovery();
+      clearSandboxFundingRecovery();
+      clearSandboxConversionRecovery();
       router.replace("/login");
     };
     window.addEventListener("fondeka:session-expired", expire);
@@ -126,7 +144,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [pathname, router, authRevision]);
   const logout = useCallback(async () => {
     setApiScope(undefined);
+    clearQueryCache();
+    clearCollectionRecovery();
+    clearFlowDrafts();
     clearBusinessToolsRecovery();
+    clearSandboxFundingRecovery();
+    clearSandboxConversionRecovery();
     setAccountKey(demoMode ? "demo" : null);
     scopeRef.current = demoMode ? "demo" : null;
     try {

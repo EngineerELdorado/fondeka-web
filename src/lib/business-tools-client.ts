@@ -28,6 +28,7 @@ export interface BusinessToolsState {
   intent?: PurchaseIntent;
   purchase?: BusinessToolsPurchase;
   resourceUnavailable: boolean;
+  resourceUnavailableFor?: string;
   accessIssue: boolean;
   forced: boolean;
 }
@@ -41,8 +42,15 @@ export function mayMountOwnerData(
     (!state.loading &&
       !state.error &&
       state.access?.accessGranted === true &&
-      !state.resourceUnavailable &&
-      state.destination?.split("?")[0] === destination)
+      !!businessDestination(destination) &&
+      !resourceAccessUnavailable(state, destination))
+  );
+}
+export function resourceAccessUnavailable(state: BusinessToolsState, destination: string) {
+  return (
+    state.resourceUnavailable &&
+    (!state.resourceUnavailableFor ||
+      state.resourceUnavailableFor.split("?")[0] === destination.split("?")[0])
   );
 }
 export class BusinessToolsClient {
@@ -134,9 +142,15 @@ export class BusinessToolsClient {
   }
   enter(destination: string, denied = false) {
     const known = businessDestination(destination);
-    if (!known) return Promise.resolve();
-    this.update({ destination: known });
-    return this.reload(denied);
+    if (!known || this.disposed) return Promise.resolve();
+    if (this.state.destination !== known) this.update({ destination: known });
+    return denied ? this.reload(true) : this.ensureAccess();
+  }
+  /** One account-level result in memory; entering another tool does not invalidate it. */
+  ensureAccess(): Promise<void> {
+    if (this.disposed || (this.state.access && !this.state.loading && !this.state.error))
+      return Promise.resolve();
+    return this.reload();
   }
   private async readAccess() {
     let access = parseAccess(await this.dependencies.request(accessPath));
@@ -161,7 +175,13 @@ export class BusinessToolsClient {
     this.update({
       loading: true,
       error: undefined,
-      ...(denied ? { forced: true, resourceUnavailable: true } : {}),
+      ...(denied
+        ? {
+            forced: true,
+            resourceUnavailable: true,
+            resourceUnavailableFor: this.state.destination,
+          }
+        : {}),
     });
     const savedId = this.restore();
     const task = (async () => {
@@ -172,7 +192,9 @@ export class BusinessToolsClient {
         this.update({
           access,
           loading: false,
-          ...(!access.accessGranted ? { resourceUnavailable: false } : {}),
+          ...(!access.accessGranted
+            ? { resourceUnavailable: false, resourceUnavailableFor: undefined }
+            : {}),
         });
         if (access.accessGranted) {
           this.save();
@@ -380,7 +402,7 @@ export class BusinessToolsClient {
     }
   }
   retryResource() {
-    this.update({ resourceUnavailable: false });
+    this.update({ resourceUnavailable: false, resourceUnavailableFor: undefined });
     return this.reload();
   }
 }

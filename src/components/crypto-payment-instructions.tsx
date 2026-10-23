@@ -5,13 +5,16 @@ import { date, safeLink } from "@/lib/format";
 import type { PaymentTransaction } from "@/lib/business-tools";
 import type { ApiEnvironment } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
+import type { PaymentLanguage } from "@/lib/business-tools-ui";
 
 export function CryptoPaymentInstructions({
   details,
   environment = "LIVE",
+  language = "en",
 }: {
   details: NonNullable<PaymentTransaction["cryptoDetails"]>;
   environment?: ApiEnvironment;
+  language?: PaymentLanguage;
 }) {
   if (environment === "SANDBOX")
     return (
@@ -47,42 +50,59 @@ export function CryptoPaymentInstructions({
         </dl>
       </div>
     );
-  return <PayableCryptoInstructions details={details} />;
+  return <PayableCryptoInstructions details={details} language={language} />;
 }
 function PayableCryptoInstructions({
   details,
+  language,
 }: {
   details: NonNullable<PaymentTransaction["cryptoDetails"]>;
+  language: PaymentLanguage;
 }) {
   const crypto = details;
   const invoice = safeLink(crypto.invoiceUrl);
   const { notify } = useWorkspace();
+  const fr = language === "fr";
   async function copy(value: string) {
     try {
       await navigator.clipboard.writeText(value);
-      notify("Copied to clipboard.");
+      notify(fr ? "Copié dans le presse-papiers." : "Copied to clipboard.");
     } catch {
-      notify("Copy isn’t available in this browser. Select the text to copy it.");
+      notify(
+        fr
+          ? "Sélectionnez le texte pour le copier."
+          : "Copy isn’t available in this browser. Select the text to copy it.",
+      );
     }
   }
   return (
     <div className="crypto-instructions">
-      <h3>Crypto payment instructions</h3>
-      <p className="muted">Token amounts below are separate from the fiat amounts above.</p>
+      <h3>{fr ? "Instructions de paiement crypto" : "Crypto payment instructions"}</h3>
+      <p className="muted">
+        {fr
+          ? "Le montant ci-dessous est exprimé en crypto."
+          : "The amount below is in crypto units."}
+      </p>
       <dl className="detail-list">
         <div>
-          <dt>Network</dt>
+          <dt>{fr ? "Réseau" : "Network"}</dt>
           <dd>{crypto.network || "—"}</dd>
         </div>
         <div>
-          <dt>Token amount</dt>
+          <dt>{fr ? "Montant crypto" : "Token amount"}</dt>
           <dd>
             {crypto.amountInCrypto ?? "—"} {crypto.cryptoCurrency}
           </dd>
         </div>
         <div>
-          <dt>Expires</dt>
-          <dd>{date(crypto.expiresAt)}</dd>
+          <dt>{fr ? "Expiration" : "Expires"}</dt>
+          <dd>
+            {fr && crypto.expiresAt && !Number.isNaN(Date.parse(crypto.expiresAt))
+              ? new Intl.DateTimeFormat("fr", { dateStyle: "medium" }).format(
+                  new Date(crypto.expiresAt),
+                )
+              : date(crypto.expiresAt)}
+          </dd>
         </div>
       </dl>
       {crypto.address && (
@@ -90,7 +110,7 @@ function PayableCryptoInstructions({
           <code>{crypto.address}</code>
           <button
             className="icon-button"
-            aria-label="Copy crypto address"
+            aria-label={fr ? "Copier l’adresse crypto" : "Copy crypto address"}
             onClick={() => void copy(crypto.address!)}
           >
             <Copy size={16} />
@@ -99,7 +119,7 @@ function PayableCryptoInstructions({
       )}
       {invoice && (
         <a className="text-button" href={invoice} target="_blank" rel="noopener noreferrer">
-          Open invoice <ExternalLink size={14} />
+          {fr ? "Ouvrir la facture" : "Open invoice"} <ExternalLink size={14} />
         </a>
       )}
     </div>

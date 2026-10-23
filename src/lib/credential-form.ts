@@ -63,3 +63,13 @@ export function credentialPayload(
   // The backend performs authoritative public-address/DNS validation.
   return { name: label, webhookUrl: target.toString(), environment };
 }
+
+/** A response known to reject issuance keeps the form; an ambiguous result requires metadata review. */
+export function credentialCreationNeedsReview(error: unknown) {
+  const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  return !(
+    (status >= 400 && status < 500 && status !== 408) ||
+    (status === 503 && code === "SERVICE_UNAVAILABLE")
+  );
+}

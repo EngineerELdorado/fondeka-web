@@ -42,6 +42,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         "X-Client-Platform": "WEB",
         "X-Device-Platform": "WEB",
         "Accept-Language": request.headers.get("accept-language") || "en",
+        ...(/^customer-api\/businesses\/\d+\/sandbox-wallets\/(top-ups|convert)$/.test(route) &&
+        request.headers.has("idempotency-key")
+          ? { "Idempotency-Key": request.headers.get("idempotency-key")! }
+          : {}),
         ...(request.headers.get("x-client-version")
           ? { "X-Client-Version": request.headers.get("x-client-version")! }
           : {}),
