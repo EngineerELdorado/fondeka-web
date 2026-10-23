@@ -5,8 +5,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Code2,
-  Copy,
-  ExternalLink,
   KeyRound,
   RefreshCw,
   Search,
@@ -15,19 +13,31 @@ import {
 } from "lucide-react";
 import { Badge, MobileRecord, Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
 import { ApiCredentials } from "./api-credentials";
-import { useWorkspace } from "./workspace-provider";
+import { CryptoPaymentInstructions } from "./crypto-payment-instructions";
 import { useQuery } from "@/lib/use-query";
 import { useMobileLayout } from "@/lib/use-mobile-layout";
-import { date, label, money, safeLink } from "@/lib/format";
+import { date, label, money } from "@/lib/format";
 import {
   emptyFilters,
   portalQuery,
   transactionStatuses,
   type PortalFilters,
 } from "@/lib/portal-query";
-import type { ApiKey, ApiTransaction, Business, Page } from "@/lib/types";
+import type { ApiEnvironment, ApiKey, ApiTransaction, Business, Page } from "@/lib/types";
+import {
+  apiKeysPath,
+  apiTransactionPath,
+  assertKeyEnvironment,
+  assertTransactionEnvironment,
+} from "@/lib/api-environment";
 
-export function ApiWorkspace({ business }: { business: Business }) {
+export function ApiWorkspace({
+  business,
+  environment,
+}: {
+  business: Business;
+  environment: ApiEnvironment;
+}) {
   const [page, setPage] = useState(0);
   const mobile = useMobileLayout();
   const [draft, setDraft] = useState<PortalFilters>(emptyFilters);
@@ -35,16 +45,35 @@ export function ApiWorkspace({ business }: { business: Business }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterError, setFilterError] = useState("");
   const [selected, setSelected] = useState<string>();
-  const { refresh } = useWorkspace();
-  const keys = useQuery<ApiKey[]>(`/customer-api/businesses/${business.id}/api-keys`);
+  const [revision, setRevision] = useState(0);
+  const refresh = () => setRevision((value) => value + 1);
+  const keys = useQuery<ApiKey[]>(apiKeysPath(business.id, environment), undefined, revision);
   const history = useQuery<Page<ApiTransaction>>(
-    `/customer-api/businesses/${business.id}/api-transactions?${portalQuery(filters, page)}`,
+    `/customer-api/businesses/${business.id}/api-transactions?${portalQuery(filters, page, environment)}`,
+    undefined,
+    revision,
   );
+  let keysError = keys.error;
+  let historyError = history.error;
+  try {
+    if (keys.data) assertKeyEnvironment(keys.data, environment);
+  } catch (error) {
+    keysError =
+      error instanceof Error ? error.message : "Couldn’t read credentials for this environment.";
+  }
+  try {
+    history.data?.content.forEach((row) =>
+      assertTransactionEnvironment(row.transaction, environment),
+    );
+  } catch (error) {
+    historyError =
+      error instanceof Error ? error.message : "Couldn’t read activity for this environment.";
+  }
   const activeFilters = Object.values(filters).filter(Boolean).length;
   function apply(event: FormEvent) {
     event.preventDefault();
     try {
-      portalQuery(draft, 0);
+      portalQuery(draft, 0, environment);
       setFilters({ ...draft });
       setPage(0);
       setFilterError("");
@@ -93,7 +122,7 @@ export function ApiWorkspace({ business }: { business: Business }) {
             value={draft.reference}
             onChange={(e) => update("reference", e.target.value)}
             maxLength={128}
-            placeholder="Exact TX reference"
+            placeholder={environment === "SANDBOX" ? "Exact SBX reference" : "Exact TX reference"}
           />
         </label>
         <label>
@@ -171,11 +200,17 @@ export function ApiWorkspace({ business }: { business: Business }) {
           </span>
         </div>
       </div>
-      <ApiCredentials key={business.id} businessId={business.id} keys={keys} refresh={refresh} />
+      <ApiCredentials
+        key={`${business.id}:${environment}`}
+        businessId={business.id}
+        environment={environment}
+        keys={{ ...keys, error: keysError }}
+        refresh={refresh}
+      />
       <section className="panel history-panel">
         <div className="panel-heading">
           <div>
-            <h2>API activity</h2>
+            <h2>{environment === "SANDBOX" ? "Sandbox API activity" : "Live API activity"}</h2>
             <p className="muted">Collections and payouts for {business.name}.</p>
           </div>
           <div className="heading-actions">
@@ -206,8 +241,8 @@ export function ApiWorkspace({ business }: { business: Business }) {
           ))}
         {history.loading ? (
           <Loading />
-        ) : history.error ? (
-          <ErrorState message={history.error} retry={refresh} />
+        ) : historyError ? (
+          <ErrorState message={historyError} retry={refresh} />
         ) : !history.data?.content.length ? (
           <Empty
             title={activeFilters ? "No matching transactions" : "Your API story starts here"}
@@ -225,7 +260,7 @@ export function ApiWorkspace({ business }: { business: Business }) {
                   <tr>
                     <th>Transaction</th>
                     <th>Direction</th>
-                    <th>Amount</th>
+                    <th>{environment === "SANDBOX" ? "Test amount" : "Amount"}</th>
                     <th>Integration</th>
                     <th>Accepted</th>
                     <th>Status</th>
@@ -302,7 +337,7 @@ export function ApiWorkspace({ business }: { business: Business }) {
             </div>
           </>
         )}
-        {history.data && (
+        {history.data && !historyError && (
           <Pagination
             page={history.data.number}
             pages={history.data.totalPages}
@@ -311,13 +346,15 @@ export function ApiWorkspace({ business }: { business: Business }) {
           />
         )}
         <div className="panel-note">
-          Amounts use each transaction’s fiat currency. Processing and unknown states are not
-          confirmed failures.
+          {environment === "SANDBOX"
+            ? "Simulated amounts only. Sandbox activity is separate from real transactions and financial reporting."
+            : "Amounts use each transaction’s fiat currency. Processing and unknown states are not confirmed failures."}
         </div>
       </section>
       {selected && (
         <TransactionDetail
           businessId={business.id}
+          environment={environment}
           reference={selected}
           onClose={() => setSelected(undefined)}
         />
@@ -328,42 +365,55 @@ export function ApiWorkspace({ business }: { business: Business }) {
 function TransactionDetail({
   businessId,
   reference,
+  environment,
   onClose,
 }: {
   businessId: number;
   reference: string;
+  environment: ApiEnvironment;
   onClose: () => void;
 }) {
+  const [revision, setRevision] = useState(0);
+  const refresh = () => setRevision((value) => value + 1);
   const detail = useQuery<ApiTransaction>(
-    `/customer-api/businesses/${businessId}/api-transactions/${encodeURIComponent(reference)}`,
+    apiTransactionPath(businessId, reference, environment),
+    undefined,
+    revision,
   );
-  const { refresh, notify } = useWorkspace();
   const tx = detail.data?.transaction;
-  const crypto = tx?.cryptoDetails;
-  const invoice = safeLink(crypto?.invoiceUrl);
-  async function copy(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      notify("Copied to clipboard.");
-    } catch {
-      notify("Copy isn’t available in this browser. Select the text to copy it.");
-    }
+  let error = detail.error;
+  try {
+    if (tx) assertTransactionEnvironment(tx, environment);
+  } catch (failure) {
+    error = failure instanceof Error ? failure.message : "Couldn’t read transaction environment.";
   }
+  const crypto = tx?.cryptoDetails;
   return (
-    <Modal title="Transaction details" description={reference} onClose={onClose}>
+    <Modal
+      title={environment === "SANDBOX" ? "Sandbox payment details" : "Transaction details"}
+      description={reference}
+      onClose={onClose}
+    >
       {detail.loading ? (
         <Loading />
-      ) : detail.error ? (
-        <ErrorState message={detail.error} retry={refresh} />
+      ) : error ? (
+        <ErrorState message={error} retry={refresh} />
       ) : (
         tx && (
           <>
+            {environment === "SANDBOX" && (
+              <div className="info-box">
+                SANDBOX · Simulated payment. No real wallet debit, credit or provider payment
+                occurred. Do not fulfill real orders from this record.
+              </div>
+            )}
             <div className="transaction-hero">
               <strong>{money(tx.amount, tx.currency)}</strong>
               <Badge value={tx.status} />
             </div>
             <dl className="detail-list">
               {[
+                ["Environment", environment],
                 ["Direction", tx.action === "BUSINESS_API_PAYOUT" ? "Payout" : "Collection"],
                 ["Merchant reference", tx.clientReference || "—"],
                 ["Integration", detail.data?.apiKeyName || "—"],
@@ -380,63 +430,22 @@ function TransactionDetail({
                 </div>
               ))}
             </dl>
+            {tx.failureMessage && <p className="info-box">{tx.failureMessage}</p>}
             {["UNKNOWN", "MANUAL_INTERVENTION_REQUIRED"].includes(tx.status) && (
               <div className="info-box">
                 This transaction needs investigation. Its status does not confirm failure or a
                 refund. Contact Fondeka with the transaction reference.
               </div>
             )}
-            {crypto && (
-              <div className="crypto-instructions">
-                <h3>Crypto payment instructions</h3>
-                <p className="muted">
-                  Token amounts below are separate from the fiat amounts above.
-                </p>
-                <dl className="detail-list">
-                  <div>
-                    <dt>Network</dt>
-                    <dd>{crypto.network || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Token amount</dt>
-                    <dd>
-                      {crypto.amountInCrypto ?? "—"} {crypto.cryptoCurrency}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Expires</dt>
-                    <dd>{date(crypto.expiresAt)}</dd>
-                  </div>
-                </dl>
-                {crypto.address && (
-                  <div className="copy-field">
-                    <code>{crypto.address}</code>
-                    <button
-                      className="icon-button"
-                      aria-label="Copy crypto address"
-                      onClick={() => void copy(crypto.address!)}
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                )}
-                {invoice && (
-                  <a
-                    className="text-button"
-                    href={invoice}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open invoice <ExternalLink size={14} />
-                  </a>
-                )}
-              </div>
-            )}
-            {!crypto && ["PROCESSING", "INITIATED", "SUBMITTED"].includes(tx.status) && (
-              <div className="info-box">
-                Payment instructions may still be on their way. Refresh to check the latest status.
-              </div>
-            )}
+            {crypto && <CryptoPaymentInstructions details={crypto} environment={environment} />}
+            {!crypto &&
+              environment === "LIVE" &&
+              ["PROCESSING", "INITIATED", "SUBMITTED"].includes(tx.status) && (
+                <div className="info-box">
+                  Payment instructions may still be on their way. Refresh to check the latest
+                  status.
+                </div>
+              )}
             <div className="modal-actions">
               <button className="button secondary" onClick={refresh}>
                 <RefreshCw size={15} />
@@ -452,7 +461,7 @@ function TransactionDetail({
     </Modal>
   );
 }
-export function IntegrationGuide() {
+export function IntegrationGuide({ environment = "LIVE" }: { environment?: ApiEnvironment }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`integration-guide-disclosure ${expanded ? "expanded" : ""}`}>
@@ -494,19 +503,42 @@ export function IntegrationGuide() {
             </span>
           </div>
           <p className="guide-footnote">
-            API access is provisioned by Fondeka. Amounts are fiat-wallet amounts, including when
-            using crypto. A 202 response means accepted for processing.
+            Generate credentials for the selected environment above and store them on your backend.
+            Amounts are fiat-wallet amounts, including crypto. A 202 response means accepted for
+            processing.
           </p>
+          {environment === "SANDBOX" && (
+            <details className="sandbox-guide">
+              <summary>Sandbox scenarios and webhooks</summary>
+              <p>
+                Use the same collection/payout routes with an fdk_biz_test_ key.
+                X-Fondeka-Test-Scenario defaults to SUCCESS; the header must never be sent with a
+                LIVE key.
+              </p>
+              <ul>
+                <li>SUCCESS → completed</li>
+                <li>INVALID_DESTINATION, INSUFFICIENT_FUNDS, PAYMENT_NOT_APPROVED → failed</li>
+                <li>CANCELED, EXPIRED → canceled</li>
+                <li>PENDING → keeps processing, without a terminal webhook</li>
+              </ul>
+              <p>
+                Completion is asynchronous. There is no force-complete or cancel endpoint. Use a new
+                idempotency key for a new test intent. Sandbox keys and signing secrets are separate
+                from LIVE; validate the webhook environment and signature before fulfilling orders.
+                Test events must never fulfill real orders.
+              </p>
+            </details>
+          )}
         </div>
         <div className="code-window">
           <div>
             <span />
             <span />
             <span />
-            <small>YOUR BACKEND · COLLECTION</small>
+            <small>YOUR BACKEND · {environment} COLLECTION</small>
           </div>
           <pre>
-            <code>{`POST /business-api/v1/businesses/{businessId}/collections\nX-API-Key: <server-side API key>\nIdempotency-Key: order-2026-0001\nContent-Type: application/json\n\n{\n  "amount": 10.00,\n  "currency": "USD",\n  "paymentMethodName": "MPESA_KENYA",\n  "accountRef": "+254707371664",\n  "clientReference": "invoice-0001",\n  "feeApplicationMode": "EXCLUSIVE"\n}`}</code>
+            <code>{`POST /business-api/v1/businesses/{businessId}/collections\nX-API-Key: <${environment === "SANDBOX" ? "fdk_biz_test_ sandbox" : "server-side LIVE"} key>\nIdempotency-Key: ${environment === "SANDBOX" ? "sandbox-order-001\nX-Fondeka-Test-Scenario: SUCCESS" : "order-2026-0001"}\nContent-Type: application/json\n\n{\n  "amount": 10.00,\n  "currency": "USD",\n  "paymentMethodName": "MPESA_KENYA",\n  "accountRef": "${environment === "SANDBOX" ? "+254700000000" : "+254707371664"}",\n  "clientReference": "invoice-0001",\n  "feeApplicationMode": "EXCLUSIVE"\n}`}</code>
           </pre>
         </div>
       </section>

@@ -1,5 +1,6 @@
 import type {
   ApiKey,
+  ApiEnvironment,
   ApiTransaction,
   Business,
   Order,
@@ -13,6 +14,7 @@ import type {
   StoreInput,
 } from "./types";
 import { amountInMinorUnits } from "./format";
+import { apiEnvironment } from "./api-environment";
 
 const storageKey = "fondeka-business-demo-v1";
 interface DemoData {
@@ -258,7 +260,25 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   const body = typeof init.body === "string" ? JSON.parse(init.body) : {};
   const db = data();
   let result: unknown;
-  if (route === "/commerce/stores") {
+  if (route === "/business-tools/access" && method === "GET") {
+    result = {
+      accessGranted: true,
+      status: "ACTIVE",
+      validFrom: null,
+      validUntil: null,
+      plan: {
+        code: "DEMO_BUSINESS_TOOLS",
+        name: "Business Tools",
+        billingMode: "ONE_TIME",
+        amount: 0,
+        currency: "USD",
+        purchasesEnabled: false,
+        version: 1,
+      },
+      pendingPurchase: null,
+      pricing: { planAmount: 0, legacyCreditAmount: 0, amountDue: 0, currency: "USD" },
+    };
+  } else if (route === "/commerce/stores") {
     if (method === "POST") {
       const input = body as StoreInput;
       const store: Store = {
@@ -385,52 +405,118 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       url.searchParams,
     );
   } else if (/^\/businesses\/\d+\/api-keys$/.test(route)) {
-    result = [
-      {
-        id: 1,
-        name: "Commerce integration",
-        keyPrefix: "fdk_biz_demo7x2",
-        enabled: true,
-        webhookUrl: "https://example.com/webhooks/fondeka",
-        createdAt: day(45),
-      },
-      {
-        id: 2,
-        name: "Legacy integration",
-        keyPrefix: "fdk_biz_demo9a1",
-        enabled: false,
-        createdAt: day(90),
-      },
-    ] satisfies ApiKey[];
+    if (method !== "GET") throw new Error("Credential mutations are disabled in demo mode.");
+    const environment = apiEnvironment(url.searchParams.get("environment") ?? undefined);
+    result =
+      environment === "SANDBOX"
+        ? ([
+            {
+              id: 3,
+              name: "Sandbox checkout",
+              keyPrefix: "fdk_biz_test_demo4b2",
+              enabled: true,
+              webhookUrl: "https://example.com/webhooks/fondeka-test",
+              createdAt: day(2),
+              environment: "SANDBOX",
+            },
+          ] satisfies ApiKey[])
+        : ([
+            {
+              id: 1,
+              name: "Commerce integration",
+              keyPrefix: "fdk_biz_demo7x2",
+              enabled: true,
+              webhookUrl: "https://example.com/webhooks/fondeka",
+              createdAt: day(45),
+              environment: "LIVE",
+            },
+            {
+              id: 2,
+              name: "Legacy integration",
+              keyPrefix: "fdk_biz_demo9a1",
+              enabled: false,
+              createdAt: day(90),
+              environment: "LIVE",
+            },
+          ] satisfies ApiKey[]);
   } else if (/^\/businesses\/\d+\/api-transactions$/.test(route)) {
     result = paginate(
-      demoTransactions().filter((item) => {
-        const tx = item.transaction;
-        const params = url.searchParams;
-        return (
-          (!params.get("action") || tx.action === params.get("action")) &&
-          (!params.get("status") || tx.status === params.get("status")) &&
-          (!params.get("currency") || tx.currency === params.get("currency")) &&
-          (!params.get("reference") || tx.reference === params.get("reference")) &&
-          (!params.get("clientReference") ||
-            tx.clientReference === params.get("clientReference")) &&
-          (!params.get("fromDate") ||
-            new Date(item.createdAt).getTime() >= Number(params.get("fromDate"))) &&
-          (!params.get("toDate") ||
-            new Date(item.createdAt).getTime() <= Number(params.get("toDate")))
-        );
-      }),
+      demoTransactions(apiEnvironment(url.searchParams.get("environment") ?? undefined)).filter(
+        (item) => {
+          const tx = item.transaction;
+          const params = url.searchParams;
+          return (
+            (!params.get("action") || tx.action === params.get("action")) &&
+            (!params.get("status") || tx.status === params.get("status")) &&
+            (!params.get("currency") || tx.currency === params.get("currency")) &&
+            (!params.get("reference") || tx.reference === params.get("reference")) &&
+            (!params.get("clientReference") ||
+              tx.clientReference === params.get("clientReference")) &&
+            (!params.get("fromDate") ||
+              new Date(item.createdAt).getTime() >= Number(params.get("fromDate"))) &&
+            (!params.get("toDate") ||
+              new Date(item.createdAt).getTime() <= Number(params.get("toDate")))
+          );
+        },
+      ),
       url.searchParams,
     );
   } else if (/^\/businesses\/\d+\/api-transactions\/[A-Za-z0-9_-]+$/.test(route)) {
-    result = demoTransactions().find((item) => item.transaction.reference === route.split("/")[4]);
+    result = demoTransactions(
+      apiEnvironment(url.searchParams.get("environment") ?? undefined),
+    ).find((item) => item.transaction.reference === route.split("/")[4]);
     if (!result) throw new Error("Transaction not found.");
   } else throw new Error("This action is not available in the demo workspace.");
   if (method !== "GET") persist();
   return structuredClone(result) as T;
 }
 
-function demoTransactions(): ApiTransaction[] {
+function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
+  if (environment === "SANDBOX")
+    return Array.from({ length: 5 }, (_, i) => {
+      const status = ["COMPLETED", "FAILED", "COMPLETED", "PROCESSING", "CANCELED"][i];
+      const amount = [10, 25, 40, 15, 12][i];
+      return {
+        requestId: 100 + i,
+        apiKeyName: "Sandbox checkout",
+        createdAt: day(i / 4),
+        updatedAt: day(i / 4),
+        transaction: {
+          businessId: 1,
+          transactionId: null,
+          environment: "SANDBOX",
+          reference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
+          clientReference: `sandbox-order-${i + 1}`,
+          action: i % 2 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
+          status,
+          amount,
+          currency: "USD",
+          grossAmount: amount,
+          allFees: 0,
+          settlementAmount: status === "COMPLETED" ? amount : null,
+          settlementNet: status === "COMPLETED" ? amount : null,
+          refunded: false,
+          ...(status === "FAILED"
+            ? {
+                failureCode: "INVALID_DESTINATION",
+                failureMessage: "Sandbox simulation: invalid destination.",
+              }
+            : status === "CANCELED"
+              ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
+              : {}),
+          cryptoDetails:
+            i === 2
+              ? {
+                  address: "SANDBOX_NOT_PAYABLE_DEMO_USDT_TRC20",
+                  cryptoCurrency: "USDT",
+                  network: "TRC20",
+                  amountInCrypto: amount,
+                  exchangeRate: 1,
+                }
+              : null,
+        },
+      };
+    });
   return Array.from({ length: 12 }, (_, i) => ({
     requestId: i + 1,
     apiKeyName: i === 8 ? "Legacy integration" : "Commerce integration",
@@ -439,6 +525,7 @@ function demoTransactions(): ApiTransaction[] {
     transaction: {
       businessId: 1,
       transactionId: 8000 + i,
+      environment: "LIVE",
       reference: `TXDEMO${8421 - i}`,
       clientReference: `order-${i + 1}`,
       action: i % 3 === 0 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",

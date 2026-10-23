@@ -18,7 +18,7 @@ const tabs = [
   { href: "/overview", label: "Home", icon: House },
   { href: "/stores", label: "Stores", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
-  { href: "/payment-requests", label: "Payments", icon: Link2 },
+  { href: "/payment-requests", label: "Payment links", icon: Link2 },
 ];
 
 export function MobileNavigation({

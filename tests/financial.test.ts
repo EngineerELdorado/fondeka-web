@@ -13,6 +13,7 @@ test("money parsing preserves decimal values and rejects ambiguous or unsafe inp
 });
 test("financial amounts retain their currency and missing amounts stay missing", () => {
   assert.equal(money(undefined, "USD"), "—");
+  assert.equal(money(null, "USD"), "—");
   assert.equal(money(0, "USD"), "$0.00");
   assert.match(money(125, "EUR"), /€/);
   assert.match(money(125, "CDF"), /CDF/);

@@ -14,7 +14,7 @@ export const currencies = [
   "GHS",
 ];
 
-export function money(value: number | string | undefined, currency = "USD") {
+export function money(value: number | string | null | undefined, currency = "USD") {
   if (value == null) return "—";
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount)) return "—";

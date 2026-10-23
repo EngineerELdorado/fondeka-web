@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Copy, KeyRound, Plus, ShieldAlert, Trash2, Webhook } from "lucide-react";
 import { api } from "@/lib/api";
 import { demoMode } from "@/lib/auth";
@@ -9,16 +9,18 @@ import {
   parseIssuedCredentials,
   type IssuedCredentials,
 } from "@/lib/credential-form";
-import type { ApiKey } from "@/lib/types";
+import type { ApiEnvironment, ApiKey } from "@/lib/types";
 import { date } from "@/lib/format";
 import { Badge, Empty, ErrorState, Loading, Modal, SubmitButton } from "./ui";
 
 export function ApiCredentials({
   businessId,
+  environment,
   keys,
   refresh,
 }: {
   businessId: number;
+  environment: ApiEnvironment;
   keys: { data?: ApiKey[]; loading: boolean; error?: string };
   refresh: () => void;
 }) {
@@ -29,6 +31,13 @@ export function ApiCredentials({
   const [revoke, setRevoke] = useState<ApiKey>();
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const path = "/customer-api/businesses/" + businessId + "/api-keys";
@@ -54,7 +63,7 @@ export function ApiCredentials({
     setError("");
     let payload: ReturnType<typeof credentialPayload>;
     try {
-      payload = credentialPayload(name, webhookUrl);
+      payload = credentialPayload(name, webhookUrl, environment);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Check the integration details.");
       return;
@@ -64,10 +73,13 @@ export function ApiCredentials({
     try {
       const result = parseIssuedCredentials(
         await api<unknown>(path, { method: "POST", body: JSON.stringify(payload) }),
+        environment,
       );
+      if (!mounted.current) return;
       setIssued(result); // Memory only. Never put secrets into query caches, storage, URLs, notifications or logs.
       refresh();
     } catch (failure) {
+      if (!mounted.current) return;
       setError(
         (failure instanceof Error ? failure.message : "Could not generate credentials.") +
           " If the result is uncertain, refresh the key list and revoke any unexpected key before trying again.",
@@ -75,7 +87,7 @@ export function ApiCredentials({
       refresh(); // Do not automatically retry a credential-creation POST.
     } finally {
       locked.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   async function revokeKey() {
@@ -85,13 +97,15 @@ export function ApiCredentials({
     setError("");
     try {
       await api<void>(path + "/" + revoke.id, { method: "DELETE" });
+      if (!mounted.current) return;
       setRevoke(undefined);
       refresh();
     } catch (failure) {
+      if (!mounted.current) return;
       setError(failure instanceof Error ? failure.message : "Could not revoke the key.");
     } finally {
       locked.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   async function copy(value: string, label: string) {
@@ -111,7 +125,7 @@ export function ApiCredentials({
             <h2>
               <KeyRound size={18} /> API credentials
             </h2>
-            <p className="muted">Generate credentials for your backend integrations.</p>
+            <p className="muted">{environment} credentials for your backend integrations.</p>
           </div>
           <button
             className="button primary small"
@@ -141,6 +155,7 @@ export function ApiCredentials({
                   <tr>
                     <th>Integration</th>
                     <th>Key prefix</th>
+                    <th>Environment</th>
                     <th>Webhook destination</th>
                     <th>Created</th>
                     <th>Status</th>
@@ -153,6 +168,11 @@ export function ApiCredentials({
                       <td className="table-name">{key.name}</td>
                       <td>
                         <code className="key-prefix">{key.keyPrefix}••••</code>
+                      </td>
+                      <td>
+                        <span className={`environment-tag ${environment.toLowerCase()}`}>
+                          {environment}
+                        </span>
                       </td>
                       <td>
                         <span className="webhook-url">
@@ -195,6 +215,9 @@ export function ApiCredentials({
                     <Badge value={key.enabled ? "ENABLED" : "REVOKED"} />
                   </div>
                   <code className="key-prefix">{key.keyPrefix}••••</code>
+                  <span className={`environment-tag ${environment.toLowerCase()}`}>
+                    {environment}
+                  </span>
                   <details>
                     <summary>Integration details</summary>
                     <dl className="detail-list">
@@ -230,13 +253,15 @@ export function ApiCredentials({
         <div className="panel-note">
           <KeyRound size={14} />
           {demoMode
-            ? "Credential generation and revocation require a signed-in live account."
+            ? "Credential generation and revocation require a real authenticated customer account."
             : "Secrets are shown once at generation. Store them on your backend. Admins can still manage your credentials."}
         </div>
       </section>
       {open && (
         <Modal
-          title={issued ? "Save your credentials now" : "Generate API credentials"}
+          title={
+            issued ? `Save your ${environment} credentials` : `Generate ${environment} credentials`
+          }
           description={
             issued
               ? "This is the only time both secrets will be displayed."
@@ -303,6 +328,13 @@ export function ApiCredentials({
             </div>
           ) : (
             <form className="form-stack" onSubmit={(event) => void create(event)}>
+              <div className="info-box">
+                <strong>{environment}</strong> ·{" "}
+                {environment === "SANDBOX"
+                  ? "Test credentials simulate payments without real funds. Use a public HTTPS webhook, including a public tunnel for local development."
+                  : "These credentials can authorize real API payments from your integration server."}{" "}
+                The environment cannot be changed later.
+              </div>
               <label>
                 Integration name
                 <input
@@ -311,7 +343,11 @@ export function ApiCredentials({
                   value={name}
                   autoComplete="off"
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="e.g. Production checkout"
+                  placeholder={
+                    environment === "SANDBOX"
+                      ? "e.g. Development checkout"
+                      : "e.g. Production checkout"
+                  }
                 />
               </label>
               <label>
@@ -348,6 +384,10 @@ export function ApiCredentials({
           busy={busy}
           description="This key will stop accepting new API requests. Accepted payments, their webhooks and transaction history remain intact."
         >
+          <p className="panel-note">
+            {environment} credential · Retain its webhook signing secret on your server until
+            accepted requests and pending deliveries are settled.
+          </p>
           {error && (
             <p className="form-error" role="alert">
               {error}

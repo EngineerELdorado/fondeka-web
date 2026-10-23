@@ -2,7 +2,7 @@
 
 import { Amplify } from "aws-amplify";
 import { cognitoUserPoolsTokenProvider } from "aws-amplify/auth/cognito";
-import { fetchAuthSession } from "aws-amplify/auth";
+import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
 
 export const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
 export const authConfigured = Boolean(
@@ -46,4 +46,9 @@ export async function accessToken() {
   initializeAuth();
   const session = await fetchAuthSession();
   return session.tokens?.accessToken.toString();
+}
+
+export async function customerScope() {
+  initializeAuth();
+  return (await getCurrentUser()).userId;
 }

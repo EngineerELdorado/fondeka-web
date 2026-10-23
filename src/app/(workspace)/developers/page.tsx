@@ -6,7 +6,7 @@ import { ApiWorkspace, IntegrationGuide } from "@/components/api-workspace";
 import { Empty, ErrorState, Loading, PageHeading, Pagination } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
-import type { Business, Page } from "@/lib/types";
+import type { ApiEnvironment, Business, Page } from "@/lib/types";
 
 export default function Developers() {
   const [businessPage, setBusinessPage] = useState(0);
@@ -14,7 +14,11 @@ export default function Developers() {
   const { data, loading, error } = useQuery<Page<Business>>(
     `/customer-api/businesses?page=${businessPage}&size=20`,
   );
-  const { refresh } = useWorkspace();
+  const {
+    refresh,
+    apiEnvironment: environment,
+    selectApiEnvironment: setEnvironment,
+  } = useWorkspace();
   const selected =
     data?.content.find((business) => String(business.id) === selectedId) ||
     data?.content.find((business) => business.defaultBusiness) ||
@@ -52,6 +56,26 @@ export default function Developers() {
           </label>
         )}
       </div>
+      <section
+        className={`api-environment ${environment === "SANDBOX" ? "sandbox" : ""}`}
+        aria-label="API environment"
+      >
+        <label>
+          <span>Environment</span>
+          <select
+            value={environment}
+            onChange={(event) => setEnvironment(event.target.value as ApiEnvironment)}
+          >
+            <option value="LIVE">LIVE · Real payments</option>
+            <option value="SANDBOX">SANDBOX · Simulated payments</option>
+          </select>
+        </label>
+        <p>
+          {environment === "SANDBOX"
+            ? "Test credentials and simulated history. No real funds or provider payments."
+            : "Production credentials and real payment history."}
+        </p>
+      </section>
       {loading ? (
         <Loading />
       ) : error ? (
@@ -65,7 +89,11 @@ export default function Developers() {
           description="You don’t have a business profile yet. Business profiles appear here once set up through a Fondeka business product."
         />
       ) : (
-        <ApiWorkspace key={selected.id} business={selected} />
+        <ApiWorkspace
+          key={`${selected.id}:${environment}`}
+          business={selected}
+          environment={environment}
+        />
       )}{" "}
       {!!data && data.totalPages > 1 && (
         <Pagination
@@ -78,7 +106,7 @@ export default function Developers() {
           }}
         />
       )}
-      <IntegrationGuide />
+      <IntegrationGuide environment={environment} />
     </>
   );
 }

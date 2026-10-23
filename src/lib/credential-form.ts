@@ -1,4 +1,5 @@
-import type { ApiKey } from "./types";
+import type { ApiEnvironment, ApiKey } from "./types";
+import { apiEnvironment } from "./api-environment";
 
 export interface IssuedCredentials {
   credential: ApiKey;
@@ -6,7 +7,10 @@ export interface IssuedCredentials {
   webhookSecret: string;
 }
 
-export function parseIssuedCredentials(value: unknown): IssuedCredentials {
+export function parseIssuedCredentials(
+  value: unknown,
+  environment: ApiEnvironment = "LIVE",
+): IssuedCredentials {
   const message =
     "Credential generation could not be confirmed. Check the key list before trying again.";
   if (!value || typeof value !== "object") throw new Error(message);
@@ -16,8 +20,11 @@ export function parseIssuedCredentials(value: unknown): IssuedCredentials {
     !credential ||
     !Number.isSafeInteger(credential.id) ||
     credential.id < 1 ||
+    apiEnvironment(credential.environment) !== environment ||
     typeof row.apiKey !== "string" ||
-    !/^fdk_biz_[A-Za-z0-9_-]{43}$/.test(row.apiKey) ||
+    !(
+      environment === "SANDBOX" ? /^fdk_biz_test_[A-Za-z0-9_-]{43}$/ : /^fdk_biz_[A-Za-z0-9_-]{43}$/
+    ).test(row.apiKey) ||
     typeof row.webhookSecret !== "string" ||
     !/^whsec_[A-Za-z0-9_-]{43}$/.test(row.webhookSecret)
   )
@@ -25,7 +32,12 @@ export function parseIssuedCredentials(value: unknown): IssuedCredentials {
   return value as IssuedCredentials;
 }
 
-export function credentialPayload(name: string, webhookUrl: string) {
+export function credentialPayload(
+  name: string,
+  webhookUrl: string,
+  environment: ApiEnvironment = "LIVE",
+) {
+  apiEnvironment(environment);
   const label = name.trim();
   const destination = webhookUrl.trim();
   if (!label || label.length > 100)
@@ -49,5 +61,5 @@ export function credentialPayload(name: string, webhookUrl: string) {
       "Use a public HTTPS webhook URL on port 443, without URL credentials or fragments.",
     );
   // The backend performs authoritative public-address/DNS validation.
-  return { name: label, webhookUrl: target.toString() };
+  return { name: label, webhookUrl: target.toString(), environment };
 }

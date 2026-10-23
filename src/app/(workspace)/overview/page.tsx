@@ -1,17 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Building2,
-  Code2,
-  Link2,
-  Monitor,
-  Plus,
-  Store,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Building2, Link2, Plus, Store, Zap } from "lucide-react";
 import { Badge, MobileRecord, ErrorState, Loading, PageHeading } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
@@ -19,11 +9,10 @@ import type { Business, Page, PaymentRequest, Store as StoreType } from "@/lib/t
 import { money } from "@/lib/format";
 import { PlatformGraphic } from "@/components/platform-graphic";
 
+import { BusinessToolsGate } from "@/components/business-tools-provider";
+import { businessTools } from "@/components/business-tools-screen";
+
 export default function Overview() {
-  const stores = useQuery<Page<StoreType>>("/customer-api/commerce/stores?page=0&size=3");
-  const payments = useQuery<Page<PaymentRequest>>("/customer-api/payment_requests?page=0&size=5");
-  const businesses = useQuery<Page<Business>>("/customer-api/businesses?page=0&size=1");
-  const { refresh } = useWorkspace();
   return (
     <>
       <PageHeading
@@ -67,6 +56,42 @@ export default function Overview() {
         </div>
         <PlatformGraphic />
       </div>
+      <div className="section-heading">
+        <div>
+          <h2>Your business toolkit</h2>
+          <p className="muted">Four tools. One account-level activation.</p>
+        </div>
+        <span className="quiet-label">
+          <Zap size={14} />
+          Made for business
+        </span>
+      </div>
+      <div className="tools-grid business-tools-grid">
+        {businessTools.map(({ icon: Icon, title, description, href, color }) => (
+          <Link href={href} key={title} className="tool-card">
+            <span className={`tool-icon ${color}`}>
+              <Icon size={23} />
+            </span>
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <ArrowUpRight className="tool-arrow" size={20} />
+          </Link>
+        ))}
+      </div>
+      <BusinessToolsGate destination="/overview">
+        <OwnerOverview />
+      </BusinessToolsGate>
+    </>
+  );
+}
+
+function OwnerOverview() {
+  const stores = useQuery<Page<StoreType>>("/customer-api/commerce/stores?page=0&size=3");
+  const payments = useQuery<Page<PaymentRequest>>("/customer-api/payment_requests?page=0&size=5");
+  const businesses = useQuery<Page<Business>>("/customer-api/businesses?page=0&size=1");
+  const { refresh } = useWorkspace();
+  return (
+    <>
       <div className="stats-grid">
         {[
           {
@@ -101,50 +126,6 @@ export default function Overview() {
               <ArrowUpRight size={18} />
             </strong>
             <p>{detail}</p>
-          </Link>
-        ))}
-      </div>
-      <div className="section-heading">
-        <div>
-          <h2>Your business toolkit</h2>
-          <p className="muted">One platform. More possibilities.</p>
-        </div>
-        <span className="quiet-label">
-          <Zap size={14} />
-          Made for business
-        </span>
-      </div>
-      <div className="tools-grid">
-        {[
-          {
-            icon: Store,
-            title: "Set up shop",
-            description: "Manage your storefronts, products, and orders.",
-            href: "/stores",
-            color: "mint",
-          },
-          {
-            icon: Monitor,
-            title: "Make a sale",
-            description: "Your counter, your catalog, one simple checkout.",
-            href: "/pos",
-            color: "peach",
-          },
-          {
-            icon: Code2,
-            title: "Build with Fondeka",
-            description: "Keep an eye on your API integrations and activity.",
-            href: "/developers",
-            color: "lilac",
-          },
-        ].map(({ icon: Icon, title, description, href, color }) => (
-          <Link href={href} key={title} className="tool-card">
-            <span className={`tool-icon ${color}`}>
-              <Icon size={23} />
-            </span>
-            <h3>{title}</h3>
-            <p>{description}</p>
-            <ArrowUpRight className="tool-arrow" size={20} />
           </Link>
         ))}
       </div>

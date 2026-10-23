@@ -110,6 +110,7 @@ export interface Business {
   defaultBusiness?: boolean;
   countryCode?: string;
 }
+export type ApiEnvironment = "LIVE" | "SANDBOX";
 export interface ApiKey {
   id: number;
   name: string;
@@ -117,6 +118,7 @@ export interface ApiKey {
   enabled: boolean;
   webhookUrl?: string;
   createdAt: string;
+  environment?: ApiEnvironment;
 }
 export interface ApiTransaction {
   requestId: number;
@@ -125,7 +127,10 @@ export interface ApiTransaction {
   updatedAt?: string;
   transaction: {
     businessId?: number;
-    transactionId?: number;
+    transactionId?: number | null;
+    environment?: ApiEnvironment;
+    failureCode?: string;
+    failureMessage?: string;
     reference: string;
     clientReference?: string;
     status: string;
@@ -134,7 +139,8 @@ export interface ApiTransaction {
     action?: string;
     grossAmount?: number;
     allFees?: number;
-    settlementNet?: number;
+    settlementAmount?: number | null;
+    settlementNet?: number | null;
     refunded?: boolean;
     cryptoDetails?: {
       address?: string;

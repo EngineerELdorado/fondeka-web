@@ -6,7 +6,29 @@ test("credential form submits only the normalized name and webhook destination",
   assert.deepEqual(credentialPayload(" ERP ", " https://merchant.example/hooks "), {
     name: "ERP",
     webhookUrl: "https://merchant.example/hooks",
+    environment: "LIVE",
   });
+});
+test("sandbox credential creation uses an explicit immutable environment and validates both prefixes", () => {
+  assert.deepEqual(credentialPayload(" Development ", "https://merchant.example/test", "SANDBOX"), {
+    name: "Development",
+    webhookUrl: "https://merchant.example/test",
+    environment: "SANDBOX",
+  });
+  const sandbox = {
+    credential: { id: 9, environment: "SANDBOX" },
+    apiKey: "fdk_biz_test_" + "s".repeat(43),
+    webhookSecret: "whsec_" + "w".repeat(43),
+  };
+  assert.equal(parseIssuedCredentials(sandbox, "SANDBOX"), sandbox);
+  assert.throws(() => parseIssuedCredentials(sandbox, "LIVE"));
+  assert.throws(() =>
+    parseIssuedCredentials({ ...sandbox, credential: { id: 9, environment: "LIVE" } }, "SANDBOX"),
+  );
+  assert.throws(() =>
+    parseIssuedCredentials({ ...sandbox, apiKey: "fdk_biz_" + "s".repeat(43) }, "SANDBOX"),
+  );
+  assert.throws(() => parseIssuedCredentials({ ...sandbox, credential: { id: 9 } }, "SANDBOX"));
 });
 test("credential form rejects blank, oversized and insecure destinations", () => {
   for (const name of ["", " ", "x".repeat(101)])

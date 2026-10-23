@@ -42,6 +42,12 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         "X-Client-Platform": "WEB",
         "X-Device-Platform": "WEB",
         "Accept-Language": request.headers.get("accept-language") || "en",
+        ...(request.headers.get("x-client-version")
+          ? { "X-Client-Version": request.headers.get("x-client-version")! }
+          : {}),
+        ...(request.headers.get("x-app-version")
+          ? { "X-App-Version": request.headers.get("x-app-version")! }
+          : {}),
         ...(request.headers.get("x-device-id")
           ? { "X-Device-Id": request.headers.get("x-device-id")! }
           : {}),

@@ -2,10 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { currencies, money } from "@/lib/format";
+import { currencies } from "@/lib/format";
 import { request } from "@/lib/data";
-import { demoMode } from "@/lib/auth";
-import { useQuery } from "@/lib/use-query";
 import type { Store, StoreInput } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
 import { Modal, SubmitButton } from "./ui";
@@ -16,11 +14,6 @@ export function StoreForm({ store, onClose }: { store?: Store; onClose: () => vo
   const [error, setError] = useState("");
   const { refresh, notify } = useWorkspace();
   const router = useRouter();
-  const fee = useQuery<{ totalToPay?: number; totalToPayCurrency?: string }>(
-    !store && !demoMode
-      ? `/customer-api/fees?${new URLSearchParams({ action: "CREATE_COMMERCE_STORE", amount: "0", currency })}`
-      : null,
-  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -50,7 +43,6 @@ export function StoreForm({ store, onClose }: { store?: Store; onClose: () => vo
       setBusy(false);
     }
   }
-  const paidCreation = !store && !demoMode && Number(fee.data?.totalToPay) > 0;
   return (
     <Modal
       title={store ? "Edit store" : "A new home for your business"}
@@ -125,15 +117,7 @@ export function StoreForm({ store, onClose }: { store?: Store; onClose: () => vo
         )}
         {!store && (
           <div className="info-box">
-            {demoMode
-              ? "Demo store creation is free. No real store will be created."
-              : fee.loading
-                ? "Checking your store creation fee…"
-                : fee.error
-                  ? fee.error
-                  : paidCreation
-                    ? `Store creation costs ${money(fee.data?.totalToPay, fee.data?.totalToPayCurrency || currency)}. Paid store creation is available in the Fondeka app while web wallet checkout is being connected.`
-                    : "Store creation fee: free."}
+            Additional stores are included with your account’s Business Tools access.
           </div>
         )}
         {error && (
@@ -145,20 +129,7 @@ export function StoreForm({ store, onClose }: { store?: Store; onClose: () => vo
           <button type="button" className="button secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>
-          <SubmitButton
-            busy={busy}
-            disabled={
-              !store &&
-              !demoMode &&
-              (fee.loading ||
-                !!fee.error ||
-                !fee.data ||
-                fee.data.totalToPay == null ||
-                paidCreation)
-            }
-          >
-            {store ? "Save changes" : "Create store"}
-          </SubmitButton>
+          <SubmitButton busy={busy}>{store ? "Save changes" : "Create store"}</SubmitButton>
         </div>
       </form>
     </Modal>

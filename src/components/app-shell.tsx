@@ -27,7 +27,7 @@ const navigation = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/stores", label: "Stores", icon: Store },
   { href: "/pos", label: "Point of sale", icon: Monitor },
-  { href: "/payment-requests", label: "Payment requests", icon: Link2 },
+  { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/developers", label: "API & developers", icon: Code2 },
 ];
 export function AppShell({ children }: { children: ReactNode }) {

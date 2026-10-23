@@ -1,3 +1,5 @@
+import type { ApiEnvironment } from "./types";
+
 export interface PortalFilters {
   action: string;
   status: string;
@@ -29,8 +31,12 @@ export const transactionStatuses = [
   "MANUAL_INTERVENTION_REQUIRED",
   "UNKNOWN",
 ];
-export function portalQuery(filters: PortalFilters, page: number) {
-  const params = new URLSearchParams({ page: String(page), size: "10" });
+export function portalQuery(
+  filters: PortalFilters,
+  page: number,
+  environment: ApiEnvironment = "LIVE",
+) {
+  const params = new URLSearchParams({ environment, page: String(page), size: "10" });
   for (const key of ["action", "status", "currency", "reference", "clientReference"] as const) {
     const value = filters[key].trim();
     if (!value) continue;
