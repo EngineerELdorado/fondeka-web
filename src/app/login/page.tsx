@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { confirmSignIn, signIn, signOut } from "aws-amplify/auth";
-import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, KeyRound, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { Brand, SubmitButton } from "@/components/ui";
 import { accessToken, authConfigured, demoMode, initializeAuth } from "@/lib/auth";
 import { resetDeviceIdentityMemory } from "@/lib/device";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AppRegistration } from "@/components/app-registration";
 import { LanguageSwitch } from "@/components/language-switch";
 import { useI18n } from "@/lib/i18n";
-import { PlatformGraphic } from "@/components/platform-graphic";
+import { LoginToolkit } from "@/components/login-toolkit";
 
 export default function Login() {
   const { t } = useI18n();
@@ -22,6 +21,8 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [cooldown, setCooldown] = useState(0);
+  const confirming = step === "code";
+  const showSteps = !demoMode && authConfigured;
   const router = useRouter();
   useEffect(() => {
     if (demoMode || !authConfigured) return;
@@ -104,44 +105,52 @@ export default function Login() {
     <main id="main-content" className="login-screen">
       <div className="auth-theme-toggle">
         <LanguageSwitch />
-        <ThemeToggle />
       </div>
       <section className="login-story">
         <Brand />
-        <div>
+        <div className="login-story-content">
           <span className="welcome-kicker">
-            {t("YOUR BUSINESS, CONNECTED", "VOTRE ACTIVITÉ, CONNECTÉE")}
+            <Sparkles size={13} aria-hidden="true" />
+            {t("MAKE YOUR NEXT MOVE", "PASSEZ À LA SUITE")}
           </span>
           <h2>
-            {t("Built for the way", "Conçu pour votre façon")}
+            {t("Your business,", "Votre activité,")}
             <br />
-            <span>{t("you do business.", "de faire des affaires.")}</span>
+            <span>{t("all connected.", "tout est connecté.")}</span>
           </h2>
           <p>
             {t(
-              "Your stores, payments, and integrations.",
-              "Vos boutiques, paiements et intégrations.",
-            )}
-            <br />
-            {t(
-              "Together in one place, ready for what’s next.",
-              "Réunis au même endroit, prêts pour la suite.",
+              "Collect, sell and build from one familiar workspace.",
+              "Encaissez, vendez et créez depuis un espace familier.",
             )}
           </p>
-          <PlatformGraphic />
+          <LoginToolkit />
         </div>
         <small>
           <ShieldCheck size={15} />
-          {t("Built around your business.", "Pensé pour votre activité.")}
+          {t(
+            "Your Fondeka account. More possibilities.",
+            "Votre compte Fondeka. Plus de possibilités.",
+          )}
         </small>
       </section>
       <section className="login-form-section">
         <div className="login-form-wrap">
+          <div className="login-card-heading">
+            <span className="login-card-icon" aria-hidden="true">
+              {confirming ? <KeyRound size={25} /> : <Mail size={25} />}
+            </span>
+            {showSteps && (
+              <span className="login-step-counter" role="status">
+                {t(`Step ${confirming ? 2 : 1} of 2`, `Étape ${confirming ? 2 : 1} sur 2`)}
+              </span>
+            )}
+          </div>
           <span className="eyebrow">{t("YOUR NEXT CHAPTER", "VOTRE PROCHAINE ÉTAPE")}</span>
           <h1>
             <span className="desktop-page-title">
               {step === "email"
-                ? t("Welcome to your workspace.", "Bienvenue dans votre espace.")
+                ? t("Welcome back.", "Heureux de vous revoir.")
                 : t("Check your inbox.", "Consultez vos e-mails.")}
             </span>
             <span className="mobile-page-title">
@@ -161,6 +170,31 @@ export default function Login() {
                   `Un code de vérification a été envoyé à ${email}.`,
                 )}
           </p>
+          {showSteps && (
+            <div className="login-signin-path">
+              <ol aria-label={t("Sign-in steps", "Étapes de connexion")}>
+                <li
+                  className={confirming ? "complete" : "current"}
+                  aria-current={!confirming ? "step" : undefined}
+                >
+                  <span aria-hidden="true">{confirming ? <Check size={14} /> : "1"}</span>
+                  {t("Your email", "Votre e-mail")}
+                </li>
+                <li
+                  className={confirming ? "current" : ""}
+                  aria-current={confirming ? "step" : undefined}
+                >
+                  <span aria-hidden="true">2</span>
+                  {t("Verification code", "Code de vérification")}
+                </li>
+              </ol>
+              <progress
+                max={2}
+                value={confirming ? 2 : 1}
+                aria-label={t("Sign-in progress", "Progression de connexion")}
+              />
+            </div>
+          )}
           {demoMode ? (
             <>
               <div className="info-box">
@@ -186,6 +220,7 @@ export default function Login() {
                 <label>
                   {t("Email address", "Adresse e-mail")}
                   <input
+                    key="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -204,6 +239,7 @@ export default function Login() {
                 <label>
                   {t("Verification code", "Code de vérification")}
                   <input
+                    key="code"
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     required
@@ -268,8 +304,8 @@ export default function Login() {
           <p className="login-footnote">
             <ShieldCheck size={14} />
             {t(
-              "Same Fondeka account. A workspace made for business.",
-              "Le même compte Fondeka. Un espace pensé pour votre activité.",
+              "Secure sign-in. No password to remember.",
+              "Connexion sécurisée. Aucun mot de passe à retenir.",
             )}
           </p>
         </div>

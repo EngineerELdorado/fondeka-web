@@ -1,5 +1,5 @@
 "use client";
-import { useUiText } from "@/lib/use-ui-text";
+import { useI18n } from "@/lib/i18n";
 
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
@@ -26,14 +26,14 @@ function getSnapshot() {
 }
 
 export function ThemeToggle() {
-  const uiText = useUiText();
+  const { t } = useI18n();
 
   const theme = useSyncExternalStore(subscribe, getSnapshot, () => defaultTheme);
   const nextTheme = theme === "dark" ? "light" : "dark";
   const title =
-    typeof document !== "undefined" && document.documentElement.lang.startsWith("fr")
-      ? `Passer en mode ${nextTheme === "dark" ? "sombre" : "clair"}`
-      : `Switch to ${nextTheme} mode`;
+    nextTheme === "dark"
+      ? t("Switch to dark mode", "Passer en mode sombre")
+      : t("Switch to light mode", "Passer en mode clair");
   function toggle() {
     document.documentElement.dataset.theme = nextTheme;
     document.documentElement.style.colorScheme = nextTheme;
@@ -53,7 +53,9 @@ export function ThemeToggle() {
       title={title}
     >
       {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-      <span>{nextTheme === "light" ? uiText("Light mode") : uiText("Dark mode")}</span>
+      <span>
+        {nextTheme === "light" ? t("Light mode", "Mode clair") : t("Dark mode", "Mode sombre")}
+      </span>
     </button>
   );
 }
