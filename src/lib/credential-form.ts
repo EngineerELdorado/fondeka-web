@@ -39,9 +39,14 @@ export function credentialPayload(
 ) {
   apiEnvironment(environment);
   const label = name.trim();
-  const destination = webhookUrl.trim();
   if (!label || label.length > 100)
     throw new Error("Enter an integration name of 1–100 characters.");
+  return { name: label, ...webhookUpdatePayload(webhookUrl), environment };
+}
+
+/** Shared by issuance and editing; never send credential metadata in a webhook PATCH. */
+export function webhookUpdatePayload(webhookUrl: string) {
+  const destination = webhookUrl.trim();
   if (!destination || destination.length > 2048)
     throw new Error("Enter a webhook URL of up to 2048 characters.");
   let target: URL;
@@ -61,7 +66,7 @@ export function credentialPayload(
       "Use a public HTTPS webhook URL on port 443, without URL credentials or fragments.",
     );
   // The backend performs authoritative public-address/DNS validation.
-  return { name: label, webhookUrl: target.toString(), environment };
+  return { webhookUrl: target.toString() };
 }
 
 /** A response known to reject issuance keeps the form; an ambiguous result requires metadata review. */

@@ -175,7 +175,7 @@ export function businessDestination(value: string): string | undefined {
   if ((url.pathname === "/developers/guides" || url.pathname === "/developers") && query.has("doc"))
     copy(
       "lesson",
-      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|fund|convert|execute-conversion|history|prepare|release)$/,
+      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|error-codes|fund|convert|execute-conversion|history|prepare|release)$/,
     );
   if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname)) {
     for (const key of ["business", "businessPage", "apiPage", "apiDetailBusiness"])

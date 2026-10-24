@@ -21,6 +21,8 @@ import type {
 } from "./types";
 import { amountInMinorUnits } from "./format";
 import { apiEnvironment } from "./api-environment";
+import { webhookUpdatePayload } from "./credential-form";
+import type { ProcessingErrorCode } from "./api-error-catalog";
 import { sandboxFundingBody, walletCurrency } from "./api-wallets";
 import { conversionInput } from "./sandbox-conversion";
 import type { ApiCatalog } from "./api-catalog";
@@ -33,6 +35,7 @@ import {
 const storageKey = "fondeka-business-demo-v1";
 interface DemoData {
   businesses?: Business[];
+  apiKeys?: ApiKey[];
   customers?: Customer[];
   staff?: Staff[];
   requestPayments?: (RequestPayment & { requestId: number })[];
@@ -786,6 +789,36 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       });
     }
     result = business;
+  } else if (/^\/businesses\/\d+\/api-error-codes$/.test(route) && method === "GET") {
+    if (route.split("/")[2] !== "1")
+      throw Object.assign(new Error("Business not found."), { status: 404 });
+    const selectedEnvironment = url.searchParams.get("environment") ?? "LIVE";
+    if (!["LIVE", "SANDBOX"].includes(selectedEnvironment))
+      throw Object.assign(new Error("Invalid API environment."), { status: 400 });
+    // Load the reviewed metadata only for the fictional demo; never use it as a real-catalog fallback.
+    const { default: spec } = await import("../../public/docs/business-api/openapi.v1.json");
+    result = {
+      environment: selectedEnvironment,
+      simulationEnabled: selectedEnvironment === "SANDBOX",
+      simulationHeader: "X-Simulate-Error-Code",
+      endpoints: Object.entries(spec.paths).flatMap(([path, methods]) =>
+        Object.entries(methods).map(([method, operation]) => ({
+          operationId: operation.operationId,
+          method: method.toUpperCase(),
+          path,
+          available: selectedEnvironment === "SANDBOX" || !path.includes("/sandbox-wallets/"),
+          additionalRequestErrorsPossible:
+            selectedEnvironment === "LIVE" &&
+            ["createCollection", "createPayout"].includes(operation.operationId),
+          requestErrors: operation["x-error-codes"][selectedEnvironment as "LIVE" | "SANDBOX"],
+          processingErrors: operation["x-processing-errors"].map((error: ProcessingErrorCode) => ({
+            ...error,
+            simulatable: selectedEnvironment === "SANDBOX",
+            simulationValue: selectedEnvironment === "SANDBOX" ? error.simulationValue : null,
+          })),
+        })),
+      ),
+    };
   } else if (/^\/businesses\/\d+\/api-catalog$/.test(route) && method === "GET") {
     if (route.split("/")[2] !== "1")
       throw Object.assign(new Error("Business not found."), { status: 404 });
@@ -987,38 +1020,51 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   } else if (/^\/businesses\/\d+\/api-keys$/.test(route)) {
     if (method !== "GET") throw new Error("Credential mutations are disabled in demo mode.");
     const environment = apiEnvironment(url.searchParams.get("environment") ?? undefined);
-    result =
-      environment === "SANDBOX"
-        ? ([
-            {
-              id: 3,
-              name: "Sandbox checkout",
-              keyPrefix: "fdk_biz_test_demo4b2",
-              enabled: true,
-              webhookUrl: "https://example.com/webhooks/fondeka-test",
-              createdAt: day(2),
-              environment: "SANDBOX",
-            },
-          ] satisfies ApiKey[])
-        : ([
-            {
-              id: 1,
-              name: "Commerce integration",
-              keyPrefix: "fdk_biz_demo7x2",
-              enabled: true,
-              webhookUrl: "https://example.com/webhooks/fondeka",
-              createdAt: day(45),
-              environment: "LIVE",
-            },
-            {
-              id: 2,
-              name: "Legacy integration",
-              keyPrefix: "fdk_biz_demo9a1",
-              enabled: false,
-              createdAt: day(90),
-              environment: "LIVE",
-            },
-          ] satisfies ApiKey[]);
+    const businessId = Number(route.split("/")[2]);
+    db.apiKeys ??= [
+      {
+        id: 1,
+        businessId: 1,
+        name: "Commerce integration",
+        keyPrefix: "fdk_biz_demo7x2",
+        enabled: true,
+        webhookUrl: "https://example.com/webhooks/fondeka",
+        createdAt: day(45),
+        environment: "LIVE",
+      },
+      {
+        id: 2,
+        businessId: 1,
+        name: "Legacy integration",
+        keyPrefix: "fdk_biz_demo9a1",
+        enabled: false,
+        createdAt: day(90),
+        environment: "LIVE",
+      },
+      {
+        id: 3,
+        businessId: 1,
+        name: "Sandbox checkout",
+        keyPrefix: "fdk_biz_test_demo4b2",
+        enabled: true,
+        webhookUrl: "https://example.com/webhooks/fondeka-test",
+        createdAt: day(2),
+        environment: "SANDBOX",
+      },
+    ];
+    result = db.apiKeys.filter(
+      (key) => key.businessId === businessId && key.environment === environment && key.enabled,
+    );
+  } else if (/^\/businesses\/\d+\/api-keys\/\d+\/webhook$/.test(route) && method === "PATCH") {
+    const [, , businessId, , keyId] = route.split("/");
+    const key = db.apiKeys?.find(
+      (key) => key.id === Number(keyId) && key.businessId === Number(businessId) && key.enabled,
+    );
+    if (!key) throw Object.assign(new Error("API key not found."), { status: 404 });
+    if (Object.keys(body).length !== 1 || typeof body.webhookUrl !== "string")
+      throw Object.assign(new Error("Supply only a webhook URL."), { status: 400 });
+    key.webhookUrl = webhookUpdatePayload(body.webhookUrl).webhookUrl;
+    result = key;
   } else if (/^\/businesses\/\d+\/api-transactions$/.test(route)) {
     result = paginate(
       demoTransactions(apiEnvironment(url.searchParams.get("environment") ?? undefined)).filter(

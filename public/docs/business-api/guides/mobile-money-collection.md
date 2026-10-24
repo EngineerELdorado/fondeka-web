@@ -15,7 +15,7 @@ Content-Type: application/json
 
 Use the payer's international phone number, without a national trunk zero after the country code. Amount is fiat net for EXCLUSIVE; fees are added to the gross collected. Use INCLUSIVE when the request amount is the total the payer should pay. Supported LIVE currencies, limits and routes depend on configuration.
 
-For sandbox, use a SANDBOX key and optionally add `X-Fondeka-Test-Scenario: SUCCESS`. Never send that header with a LIVE key.
+For sandbox, use a SANDBOX key and omit the simulation header for normal success. See [error simulation](../errors.md) to test immediate or deferred failures.
 
 ## Wait for confirmation
 

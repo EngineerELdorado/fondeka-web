@@ -49,7 +49,6 @@ The core collection request is:
 POST /business-api/v1/businesses/{businessId}/collections
 X-API-Key: YOUR_SANDBOX_API_KEY
 Idempotency-Key: my-first-integration-001:collection
-X-Fondeka-Test-Scenario: SUCCESS
 Content-Type: application/json
 
 {"amount":10,"currency":"USD","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","clientReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}

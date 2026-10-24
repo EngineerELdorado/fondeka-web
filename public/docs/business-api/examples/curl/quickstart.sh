@@ -22,7 +22,7 @@ PY
 # This response is acceptance only. Copy reference, then use GET below until terminal.
 curl --fail-with-body --silent --show-error --max-time 30 -X POST "$api/collections" \
   -H "X-API-Key: $FONDEKA_API_KEY" -H "Idempotency-Key: $FONDEKA_INTENT:collection" \
-  -H 'X-Fondeka-Test-Scenario: SUCCESS' -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/json' \
   --data "{\"amount\":10,\"currency\":\"USD\",\"paymentMethodName\":\"MPESA_KENYA\",\"accountRef\":\"+254707371664\",\"clientReference\":\"$FONDEKA_INTENT\",\"feeApplicationMode\":\"EXCLUSIVE\"}"
 echo
 # curl --fail-with-body --silent --show-error "$api/transactions/YOUR_REFERENCE" -H "X-API-Key: $FONDEKA_API_KEY"

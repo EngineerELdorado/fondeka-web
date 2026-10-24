@@ -139,6 +139,9 @@ export default function Login() {
           <div className="login-card-heading">
             <span className="login-card-icon" aria-hidden="true">
               {confirming ? <KeyRound size={25} /> : <Mail size={25} />}
+              <span className="login-card-spark">
+                <Sparkles size={12} />
+              </span>
             </span>
             {showSteps && (
               <span className="login-step-counter" role="status">
@@ -215,43 +218,48 @@ export default function Login() {
               )}
             </div>
           ) : (
-            <form onSubmit={submit} className="form-stack">
+            <form onSubmit={submit} className="form-stack login-auth-form">
               {step === "email" ? (
-                <label>
+                <label className="login-auth-field">
                   {t("Email address", "Adresse e-mail")}
-                  <input
-                    key="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    enterKeyHint="go"
-                    placeholder="you@yourbusiness.com"
-                    autoFocus
-                  />
+                  <span className="login-field-shell">
+                    <Mail size={18} aria-hidden="true" />
+                    <input
+                      key="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="go"
+                      placeholder="you@yourbusiness.com"
+                      autoFocus
+                    />
+                  </span>
                 </label>
               ) : (
-                <label>
+                <label className="login-auth-field">
                   {t("Verification code", "Code de vérification")}
-                  <input
-                    key="code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    required
-                    pattern="[0-9]{6}"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    enterKeyHint="done"
-                    autoFocus
-                    placeholder="000000"
-                    className="otp-input"
-                  />
+                  <span className="login-field-shell login-code-field">
+                    <input
+                      key="code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      required
+                      pattern="[0-9]{6}"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      enterKeyHint="done"
+                      autoFocus
+                      placeholder="000000"
+                      className="otp-input"
+                    />
+                  </span>
                 </label>
               )}
               {error && (

@@ -90,24 +90,37 @@ test("request and response examples are the literal contract values, including e
   >;
   assert.equal(accepted.status, "PROCESSING");
   assert.equal(accepted.environment, "SANDBOX");
-  const errors = Object.fromEntries(
-    Object.entries(operation.responses)
-      .filter(([status]) => !status.startsWith("2"))
-      .map(([status, response]) => [
-        status,
-        (publishedExample(guideMedia(response.content)) as { errorCode: string }).errorCode,
-      ]),
-  );
-  assert.deepEqual(errors, {
-    400: "INVALID_REQUEST",
-    401: "AUTHENTICATION_FAILED",
-    403: "INVALID_REQUEST",
-    404: "INVALID_REQUEST",
-    409: "INVALID_REQUEST",
-    429: "RATE_LIMITED",
-    500: "SOMETHING_WENT_WRONG",
-    503: "CIRCUIT_OPEN",
-  });
+  const errorCodes: string[] = [];
+  for (const [status, response] of Object.entries(operation.responses)) {
+    if (status.startsWith("2")) continue;
+    const samples = guideMedia(response.content)?.examples || {};
+    assert.ok(Object.keys(samples).length > 0);
+    for (const [code, sample] of Object.entries(samples)) {
+      const error = sample.value as {
+        errorCode: string;
+        status: number;
+        statusCode: number;
+        message: string;
+      };
+      assert.equal(error.errorCode, code);
+      assert.equal(error.status, Number(status));
+      assert.equal(error.statusCode, Number(status));
+      assert.ok(error.message.length > 0);
+      errorCodes.push(code);
+    }
+  }
+  for (const code of [
+    "INVALID_REQUEST",
+    "INVALID_TEST_ERROR_CODE",
+    "AUTHENTICATION_FAILED",
+    "IDEMPOTENCY_CONFLICT",
+    "PAYMENT_METHOD_NOT_FOUND",
+    "CRYPTO_NETWORK_REQUIRED",
+    "RATE_LIMITED",
+    "CIRCUIT_OPEN",
+    "BULKHEAD_FULL",
+  ])
+    assert.ok(errorCodes.includes(code), code);
   const incoming = examples.find((example) => example.incoming)!;
   const webhook = guideOperation(spec, incoming);
   assert.equal(publishedExample(guideMedia(webhook.responses["200"].content)), undefined);

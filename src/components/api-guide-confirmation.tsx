@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Search, Webhook } from "lucide-react";
 import type { GuideLesson } from "@/lib/api-guide-content";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
+import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import { ApiGuideEndpoint } from "./api-guide-endpoint";
 
 const modes = ["lookup", "webhook"] as const;
@@ -11,8 +12,10 @@ type Mode = (typeof modes)[number];
 
 export function ApiGuideConfirmation({
   examples,
+  setup,
 }: {
   examples: NonNullable<GuideLesson["confirmation"]>;
+  setup: ApiGuideSetup;
 }) {
   const { t } = useI18n();
   const { update } = useUrlState();
@@ -183,7 +186,7 @@ export function ApiGuideConfirmation({
             </p>
           )}
         </div>
-        <ApiGuideEndpoint key={mode} example={examples[mode]} />
+        <ApiGuideEndpoint key={mode} example={examples[mode]} setup={setup} />
       </div>
     </div>
   );

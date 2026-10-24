@@ -4,17 +4,11 @@ Use a SANDBOX credential on the same merchant routes. Sandbox enforces Business 
 
 ## Simulate outcomes
 
-Add `X-Fondeka-Test-Scenario` to collection/payout submission. Omission means SUCCESS. The header is rejected with LIVE credentials, even when empty. Use a new idempotency key when changing a scenario; replaying an existing intent preserves it.
+Discover operation-specific request errors and selectable payment failures with `GET /business-api/v1/businesses/{businessId}/error-codes`. See the [error-code reference](errors.md) for the catalog fields, direct failure-code simulation and the difference between HTTP rejection and an accepted payment failing later.
 
-| Scenario | Result |
-| --- | --- |
-| `SUCCESS` | COMPLETED; collection credits net, payout retains its initial gross debit |
-| `INVALID_DESTINATION` | FAILED |
-| `INSUFFICIENT_FUNDS` | FAILED; simulated external failure, separate from the sandbox wallet's own balance check |
-| `PAYMENT_NOT_APPROVED` | FAILED |
-| `CANCELED` | FAILED with failureCode CANCELED |
-| `EXPIRED` | FAILED with failureCode EXPIRED and expiration explanation |
-| `PENDING` | Remains PROCESSING; accepted payout funds stay reserved |
+Use the single optional `X-Simulate-Error-Code` header. Pick an entry from the endpoint's `requestErrors` for an immediate HTTP rejection without changes, or from `processingErrors` to accept a payment and fail it later. The latter exercises polling, signed failed-payment webhooks and virtual-wallet refunds. For example, `PAYMENT_NOT_APPROVED` tests an unapproved mobile money collection; `PROVIDER_UNAVAILABLE` tests a deferred collection/payout failure. Consult each entry's `paymentMethodTypes` and operation.
+
+Omit the header for normal sandbox success. Blank, unknown or unsupported codes return HTTP 400 `INVALID_TEST_ERROR_CODE`. LIVE credentials ignore every value regardless of Spring profile. Use the same processing code and idempotency key for retries; a different code with an accepted key returns 409 `IDEMPOTENCY_CONFLICT`. Real authorization, payload and wallet rules still apply.
 
 Failed payouts, including canceled/expired scenarios, refund their gross debit when the snapshotted sandbox refund policy permits it. Always inspect `refunded`; account for policy changes and historical simulations separately. Existing status-only sandbox payments created before virtual wallets were introduced do not gain retroactive wallet effects.
 

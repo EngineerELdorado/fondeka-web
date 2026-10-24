@@ -39,6 +39,7 @@ export type ApiParameter = {
   schema: ApiSchema;
 };
 export type ApiOperation = {
+  operationId?: string;
   summary?: string;
   description?: string;
   parameters?: ApiParameter[];
@@ -95,17 +96,44 @@ export function publishedExample(media?: ApiMedia, name?: string): unknown {
   const examples = media?.examples || {};
   return (name && examples[name] ? examples[name] : Object.values(examples)[0])?.value;
 }
-export function guideHeaders(operation: ApiOperation, incoming = false) {
+/** Use the DRC mobile-money example throughout the portal's JSON and cURL snippets. */
+export function guideRequestBody(spec: GuideSpec, example: GuideExample): unknown {
+  const body = publishedExample(
+    guideMedia(guideOperation(spec, example).requestBody?.content),
+    example.exampleName,
+  );
+  if (
+    !example.incoming &&
+    example.paymentKind === "MOBILE_MONEY" &&
+    body &&
+    typeof body === "object" &&
+    !Array.isArray(body)
+  )
+    return { ...body, paymentMethodName: "MPESA_DRC", accountRef: "+243810000000" };
+  return body;
+}
+export function guideHeaders(
+  operation: ApiOperation,
+  incoming = false,
+  overrides: Record<string, string> = {},
+) {
   const headers: Record<string, string> = incoming ? {} : { "X-API-Key": "$FONDEKA_API_KEY" };
   for (const parameter of operation.parameters || []) {
     if (parameter.in !== "header") continue;
+    // Simulation is opt-in through the current Business/environment error catalog.
+    if (["X-Simulate-Error-Code", "X-Fondeka-Test-Scenario"].includes(parameter.name)) continue;
     // A signature is not fabricated: use the documented format when no example is published.
     headers[parameter.name] = String(parameter.example ?? `<${parameter.name}>`);
   }
   if (operation.requestBody) headers["Content-Type"] = "application/json";
-  return headers;
+  return { ...headers, ...overrides };
 }
-export function contractCurl(spec: GuideSpec, example: GuideExample, body: unknown) {
+export function contractCurl(
+  spec: GuideSpec,
+  example: GuideExample,
+  body: unknown,
+  headers: Record<string, string> = {},
+) {
   if (example.incoming) return "";
   const operation = guideOperation(spec, example);
   const path = example.path
@@ -114,7 +142,9 @@ export function contractCurl(spec: GuideSpec, example: GuideExample, body: unkno
     .replace("{currency}", "USD");
   return [
     `curl --fail-with-body -X ${example.method} "${spec.servers[0].url}${path}"`,
-    ...Object.entries(guideHeaders(operation)).map(([key, value]) => `  -H "${key}: ${value}"`),
+    ...Object.entries(guideHeaders(operation, false, headers)).map(
+      ([key, value]) => `  -H "${key}: ${value}"`,
+    ),
     ...(body === undefined ? [] : [`  --data '${JSON.stringify(body, null, 2)}'`]),
   ].join(" \\\n");
 }

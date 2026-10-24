@@ -13,6 +13,7 @@ Merchant requests use a Business-specific `X-API-Key`.
 | [Crypto payouts](guides/crypto-payout.md) | Pay a crypto address from a fiat wallet |
 | [Amounts, wallets and payment states](concepts.md) | Understand the financial effects |
 | [Webhooks](webhooks.md) | Verify, persist and process terminal events |
+| [Error codes](errors.md) | Discover endpoint errors and select supported sandbox failures |
 | [Testing and troubleshooting](testing.md) | Simulate outcomes, fund wallets and retry safely |
 | [Go live](go-live.md) | Prepare production credentials and operations |
 | [Changelog](changelog.md) | Track the published contract |

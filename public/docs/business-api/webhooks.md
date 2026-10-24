@@ -1,6 +1,6 @@
 # Receive and verify webhooks
 
-Configure your HTTPS destination when issuing an API key. The destination and signing secret are immutable for that credential. To change them, issue a replacement key. Accepted payments continue delivering to their original destination/secret after the originating key is revoked, so keep that receiver active until those payments finish.
+Configure your HTTPS destination when generating credentials in the owner web portal. You can edit an active key's destination there without rotating the API key or signing secret. Future delivery attempts, including queued retries, use the updated URL; an attempt already in flight may still use the old URL. Event payloads and signing secrets remain unchanged. Revoked keys continue delivering accepted payments to their last configured destination using their original signing secret, so retain that receiver and secret until those payments finish. Editing a URL does not replay successful events or restart exhausted deliveries.
 
 ## Events and envelope
 

@@ -22,6 +22,45 @@ const spec = JSON.parse(
 const fields = (name: string) =>
   guideSchemaFields(spec, { $ref: `#/components/schemas/${name}` }, "response");
 
+test("collection and payout guides explain sandbox error simulation and LIVE ignores the header", () => {
+  for (const id of [
+    "mobile-money-collection",
+    "mobile-money-payout",
+    "crypto-collection",
+    "crypto-payout",
+  ]) {
+    const example = guideTrack(id).lessons[0].example!;
+    const parameter = guideOperation(spec, example).parameters!.find(
+      (p) => p.name === "X-Simulate-Error-Code",
+    )!;
+    assert.match(parameter.description!, /LIVE credentials ignore/);
+    assert.equal(parameter.schema.enum, undefined); // Unknown strings remain valid in LIVE.
+    for (const language of ["en", "fr"]) {
+      const description = guideFieldDescription(
+        {
+          name: parameter.name,
+          path: parameter.name,
+          depth: 0,
+          location: "header",
+          required: false,
+          schema: { ...parameter.schema, description: parameter.description },
+        },
+        language,
+        example,
+      );
+      assert.equal(description.language, language);
+      assert.match(
+        description.text,
+        id === "mobile-money-collection" ? /PAYMENT_NOT_APPROVED/ : /PROVIDER_UNAVAILABLE/,
+      );
+      assert.match(description.text, /FAILED/);
+      assert.match(description.text, /SANDBOX/);
+      assert.match(description.text, /LIVE/);
+      assert.match(description.text, language === "en" ? /ignores/ : /ignore/);
+    }
+  }
+});
+
 test("every declared request and response property has an English and French explanation", () => {
   for (const name of Object.keys(spec.components.schemas)) {
     for (const field of fields(name)) {

@@ -10,10 +10,10 @@ export function settings(env=process.env) {
   if(!/^[A-Za-z0-9_.:-]{1,80}$/.test(env.FONDEKA_INTENT || '')) throw new Error('Set FONDEKA_INTENT once per logical run; keep it on retries.');
   return {base:base.origin,key:env.FONDEKA_API_KEY,business:env.FONDEKA_BUSINESS_ID,intent:env.FONDEKA_INTENT};
 }
-export async function api(config,method,path,body,key,scenario) {
+export async function api(config,method,path,body,key,simulationCode) {
   const response=await fetch(`${config.base}/business-api/v1/businesses/${config.business}${path}`,{
     method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{'X-API-Key':config.key,Accept:'application/json',
-      ...(body?{'Content-Type':'application/json'}:{}),...(key?{'Idempotency-Key':key}:{}),...(scenario?{'X-Fondeka-Test-Scenario':scenario}:{})},
+      ...(body?{'Content-Type':'application/json'}:{}),...(key?{'Idempotency-Key':key}:{}),...(simulationCode?{'X-Simulate-Error-Code':simulationCode}:{})},
     ...(body?{body:JSON.stringify(body)}:{})});
   const result=await response.json();
   if(!response.ok) throw new Error(`HTTP ${response.status}: ${result.errorCode || 'REQUEST_FAILED'}; ${result.message || 'Check request'}; requestId=${response.headers.get('X-Request-Id')}`);
@@ -33,11 +33,11 @@ export async function main() {
   const wallets=await api(config,'GET','/wallets?currency=USD');
   if(wallets.length!==1 || wallets[0].environment!=='SANDBOX') throw new Error('Backend did not confirm SANDBOX; no write sent.');
   const body={amount:10,currency:'USD',paymentMethodName:'MPESA_KENYA',accountRef:'+254707371664',clientReference:config.intent,feeApplicationMode:'EXCLUSIVE'};
-  const collection=await api(config,'POST','/collections',body,`${config.intent}:collection`,'SUCCESS');
+  const collection=await api(config,'POST','/collections',body,`${config.intent}:collection`);
   const collected=await poll(config,collection.reference);
   console.log('Collection',JSON.stringify(collected));
   if(collected.status!=='COMPLETED') return;
-  const payout=await api(config,'POST','/payouts',{...body,amount:5},`${config.intent}:payout`,'SUCCESS');
+  const payout=await api(config,'POST','/payouts',{...body,amount:5},`${config.intent}:payout`);
   console.log('Payout',JSON.stringify(await poll(config,payout.reference)));
   console.log('Wallets',JSON.stringify(await api(config,'GET','/wallets?currency=USD')));
 }

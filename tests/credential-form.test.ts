@@ -1,6 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { credentialPayload, parseIssuedCredentials } from "../src/lib/credential-form";
+import {
+  credentialPayload,
+  parseIssuedCredentials,
+  webhookUpdatePayload,
+} from "../src/lib/credential-form";
+
+test("editing a webhook submits only its normalized URL and preserves query parameters", () => {
+  assert.deepEqual(webhookUpdatePayload(" https://MERCHANT.example:443/new?receiver=2 "), {
+    webhookUrl: "https://merchant.example/new?receiver=2",
+  });
+  for (const url of [
+    "",
+    " ",
+    "not a URL",
+    "http://merchant.example",
+    "https://user:secret@merchant.example",
+    "https://merchant.example:8443",
+    "https://merchant.example/#part",
+    "https://merchant.example/" + "x".repeat(2048),
+  ])
+    assert.throws(() => webhookUpdatePayload(url));
+});
 
 test("credential form submits only the normalized name and webhook destination", () => {
   assert.deepEqual(credentialPayload(" ERP ", " https://merchant.example/hooks "), {

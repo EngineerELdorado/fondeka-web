@@ -17,11 +17,11 @@ class Client:
         if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,80}',self.intent): raise ValueError('Set FONDEKA_INTENT once per logical run; preserve it on retries.')
         self.http=urllib.request.build_opener(NoRedirect())
 
-    def request(self,method,path,body=None,key=None,scenario=None):
+    def request(self,method,path,body=None,key=None,simulationCode=None):
         headers={'X-API-Key':self.key,'Accept':'application/json'}
         if body is not None: headers['Content-Type']='application/json'
         if key: headers['Idempotency-Key']=key
-        if scenario: headers['X-Fondeka-Test-Scenario']=scenario
+        if simulationCode: headers['X-Simulate-Error-Code']=simulationCode
         request=urllib.request.Request(self.base+'/business-api/v1/businesses/'+self.business+path,
             method=method,headers=headers,data=json.dumps(body).encode() if body is not None else None)
         try:
@@ -43,10 +43,10 @@ def main():
     wallets=client.request('GET','/wallets?currency=USD')
     if len(wallets)!=1 or wallets[0]['environment']!='SANDBOX': raise RuntimeError('SANDBOX was not confirmed; no write sent.')
     body={'amount':10,'currency':'USD','paymentMethodName':'MPESA_KENYA','accountRef':'+254707371664','clientReference':client.intent,'feeApplicationMode':'EXCLUSIVE'}
-    collection=client.request('POST','/collections',body,client.intent+':collection','SUCCESS')
+    collection=client.request('POST','/collections',body,client.intent+':collection')
     completed=client.poll(collection['reference']); print('Collection',json.dumps(completed))
     if completed['status']!='COMPLETED': return
-    payout=client.request('POST','/payouts',{**body,'amount':5},client.intent+':payout','SUCCESS')
+    payout=client.request('POST','/payouts',{**body,'amount':5},client.intent+':payout')
     print('Payout',json.dumps(client.poll(payout['reference'])))
     print('Wallets',json.dumps(client.request('GET','/wallets?currency=USD')))
 

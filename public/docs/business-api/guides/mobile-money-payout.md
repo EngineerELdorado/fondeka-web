@@ -15,7 +15,7 @@ Content-Type: application/json
 
 `accountRef` is the recipient's international phone number. EXCLUSIVE sends the requested net and adds fees to the wallet debit. INCLUSIVE treats the requested amount as the gross wallet debit and reduces the amount sent by fees. Do not assume fees from a previous payment are still current.
 
-Use a SANDBOX key for tests, with an optional test-scenario header. You can fund virtual balances through the sandbox top-up endpoint. A LIVE key cannot use sandbox funding.
+Use a SANDBOX key for tests, with the optional `X-Simulate-Error-Code` header for [error simulation](../errors.md). You can fund virtual balances through the sandbox top-up endpoint. A LIVE key cannot use sandbox funding.
 
 ## Track the debit and outcome
 

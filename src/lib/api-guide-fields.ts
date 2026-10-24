@@ -305,8 +305,8 @@ const parameterDescriptionsFr: Record<string, string> = {
     "Clé secrète propre au Business, à conserver sur votre serveur. Elle détermine également l’environnement LIVE ou SANDBOX.",
   "Idempotency-Key":
     "Clé obligatoire par intention logique. Réutilisez-la avec un contenu identique pour les nouvelles tentatives ; un contenu différent provoque un conflit 409.",
-  "X-Fondeka-Test-Scenario":
-    "Résultat de test facultatif réservé au SANDBOX, SUCCESS par défaut. L’en-tête est refusé en LIVE, même vide.",
+  "X-Simulate-Error-Code":
+    "En SANDBOX, utilisez la simulationValue d’une erreur simulatable du catalogue de cet endpoint. Une erreur de requête provoque un refus HTTP immédiat ; une erreur de traitement accepte HTTP 202 puis produit FAILED et failureCode par consultation et webhook. Exemple : PAYMENT_NOT_APPROVED simule une collecte mobile money non approuvée. Omettez l’en-tête pour un succès ; SUCCESS, PENDING et les valeurs invalides renvoient 400 INVALID_TEST_ERROR_CODE. LIVE ignore cet en-tête.",
   "X-Fondeka-Event-Id":
     "Identifiant stable de l’événement, identique à id dans le corps. Utilisez-le pour dédupliquer les livraisons.",
   "X-Fondeka-Timestamp":
@@ -323,11 +323,146 @@ const parameterDescriptionsFr: Record<string, string> = {
   size: "Nombre d’écritures par page, entre 1 et 100, avec 20 par défaut.",
 };
 
+const catalogFieldDefinitions: Record<string, Record<string, readonly [string, string]>> = {
+  BusinessApiErrorCatalogResource: {
+    environment: [
+      "The Business API environment described by this catalog.",
+      "L’environnement API Business décrit par ce catalogue.",
+    ],
+    simulationHeader: [
+      "The exact header name used to select an advertised sandbox error.",
+      "Le nom exact de l’en-tête permettant de sélectionner une erreur sandbox annoncée.",
+    ],
+    simulationEnabled: [
+      "Whether sandbox error simulation is enabled. LIVE never enables simulation.",
+      "Indique si la simulation d’erreurs sandbox est activée. LIVE ne l’active jamais.",
+    ],
+    endpoints: [
+      "Endpoint-specific availability, immediate request errors and deferred processing failures.",
+      "Disponibilité, erreurs de requête immédiates et échecs de traitement différés par endpoint.",
+    ],
+  },
+  Endpoint: {
+    operationId: [
+      "Stable operation identifier used to select this endpoint’s error definitions.",
+      "Identifiant stable de l’opération permettant de sélectionner ses définitions d’erreur.",
+    ],
+    method: [
+      "HTTP method of the documented merchant endpoint.",
+      "Méthode HTTP de l’endpoint marchand documenté.",
+    ],
+    path: [
+      "Merchant endpoint path template, including its Business and resource placeholders.",
+      "Modèle de chemin marchand, avec ses paramètres Business et ressource.",
+    ],
+    available: [
+      "Whether this endpoint is available in the catalog’s environment.",
+      "Indique si cet endpoint est disponible dans l’environnement du catalogue.",
+    ],
+    additionalRequestErrorsPossible: [
+      "LIVE policies or provider routing may produce additional request errors. Retain generic handling.",
+      "Les règles LIVE ou le routage fournisseur peuvent produire d’autres erreurs. Conservez une gestion générique.",
+    ],
+    requestErrors: [
+      "Immediate HTTP rejections identified by errorCode, with HTTP status and testing instructions.",
+      "Refus HTTP immédiats identifiés par errorCode, avec statut HTTP et indications de test.",
+    ],
+    processingErrors: [
+      "Failures after accepting a collection or payout. Polling and webhooks use the code as failureCode.",
+      "Échecs après acceptation d’un encaissement ou décaissement. La consultation et les webhooks utilisent le code comme failureCode.",
+    ],
+  },
+  RequestError: {
+    httpStatus: [
+      "Numeric HTTP status returned when this request is rejected; not a payment status.",
+      "Statut HTTP numérique renvoyé lors du refus de la requête ; ce n’est pas un état de paiement.",
+    ],
+    errorCode: [
+      "Stable business code in the immediate HTTP error envelope.",
+      "Code métier stable de l’enveloppe d’erreur HTTP immédiate.",
+    ],
+    description: [
+      "Backend explanation of this request rejection.",
+      "Explication du backend concernant ce refus de requête.",
+    ],
+    howToTest: [
+      "Backend instructions for exercising this error without assuming it can be simulated.",
+      "Indications du backend pour tester cette erreur, sans présumer qu’elle peut être simulée.",
+    ],
+    simulatable: [
+      "Whether this entry can be selected for simulation when the catalog also enables it.",
+      "Indique si cette entrée peut être simulée lorsque le catalogue l’autorise également.",
+    ],
+    simulationValue: [
+      "Exact value to send in simulationHeader for this error; omit the header for normal success.",
+      "Valeur exacte à envoyer dans simulationHeader pour cette erreur ; omettez l’en-tête pour un succès normal.",
+    ],
+  },
+  ProcessingError: {
+    errorCode: [
+      "Code exposed as failureCode in a failed payment and its terminal webhook.",
+      "Code exposé comme failureCode dans le paiement échoué et son webhook final.",
+    ],
+    description: [
+      "Backend explanation of the simulated failure after acceptance.",
+      "Explication du backend concernant l’échec simulé après acceptation.",
+    ],
+    resultingStatus: [
+      "Terminal payment status produced by this processing fixture, separate from HTTP status.",
+      "État final du paiement produit par ce test de traitement, distinct du statut HTTP.",
+    ],
+    paymentMethodTypes: [
+      "Payment-method types supported by this processing failure; do not offer it for other types.",
+      "Types de moyens de paiement compatibles avec cet échec ; ne le proposez pas pour d’autres types.",
+    ],
+    simulatable: [
+      "Whether this processing error may be simulated when simulationEnabled is true.",
+      "Indique si cette erreur de traitement peut être simulée lorsque simulationEnabled vaut true.",
+    ],
+    simulationValue: [
+      "Exact processing code to send in simulationHeader and retain with the original accepted intent.",
+      "Code de traitement exact à envoyer dans simulationHeader et à conserver avec l’intention acceptée d’origine.",
+    ],
+  },
+};
+
 export function guideFieldDescription(
   field: GuideSchemaField,
   language: string,
   example?: GuideExample,
 ): { text: string; language: "en" | "fr" } {
+  const catalogDefinition =
+    field.component && catalogFieldDefinitions[field.component]?.[field.name];
+  if (catalogDefinition)
+    return {
+      text: catalogDefinition[language === "fr" ? 1 : 0],
+      language: language === "fr" ? "fr" : "en",
+    };
+  if (field.location === "header" && field.name === "X-Simulate-Error-Code") {
+    const paymentSubmission =
+      example?.method === "POST" && /\/(collections|payouts)$/.test(example.path);
+    const mobileCollection =
+      example?.paymentKind === "MOBILE_MONEY" && example.path.endsWith("/collections");
+    return {
+      text:
+        language === "fr"
+          ? "En SANDBOX, utilisez la simulationValue d’une erreur simulatable du catalogue de cet endpoint. Les erreurs de requête provoquent un refus immédiat ; les erreurs de traitement acceptent HTTP 202 puis produisent FAILED et failureCode par consultation et webhook. " +
+            (!paymentSubmission
+              ? "Pour cette opération, choisissez uniquement une erreur de requête annoncée, par exemple RATE_LIMITED. "
+              : mobileCollection
+                ? "PAYMENT_NOT_APPROVED teste une demande mobile money non approuvée. "
+                : "PROVIDER_UNAVAILABLE teste un échec fournisseur après acceptation. ") +
+            "Omettez l’en-tête pour un succès ; SUCCESS, PENDING et les valeurs invalides renvoient 400 INVALID_TEST_ERROR_CODE. LIVE ignore cet en-tête."
+          : "In SANDBOX, use the simulationValue of a simulatable error from this endpoint’s catalog. Request errors reject immediately; processing errors accept HTTP 202, then produce FAILED and failureCode through polling and webhooks. " +
+            (!paymentSubmission
+              ? "For this operation, select an advertised request error such as RATE_LIMITED. "
+              : mobileCollection
+                ? "PAYMENT_NOT_APPROVED tests an unapproved mobile-money prompt. "
+                : "PROVIDER_UNAVAILABLE tests a provider failure after acceptance. ") +
+            "Omit for success; SUCCESS, PENDING and invalid values return 400 INVALID_TEST_ERROR_CODE. LIVE ignores this header.",
+      language: language === "fr" ? "fr" : "en",
+    };
+  }
   if (example?.paymentKind === "MOBILE_MONEY" && field.name === "cryptoDetails")
     return {
       text:

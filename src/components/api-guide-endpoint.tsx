@@ -16,6 +16,7 @@ import {
   guideHeaders,
   guideMedia,
   guideOperation,
+  guideRequestBody,
   publishedExample,
   resolveGuideSchema,
   paymentStateGroups,
@@ -24,6 +25,10 @@ import {
 import type { GuideExample } from "@/lib/api-guide-content";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import { ApiGuideCatalog } from "./api-guide-catalog";
+import { ApiGuideErrors } from "./api-guide-errors";
+import { useApiErrorCatalog } from "@/lib/use-api-error-catalog";
+import { simulationHeaders, type ErrorSimulation } from "@/lib/api-error-catalog";
+import { useWorkspace } from "./workspace-provider";
 import {
   guideSchemaFields as schemaFields,
   guideSchemaStructure,
@@ -511,8 +516,20 @@ function EndpointContent({
     responseCodes.find((code) => code.startsWith("2")) || responseCodes[0],
   );
   const response = operation.responses[responseCode];
+  const [responseExampleName, setResponseExampleName] = useState<string>();
   const requestMedia = guideMedia(operation.requestBody?.content);
-  const body = publishedExample(requestMedia, example.exampleName);
+  const body = guideRequestBody(spec, example);
+  const errorData = useApiErrorCatalog(setup, example.method, example.path, operation.operationId);
+  const [simulation, setSimulation] = useState<ErrorSimulation>();
+  const [intentKey, setIntentKey] = useState<string>();
+  const simulatedHeaders =
+    errorData.error || errorData.refreshError
+      ? {}
+      : simulationHeaders(errorData.catalog, errorData.endpoint, simulation, example.paymentKind);
+  const headerOverrides = {
+    ...simulatedHeaders,
+    ...(intentKey ? { "Idempotency-Key": intentKey } : {}),
+  };
   const preferredMethod =
     body &&
     typeof body === "object" &&
@@ -530,7 +547,33 @@ function EndpointContent({
         }
       : undefined;
   const responseMedia = guideMedia(response?.content);
-  const responseBody = publishedExample(responseMedia);
+  const responseBody = publishedExample(responseMedia, responseExampleName);
+  const simulatedRejection =
+    Object.keys(simulatedHeaders).length > 0 &&
+    simulation?.stage === "request" &&
+    errorData.endpoint?.requestErrors.find(
+      (entry) =>
+        entry.errorCode === simulation.errorCode &&
+        String(entry.httpStatus) === responseCode &&
+        entry.errorCode === responseExampleName,
+    );
+  const displayedResponse =
+    simulatedRejection &&
+    responseBody &&
+    typeof responseBody === "object" &&
+    !Array.isArray(responseBody)
+      ? {
+          ...responseBody,
+          details: {
+            ...("details" in responseBody &&
+            responseBody.details &&
+            typeof responseBody.details === "object"
+              ? responseBody.details
+              : {}),
+            simulated: true,
+          },
+        }
+      : responseBody;
   const [responseView, setResponseView] = useState<"example" | "structure">(
     example.responseFocus === "cryptoDetails" ? "structure" : "example",
   );
@@ -550,7 +593,7 @@ function EndpointContent({
   const [selected, setSelected] = useState<string | undefined>(example.fields[0]?.key);
   const [stateGroup, setStateGroup] = useState(0);
   const responsePreview = useRef<HTMLDivElement>(null);
-  const headers = guideHeaders(operation, example.incoming);
+  const headers = guideHeaders(operation, example.incoming, headerOverrides);
   const parameterFields: Field[] = (operation.parameters || []).map((parameter) => ({
     name: parameter.name,
     path: parameter.name,
@@ -590,7 +633,7 @@ function EndpointContent({
   );
   const requestCode =
     view === "curl"
-      ? contractCurl(spec, example, body)
+      ? contractCurl(spec, example, body, headerOverrides)
       : body === undefined
         ? Object.entries(headers)
             .map(([key, value]) => `${key}: ${value}`)
@@ -615,11 +658,36 @@ function EndpointContent({
     .flatMap((part) => part.required || [])
     .filter((name) => fields.some((field) => field.location === "body" && field.path === name));
   const statusLabel = (code: string) => statusNames[code]?.[language === "fr" ? 1 : 0] || code;
-  function chooseResponse(code: string, reveal = false) {
+  function chooseResponse(code: string, reveal = false, errorCode?: string) {
     setResponseCode(code);
+    setResponseExampleName(errorCode);
     setScope("response");
     setSelected(code.startsWith("2") ? "status" : "errorCode");
     if (reveal) responsePreview.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }
+  function chooseSimulation(value?: ErrorSimulation) {
+    if (value?.stage !== simulation?.stage || value?.errorCode !== simulation?.errorCode) {
+      setSimulation(value);
+      if (
+        operation.parameters?.some(
+          (parameter) => parameter.in === "header" && parameter.name === "Idempotency-Key",
+        )
+      )
+        setIntentKey(`guide_${crypto.randomUUID()}`);
+    }
+    if (value?.stage === "request") {
+      const entry = errorData.endpoint?.requestErrors.find(
+        (entry) => entry.errorCode === value.errorCode,
+      );
+      if (
+        entry &&
+        guideMedia(operation.responses[String(entry.httpStatus)]?.content)?.examples?.[
+          entry.errorCode
+        ]
+      )
+        chooseResponse(String(entry.httpStatus), false, entry.errorCode);
+    } else chooseResponse(responseCodes.find((code) => code.startsWith("2")) || responseCodes[0]);
+    setView("curl");
   }
   return (
     <div className="guide-endpoint-explorer">
@@ -673,6 +741,15 @@ function EndpointContent({
               </div>
             )}
           </div>
+          {Object.keys(simulatedHeaders).length > 0 && (
+            <p className="guide-code-caption">
+              <code>
+                {Object.entries(simulatedHeaders)
+                  .map(([name, value]) => `${name}: ${value}`)
+                  .join("\n")}
+              </code>
+            </p>
+          )}
         </GuideCodeCard>
         <div ref={responsePreview} className="guide-response-preview">
           <GuideCodeCard
@@ -689,7 +766,7 @@ function EndpointContent({
                       "No response body is published for this status.",
                       "Aucun corps de réponse n’est publié pour cet état.",
                     )
-                  : JSON.stringify(responseBody, null, 2)
+                  : JSON.stringify(displayedResponse, null, 2)
             }
             selectedKey={scope === "response" ? activeField?.path : undefined}
             caption={
@@ -698,13 +775,38 @@ function EndpointContent({
                     "Full response structure with field types, not payment values. cryptoDetails may initially be null; refresh the same reference until invoice instructions are available.",
                     "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails peut être null au départ ; actualisez la même référence jusqu’à réception des instructions de facture.",
                   )
-                : t(
-                    "Contract example, not the result of a request in this browser.",
-                    "Exemple du contrat, pas le résultat d’une requête dans ce navigateur.",
-                  )
+                : simulatedRejection
+                  ? t(
+                      "Simulated rejection example: details.simulated is true. This page does not send the payment request.",
+                      "Exemple de refus simulé : details.simulated vaut true. Cette page n’envoie pas la demande de paiement.",
+                    )
+                  : t(
+                      "Contract example, not the result of a request in this browser.",
+                      "Exemple du contrat, pas le résultat d’une requête dans ce navigateur.",
+                    )
             }
           >
             <div className="guide-code-options">
+              {responseMedia?.examples && Object.keys(responseMedia.examples).length > 1 && (
+                <label>
+                  {t("Response example", "Exemple de réponse")}
+                  <select
+                    aria-label={t("Response error code", "Code d’erreur de la réponse")}
+                    value={
+                      responseExampleName && responseMedia.examples[responseExampleName]
+                        ? responseExampleName
+                        : Object.keys(responseMedia.examples)[0]
+                    }
+                    onChange={(event) => setResponseExampleName(event.target.value)}
+                  >
+                    {Object.keys(responseMedia.examples).map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {cryptoFields.length > 0 && (
                 <div role="group" aria-label={t("Response view", "Vue de la réponse")}>
                   <button
@@ -748,7 +850,7 @@ function EndpointContent({
           </GuideCodeCard>
         </div>
       </div>
-      <details className="guide-request-headers">
+      <details className="guide-request-headers" open={Object.keys(simulatedHeaders).length > 0}>
         <summary>
           {t("Request headers", "En-têtes de requête")} · {Object.keys(headers).length}
           <ChevronDown size={14} />
@@ -838,48 +940,63 @@ function EndpointContent({
             <ArrowRightLeft size={17} />
             {t("HTTP statuses & errors", "États HTTP et erreurs")}
           </h4>
-          <div className="guide-status-list">
-            {responseCodes.map((code) => {
-              const value = publishedExample(guideMedia(operation.responses[code].content)) as
-                { errorCode?: string } | undefined;
-              return (
-                <button
-                  type="button"
-                  key={code}
-                  aria-pressed={code === responseCode}
-                  onClick={() => chooseResponse(code, true)}
-                >
-                  <span className={code.startsWith("2") ? "success" : "failure"}>{code}</span>
-                  <span>
-                    <strong>{statusLabel(code)}</strong>
-                    {value?.errorCode && <code>{value.errorCode}</code>}
-                  </span>
-                  <ChevronDown size={14} />
-                </button>
-              );
-            })}
-          </div>
-          <div className="guide-response-description">
-            <strong>
-              {responseCode} · {statusLabel(responseCode)}
-            </strong>
-            <p lang="en">{response.description}</p>
-            <small>
-              {t(
-                "Select a status to inspect its published response. Error codes shown above are documented examples, not an exhaustive enum.",
-                "Sélectionnez un état pour voir sa réponse publiée. Les codes ci-dessus sont les exemples documentés, pas une liste exhaustive.",
-              )}
-            </small>
-          </div>
-          {response.headers?.["X-Request-Id"] && !example.incoming && (
-            <p className="guide-response-header">
-              <code>X-Request-Id</code>
-              {t(
-                "Fresh for each HTTP attempt; include it in support requests.",
-                "Renouvelé à chaque tentative HTTP ; communiquez-le au support.",
-              )}
-            </p>
-          )}
+          <ApiGuideErrors
+            data={errorData}
+            setup={setup}
+            kind={example.paymentKind}
+            simulation={Object.keys(simulatedHeaders).length ? simulation : undefined}
+            onSimulation={chooseSimulation}
+            onInspect={(entry) => {
+              const status = String(entry.httpStatus);
+              if (guideMedia(operation.responses[status]?.content)?.examples?.[entry.errorCode])
+                chooseResponse(status, false, entry.errorCode);
+            }}
+          />
+          <details className="guide-published-http-responses">
+            <summary>{t("Published HTTP responses", "Réponses HTTP publiées")}</summary>
+            <div className="guide-status-list">
+              {responseCodes.map((code) => {
+                const value = publishedExample(guideMedia(operation.responses[code].content)) as
+                  { errorCode?: string } | undefined;
+                return (
+                  <button
+                    type="button"
+                    key={code}
+                    aria-pressed={code === responseCode}
+                    onClick={() => chooseResponse(code, true)}
+                  >
+                    <span className={code.startsWith("2") ? "success" : "failure"}>{code}</span>
+                    <span>
+                      <strong>{statusLabel(code)}</strong>
+                      {value?.errorCode && <code>{value.errorCode}</code>}
+                    </span>
+                    <ChevronDown size={14} />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="guide-response-description">
+              <strong>
+                {responseCode} · {statusLabel(responseCode)}
+              </strong>
+              <p lang="en">{response.description}</p>
+              <small>
+                {t(
+                  "Select a status to inspect its published response. Error codes shown above are documented examples, not an exhaustive enum.",
+                  "Sélectionnez un état pour voir sa réponse publiée. Les codes ci-dessus sont les exemples documentés, pas une liste exhaustive.",
+                )}
+              </small>
+            </div>
+            {response.headers?.["X-Request-Id"] && !example.incoming && (
+              <p className="guide-response-header">
+                <code>X-Request-Id</code>
+                {t(
+                  "Fresh for each HTTP attempt; include it in support requests.",
+                  "Renouvelé à chaque tentative HTTP ; communiquez-le au support.",
+                )}
+              </p>
+            )}
+          </details>
         </section>
       </div>
       {paymentResource && (
@@ -933,6 +1050,7 @@ export function ApiGuideEndpoint({
   setup?: ApiGuideSetup;
 }) {
   const { t } = useI18n();
+  const { accountKey } = useWorkspace();
   const [spec, setSpec] = useState(publishedSpec);
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -968,6 +1086,12 @@ export function ApiGuideEndpoint({
   return example.incoming ? (
     <WebhookEventGuide spec={spec} example={example} />
   ) : (
-    <EndpointContent spec={spec} example={example} hideRoute={hideRoute} setup={setup} />
+    <EndpointContent
+      key={`${accountKey}:${setup?.business?.id}:${setup?.environment}:${example.method}:${example.path}:${example.paymentKind}`}
+      spec={spec}
+      example={example}
+      hideRoute={hideRoute}
+      setup={setup}
+    />
   );
 }

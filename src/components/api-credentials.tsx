@@ -2,7 +2,7 @@
 import { useUiText } from "@/lib/use-ui-text";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, KeyRound, Plus, ShieldAlert, Trash2, Webhook } from "lucide-react";
+import { Copy, KeyRound, Pencil, Plus, ShieldAlert, Trash2, Webhook } from "lucide-react";
 import { api } from "@/lib/api";
 import { demoMode } from "@/lib/auth";
 import {
@@ -17,6 +17,8 @@ import { Badge, Empty, ErrorState, Loading, Modal } from "./ui";
 
 import { CredentialCreateFlow } from "./credential-create-flow";
 import { useUrlState } from "@/lib/use-url-state";
+import { CredentialWebhookEditor } from "./credential-webhook-editor";
+import { invalidateQueryPaths } from "@/lib/query-cache";
 export function ApiCredentials({
   businessId,
   environment,
@@ -37,6 +39,8 @@ export function ApiCredentials({
   const [uncertain, setUncertain] = useState(false);
   const [issued, setIssued] = useState<IssuedCredentials>();
   const [revoke, setRevoke] = useState<ApiKey>();
+  const [editing, setEditing] = useState<ApiKey>();
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
   const mounted = useRef(true);
@@ -72,6 +76,12 @@ export function ApiCredentials({
   }, [issued, uiText]);
 
   const path = "/customer-api/businesses/" + businessId + "/api-keys";
+  const activeKeys = keys.data?.filter((key) => key.enabled);
+
+  function editWebhook(key: ApiKey) {
+    setNotice("");
+    setEditing(key);
+  }
 
   function close() {
     if (locked.current) return;
@@ -131,6 +141,10 @@ export function ApiCredentials({
       refresh();
     } catch (failure) {
       if (!mounted.current) return;
+      if ((failure as { status?: number }).status === 404) {
+        invalidateQueryPaths(["/customer-api/businesses?"]);
+        refresh();
+      }
       setError(
         failure instanceof Error ? uiText(failure.message) : uiText("Could not revoke the key."),
       );
@@ -158,8 +172,7 @@ export function ApiCredentials({
               {uiText("API credentials")}
             </h2>
             <p className="muted">
-              {environment}
-              {uiText("credentials for your backend integrations.")}
+              {environment} {uiText("credentials for your backend integrations.")}
             </p>
           </div>
           <button
@@ -178,7 +191,7 @@ export function ApiCredentials({
           <Loading rows={2} />
         ) : keys.error ? (
           <ErrorState message={keys.error} retry={refresh} />
-        ) : !keys.data?.length ? (
+        ) : !activeKeys?.length ? (
           <Empty
             icon={KeyRound}
             title={uiText("No API credentials yet")}
@@ -202,7 +215,7 @@ export function ApiCredentials({
                   </tr>
                 </thead>
                 <tbody>
-                  {keys.data.map((key) => (
+                  {activeKeys.map((key) => (
                     <tr key={key.id}>
                       <td className="table-name">{key.name}</td>
                       <td>
@@ -224,9 +237,18 @@ export function ApiCredentials({
                         <Badge value={key.enabled ? "ENABLED" : "REVOKED"} />
                       </td>
                       <td>
-                        {key.enabled && (
+                        <div className="credential-actions">
                           <button
                             className="button secondary small"
+                            disabled={busy}
+                            onClick={() => editWebhook(key)}
+                            aria-label={uiText("Edit webhook for ") + key.name}
+                          >
+                            <Pencil size={14} />
+                            {uiText("Edit webhook")}
+                          </button>
+                          <button
+                            className="button ghost small"
                             disabled={demoMode || busy}
                             onClick={() => {
                               setRevoke(key);
@@ -237,7 +259,7 @@ export function ApiCredentials({
                             <Trash2 size={14} />
                             {uiText("Revoke")}
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -245,7 +267,7 @@ export function ApiCredentials({
               </table>
             </div>
             <div className="mobile-credentials-list">
-              {keys.data.map((key) => (
+              {activeKeys.map((key) => (
                 <article className="mobile-credential" key={key.id}>
                   <div className="mobile-credential-heading">
                     <span className="mobile-record-icon">
@@ -270,7 +292,16 @@ export function ApiCredentials({
                         <dd>{key.webhookUrl || uiText("Not configured")}</dd>
                       </div>
                     </dl>
-                    {key.enabled && (
+                    <div className="credential-actions">
+                      <button
+                        className="button secondary small"
+                        disabled={busy}
+                        onClick={() => editWebhook(key)}
+                        aria-label={uiText("Edit webhook for ") + key.name}
+                      >
+                        <Pencil size={16} />
+                        {uiText("Edit webhook")}
+                      </button>
                       <button
                         className="button danger small"
                         disabled={demoMode || busy}
@@ -283,12 +314,17 @@ export function ApiCredentials({
                         <Trash2 size={16} />
                         {uiText("Revoke key")}
                       </button>
-                    )}
+                    </div>
                   </details>
                 </article>
               ))}
             </div>
           </>
+        )}
+        {notice && (
+          <p className="info-box" role="status">
+            {notice}
+          </p>
         )}
         <div className="panel-note">
           <KeyRound size={14} />
@@ -297,10 +333,23 @@ export function ApiCredentials({
                 "Credential generation and revocation require a real authenticated customer account.",
               )
             : uiText(
-                "Secrets are shown once at generation. Store them on your backend. Admins can still manage your credentials.",
+                "Only you receive the full credentials, once at generation. Store them securely on your backend.",
               )}
         </div>
       </section>
+      {editing && (
+        <CredentialWebhookEditor
+          credential={editing}
+          businessId={businessId}
+          environment={environment}
+          onClose={() => setEditing(undefined)}
+          onSaved={() => {
+            setEditing(undefined);
+            setNotice(uiText("Webhook URL updated."));
+          }}
+          refresh={refresh}
+        />
+      )}
       {open && (
         <Modal
           title={
@@ -410,9 +459,9 @@ export function ApiCredentials({
           )}
         >
           <p className="panel-note">
-            {environment}
+            {environment}{" "}
             {uiText(
-              "credential · Retain its webhook signing secret on your server until accepted requests and pending deliveries are settled.",
+              "credential · Retain its last webhook destination and signing secret until accepted requests and pending deliveries are settled.",
             )}
           </p>
           {error && (

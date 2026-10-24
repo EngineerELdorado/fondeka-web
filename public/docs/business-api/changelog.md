@@ -1,5 +1,17 @@
 # Contract changelog
 
+## 2026-10-24 — Error discovery and simulation
+
+Added merchant `/business-api/v1/businesses/{businessId}/error-codes` and owner portal `/customer-api/businesses/{businessId}/api-error-codes?environment=SANDBOX`. Each endpoint lists immediate request errors separately from supported deferred processing failures.
+
+`X-Simulate-Error-Code` replaces the former scenario header. SANDBOX keys can select an immediate HTTP rejection or accept a payment that later fails through the worker, polling and signed webhook flow. Omit the header for success. LIVE keys ignore it. Specific business codes now distinguish idempotency conflicts, missing/unavailable methods, missing networks/destinations, resource ownership and sandbox-only routes.
+
+The forward migration `20261116_business_api_processing_errors.sql` expands the sandbox constraint while preserving old scenarios. Deploy compatible web/worker binaries before using the new codes. Accepted payment errors retain the existing `failureCode` contract; request rejection uses `errorCode`. See [the reference](errors.md).
+
+## 2026-10-24 — Portal payment catalog
+
+The authenticated customer portal can fetch `/customer-api/businesses/{businessId}/api-catalog` for configured mobile-money/crypto payment-method names, crypto-network names, configuration flags and active method/network associations. The response uses stable payload names, shares identifiers between LIVE and SANDBOX, and requires existing Business ownership and Business Tools access. This is a configuration reference, not a guarantee of account-specific payment availability.
+
 ## 2026-10-24 — Three payment statuses
 
 Payment responses and portal snapshots expose only PROCESSING, COMPLETED and FAILED. Newly accepted payments and unresolved provider/reconciliation outcomes remain PROCESSING. Cancellations and expiry expose FAILED, with a reason code where available. Portal status filters group the corresponding internal states.

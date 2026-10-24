@@ -82,7 +82,7 @@ test("documentation links cannot escape the reviewed files, run script URLs or e
 test("the downloadable reference exposes merchant-only endpoints and keeps JWT administration outside the contract", () => {
   assert.equal(spec.openapi, "3.0.3");
   assert.equal(spec.servers[0].url, "https://api.fondeka.com");
-  assert.equal(Object.keys(spec.paths).length, 8);
+  assert.equal(Object.keys(spec.paths).length, 9);
   assert.equal(spec.components.securitySchemes["Business API Key"].in, "header");
   assert.equal(spec.components.securitySchemes["Business API Key"].name, "X-API-Key");
   assert.equal(spec.components.securitySchemes["Business API Key"].type, "apiKey");

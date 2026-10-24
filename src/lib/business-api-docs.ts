@@ -50,6 +50,7 @@ export const businessApiFiles = [
   ...businessApiTopics.map((topic) => topic.file),
   "openapi.v1.json",
   "postman.v1.json",
+  "errors.md",
   "examples/curl/quickstart.sh",
   "examples/node/client.mjs",
   "examples/node/webhook.mjs",

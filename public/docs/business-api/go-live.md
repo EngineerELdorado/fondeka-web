@@ -10,9 +10,9 @@ Deploy an HTTPS webhook receiver on public port 443. Persist accepted events bef
 
 ## Issue separate LIVE credentials
 
-Create a LIVE key in the Business portal with your production webhook URL. Save its API key and separate signing secret securely. Set your receiver's expected environment to LIVE. Retain sandbox credentials separately and remove the test-scenario header from LIVE submissions.
+Create a LIVE key in the Business portal with your production webhook URL. Save its API key and separate signing secret securely. Set your receiver's expected environment to LIVE. Retain sandbox credentials separately. LIVE credentials ignore `X-Simulate-Error-Code` if it is present; the API key determines the execution environment.
 
-The example walkthrough clients and Postman collection deliberately refuse LIVE keys. Put your reviewed server-side integration into production explicitly. The API base URL and `/business-api/v1` routes stay the same; the key determines the environment. Rotating a key or changing webhook URL requires issuing a replacement credential. Continue accepting signed events using the original secret/destination for payments accepted before rotation.
+The example walkthrough clients and Postman collection deliberately refuse LIVE keys. Put your reviewed server-side integration into production explicitly. The API base URL and `/business-api/v1` routes stay the same; the key determines the environment. Rotate credentials by generating a replacement in the owner portal. You can edit an active key's webhook URL there without rotating its secrets. Continue accepting events for previously accepted payments using the originating credential's signing secret and last configured destination; in-flight attempts may still target a URL changed moments earlier.
 
 ## Verify your first live payments
 

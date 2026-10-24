@@ -61,6 +61,32 @@
   ],
   "item": [
     {
+      "name": "List endpoint error codes and sandbox simulations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/error-codes",
+        "description": "Read endpoint-specific HTTP request errors and supported asynchronous payment failure simulations. The authenticated key determines the environment. X-Simulate-Error-Code selects either an immediate request rejection or a deferred payment failure. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "List account wallet balances",
       "request": {
         "method": "GET",
@@ -145,10 +171,6 @@
           {
             "key": "Idempotency-Key",
             "value": "{{intent}}:createCollection:crypto"
-          },
-          {
-            "key": "X-Fondeka-Test-Scenario",
-            "value": "SUCCESS"
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
@@ -192,10 +214,6 @@
           {
             "key": "Idempotency-Key",
             "value": "{{intent}}:createCollection:mobileMoney"
-          },
-          {
-            "key": "X-Fondeka-Test-Scenario",
-            "value": "SUCCESS"
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
@@ -265,10 +283,6 @@
           {
             "key": "Idempotency-Key",
             "value": "{{intent}}:createPayout:crypto"
-          },
-          {
-            "key": "X-Fondeka-Test-Scenario",
-            "value": "SUCCESS"
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
@@ -312,10 +326,6 @@
           {
             "key": "Idempotency-Key",
             "value": "{{intent}}:createPayout:mobileMoney"
-          },
-          {
-            "key": "X-Fondeka-Test-Scenario",
-            "value": "SUCCESS"
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",

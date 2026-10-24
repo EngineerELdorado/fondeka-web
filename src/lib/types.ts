@@ -154,6 +154,7 @@ export interface SandboxConversion {
 }
 export interface ApiKey {
   id: number;
+  businessId?: number;
   name: string;
   keyPrefix: string;
   enabled: boolean;

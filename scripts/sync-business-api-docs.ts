@@ -17,17 +17,20 @@ const check = process.argv.includes("--check");
 const sha256 = (value: Buffer) => createHash("sha256").update(value).digest("hex");
 async function publicationFile(directory: string, file: string, portalCopy = false) {
   const bytes = await readFile(resolve(directory, file));
-  // Keep the portal's intentionally shorter introduction when syncing the upstream release.
-  return portalCopy && file === "README.md"
-    ? Buffer.from(
-        bytes
-          .toString("utf8")
-          .replace(
-            " Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.",
-            "",
-          ),
+  if (!portalCopy) return bytes;
+  // Keep the portal introduction short and omit a link to the backend-only implementation handoff.
+  return Buffer.from(
+    bytes
+      .toString("utf8")
+      .replace(
+        " Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.",
+        "",
       )
-    : bytes;
+      .replace(
+        "[web portal catalog](../business-api-web-portal-error-codes.md)",
+        "web portal catalog",
+      ),
+  );
 }
 type Release = {
   version: string;

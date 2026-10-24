@@ -284,8 +284,8 @@ export const apiGuideTracks: GuideTrack[] = [
         example: paymentExample(),
         tips: [
           [
-            "These examples use SANDBOX credentials. Remove the test-scenario header for LIVE; availability and limits depend on the route.",
-            "Ces exemples utilisent des clés SANDBOX. Retirez l’en-tête de scénario en LIVE ; disponibilité et limites dépendent de la route.",
+            "These examples use SANDBOX credentials. LIVE ignores the X-Simulate-Error-Code header and processes a real payment; availability and limits depend on the route.",
+            "Ces exemples utilisent des clés SANDBOX. LIVE ignore l’en-tête X-Simulate-Error-Code et traite un paiement réel ; disponibilité et limites dépendent de la route.",
           ],
         ],
       },
@@ -698,8 +698,8 @@ export const apiGuideTracks: GuideTrack[] = [
           ],
           correct: 1,
           explanation: [
-            "Keep the original receiver and secret for already accepted payments, even after key revocation.",
-            "Gardez le récepteur et le secret d’origine pour les paiements déjà acceptés, même après révocation de la clé.",
+            "Keep the last configured receiver and original signing secret for accepted payments, even after key revocation. During a URL change, keep the previous receiver available for attempts already in flight.",
+            "Gardez le dernier récepteur configuré et le secret de signature d’origine pour les paiements acceptés, même après révocation. Lors d’un changement d’URL, gardez l’ancien récepteur disponible pour les tentatives déjà en cours.",
           ],
         },
       },
@@ -716,14 +716,28 @@ export const apiGuideTracks: GuideTrack[] = [
     tone: "amber",
     lessons: [
       {
-        id: "scenarios",
-        title: ["Pick a sandbox scenario", "Choisissez un scénario sandbox"],
+        id: "error-codes",
+        title: ["Discover endpoint errors", "Découvrez les erreurs par endpoint"],
         summary: [
-          "Use a new logical intent when changing scenarios. Replay preserves the original scenario.",
-          "Créez une nouvelle intention pour changer de scénario. Une relance conserve le scénario initial.",
+          "Read the catalog before choosing a simulation.",
+          "Consultez le catalogue avant de choisir une simulation.",
         ],
         flow: [
-          ["Test scenario", "Scénario de test"],
+          ["Endpoint", "Endpoint"],
+          ["Request or processing", "Requête ou traitement"],
+          ["Supported code", "Code pris en charge"],
+        ],
+        example: { method: "GET", path: `${base}/error-codes`, fields: [] },
+      },
+      {
+        id: "scenarios",
+        title: ["Choose an endpoint error", "Choisissez une erreur de l’endpoint"],
+        summary: [
+          "Use a new logical intent when changing a processing failure. Accepted retries preserve the original code.",
+          "Créez une nouvelle intention pour changer d’échec de traitement. Les relances acceptées conservent le code d’origine.",
+        ],
+        flow: [
+          ["Error code", "Code d’erreur"],
           ["Sandbox worker", "Traitement sandbox"],
           ["Expected state", "État attendu"],
         ],
@@ -731,9 +745,9 @@ export const apiGuideTracks: GuideTrack[] = [
           ...paymentExample(),
           fields: [
             field(
-              "X-Fondeka-Test-Scenario",
-              "SUCCESS → COMPLETED; INVALID_DESTINATION / INSUFFICIENT_FUNDS / PAYMENT_NOT_APPROVED / CANCELED / EXPIRED → FAILED; PENDING → PROCESSING. Never send this header in LIVE.",
-              "SUCCESS → COMPLETED ; INVALID_DESTINATION / INSUFFICIENT_FUNDS / PAYMENT_NOT_APPROVED / CANCELED / EXPIRED → FAILED ; PENDING → PROCESSING. Jamais cet en-tête en LIVE.",
+              "X-Simulate-Error-Code",
+              "Omit for success. Choose an endpoint request error for immediate rejection, or a supported processing error for HTTP 202 followed by FAILED. LIVE ignores this header.",
+              "Omettez-le pour un succès. Choisissez une erreur de requête pour un refus immédiat ou une erreur de traitement prise en charge pour HTTP 202 puis FAILED. LIVE ignore cet en-tête.",
               "header",
             ),
             intent,
@@ -901,8 +915,8 @@ export const apiGuideTracks: GuideTrack[] = [
             "Testez doublons, délais dépassés et échecs. Déployez vérification webhook sur octets bruts, stockage durable et suivi des résultats non résolus.",
           ],
           [
-            "Issue a separate LIVE key with your production HTTPS webhook URL. Remove the test-scenario header. The base URL and v1 routes stay the same.",
-            "Émettez une clé LIVE distincte avec l’URL webhook HTTPS de production. Retirez l’en-tête de scénario. URL de base et routes v1 restent identiques.",
+            "Issue a separate LIVE key with your production HTTPS webhook URL. LIVE ignores the X-Simulate-Error-Code header. The base URL and v1 routes stay the same.",
+            "Émettez une clé LIVE distincte avec l’URL webhook HTTPS de production. LIVE ignore l’en-tête X-Simulate-Error-Code. URL de base et routes v1 restent identiques.",
           ],
           [
             "Keep secrets server-side. Sandbox clients deliberately reject LIVE keys; deploy your reviewed production integration explicitly.",

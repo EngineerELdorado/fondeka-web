@@ -181,7 +181,7 @@ function LessonContent({
       {lesson.example && (
         <ApiGuideEndpoint example={lesson.example} hideRoute={payloadOnly} setup={setup} />
       )}
-      {lesson.confirmation && <ApiGuideConfirmation examples={lesson.confirmation} />}
+      {lesson.confirmation && <ApiGuideConfirmation examples={lesson.confirmation} setup={setup} />}
       {track.id === "quickstart" && <ApiGuideQuickstart setup={setup} />}
       {lesson.tips && (
         <div className="guide-takeaways">
