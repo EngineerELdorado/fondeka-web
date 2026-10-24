@@ -7227,6 +7227,8 @@ button.detail-row:hover {
   min-height: 48px;
   min-width: 130px;
   border-radius: 13px;
+  white-space: normal;
+  text-align: center;
 }
 .guided-footer .button:only-child {
   min-width: 200px;
@@ -11935,6 +11937,17 @@ button.detail-row:hover {
 .training-heading > div:first-child {
   max-width: 650px;
 }
+.training-heading .heading-actions {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.training-heading .heading-actions .button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
 .training-heading h1 {
   margin: 8px 0;
 }
@@ -11960,6 +11973,12 @@ button.detail-row:hover {
   min-width: 0;
   display: grid;
   gap: 12px;
+}
+.training-workspace--empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+.training-workspace--empty .training-outline {
+  display: none;
 }
 .training-module {
   border: 1px solid var(--line);

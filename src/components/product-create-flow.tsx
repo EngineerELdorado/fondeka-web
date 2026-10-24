@@ -256,24 +256,7 @@ export function ProductCreateFlow({
           },
         ]
       : draft.value.type === "TRAINING"
-        ? [
-            {
-              id: "fulfillment",
-              title: t("Training curriculum", "Programme de formation"),
-              helper: t(
-                "Create the draft first, then arrange and publish its modules and materials.",
-                "Créez d’abord le brouillon, puis organisez et publiez ses modules et ressources.",
-              ),
-              render: () => (
-                <p className="info-box">
-                  {t(
-                    "One product purchase unlocks all published content, including later additions. Keep paid lessons in the curriculum; product photos, description and promotional video are public.",
-                    "Un achat donne accès à tous les contenus publiés, y compris les ajouts futurs. Placez les leçons payantes dans le programme ; les photos, la description et la vidéo promotionnelle du produit sont publiques.",
-                  )}
-                </p>
-              ),
-            },
-          ]
+        ? []
         : [
             {
               id: "fulfillment",
@@ -352,15 +335,23 @@ export function ProductCreateFlow({
           </FlowReview>
           <FlowReview
             title={label(value.type)}
-            edit={() => go(value.type === "PHYSICAL" ? "stock" : "fulfillment")}
+            edit={() =>
+              go(
+                value.type === "PHYSICAL"
+                  ? "stock"
+                  : value.type === "TRAINING"
+                    ? "type"
+                    : "fulfillment",
+              )
+            }
           >
             <p>
               {value.type === "PHYSICAL"
                 ? t("Available stock: ", "Stock disponible : ") + value.stock
                 : value.type === "TRAINING"
                   ? t(
-                      "Draft · Add your curriculum before publishing",
-                      "Brouillon · Ajoutez le programme avant publication",
+                      "Create your draft, then add modules and materials in the curriculum editor that opens next. Publish when your training is ready.",
+                      "Créez le brouillon, puis ajoutez les modules et ressources dans l’éditeur de programme qui s’ouvre ensuite. Publiez lorsque la formation est prête.",
                     )
                   : value.fulfillmentUrl ||
                     (value.asset
@@ -416,7 +407,14 @@ export function ProductCreateFlow({
       "/customer-api/commerce/stores/" + store.id + "/pos/products/search",
       "/customer-api/commerce/products/" + saved.id,
     ]);
-    notify(t("Product added.", "Produit ajouté."));
+    notify(
+      v.type === "TRAINING"
+        ? t(
+            "Training draft created. Add your first module.",
+            "Brouillon de formation créé. Ajoutez votre premier module.",
+          )
+        : t("Product added.", "Produit ajouté."),
+    );
     onSaved?.(saved);
     onClose();
   }
@@ -433,7 +431,7 @@ export function ProductCreateFlow({
       onFinish={create}
       finalLabel={
         draft.value.type === "TRAINING"
-          ? t("Create training draft", "Créer le brouillon de formation")
+          ? t("Create draft & add modules", "Créer le brouillon et ajouter les modules")
           : t("Add product", "Ajouter le produit")
       }
       busy={uploading}

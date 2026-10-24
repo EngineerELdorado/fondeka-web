@@ -5,7 +5,6 @@ import { useState } from "react";
 import { BusinessToolLink as Link } from "@/components/business-tool-link";
 import {
   Code2,
-  BookOpen,
   House,
   Link2,
   LogOut,
@@ -44,10 +43,7 @@ export function MobileNavigation({
   const apiOpen =
     expansion?.path === pathname ? expansion.open : pathname.startsWith("/developers");
 
-  const moreActive =
-    pathname.startsWith("/developers") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/trainings");
+  const moreActive = pathname.startsWith("/developers") || pathname.startsWith("/settings");
   return (
     <>
       <nav className="mobile-bottom-nav" aria-label={uiText("Mobile navigation")}>
@@ -81,16 +77,6 @@ export function MobileNavigation({
       {open && (
         <Modal title={uiText("Your workspace")} variant="sheet" onClose={onClose}>
           <div className="mobile-more-links">
-            <Link href="/trainings" onClick={onClose}>
-              <span className="tool-icon lilac">
-                <BookOpen size={22} />
-              </span>
-              <span>
-                <strong>{uiText("My learning")}</strong>
-                <small>{uiText("Your purchased trainings")}</small>
-              </span>
-              <ArrowUpRight size={18} />
-            </Link>
             <button
               type="button"
               className="mobile-api-parent"

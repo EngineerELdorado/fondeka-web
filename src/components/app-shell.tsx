@@ -36,7 +36,6 @@ const navigation = [
   { href: "/stores", label: "Online Stores", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
   { href: "/developers", label: "API", icon: Code2 },
-  { href: "/trainings", label: "My learning", icon: BookOpen },
 ];
 export function AppShell({ children }: { children: ReactNode }) {
   const uiText = useUiText();

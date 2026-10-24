@@ -1,4 +1,6 @@
 "use client";
+// Migration reference for the public Commerce learner UI. Business routes do not
+// mount this account-based library/player; adapt its UI to public learner access.
 import Link from "next/link";
 import { useState, useRef } from "react";
 import { BookOpen, Check, ChevronRight, RefreshCw } from "lucide-react";

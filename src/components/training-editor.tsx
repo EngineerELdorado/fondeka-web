@@ -360,7 +360,7 @@ function CurriculumWorkspace({
           ))}
         </details>
       )}
-      <div className="training-workspace">
+      <div className={`training-workspace${modules.length ? "" : " training-workspace--empty"}`}>
         <aside
           className="training-outline"
           aria-label={t("Curriculum structure", "Structure du programme")}
@@ -436,10 +436,12 @@ function CurriculumWorkspace({
             <div className="training-empty">
               <BookOpen size={36} />
               <h2>
-                {t(
-                  "Build your training, one lesson at a time",
-                  "Construisez votre formation, une leçon à la fois",
-                )}
+                {modules.length
+                  ? t(
+                      "Build your training, one lesson at a time",
+                      "Construisez votre formation, une leçon à la fois",
+                    )
+                  : t("Add your first module", "Ajoutez votre premier module")}
               </h2>
               <p>
                 {t(
@@ -447,6 +449,17 @@ function CurriculumWorkspace({
                   "Ajoutez un module, puis ses fichiers ou liens. Le nouveau contenu est publié par défaut ; décochez Publié pour le conserver en brouillon.",
                 )}
               </p>
+              {!modules.length && (
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={busy || uploading}
+                  onClick={addModule}
+                >
+                  <Plus size={18} aria-hidden="true" />
+                  {t("Add module", "Ajouter un module")}
+                </button>
+              )}
             </div>
           ) : (
             <fieldset disabled={busy}>
@@ -626,7 +639,7 @@ function CurriculumWorkspace({
               ) : (
                 <button
                   type="button"
-                  className="button secondary"
+                  className={module.materials.length ? "button secondary" : "button primary"}
                   disabled={uploading || count >= 2000 || module.materials.length >= 200}
                   onClick={addMaterial}
                 >
