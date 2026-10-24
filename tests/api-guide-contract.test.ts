@@ -88,7 +88,7 @@ test("request and response examples are the literal contract values, including e
     string,
     unknown
   >;
-  assert.equal(accepted.status, "PROCESSING");
+  assert.equal(accepted.status, "ACCEPTED");
   assert.equal(accepted.environment, "SANDBOX");
   const errorCodes: string[] = [];
   for (const [status, response] of Object.entries(operation.responses)) {

@@ -10,6 +10,8 @@ import {
   parsePurchase,
   paymentClientVersion,
   subscriptionsPath,
+  effectivePurchaseAction,
+  purchaseScopeGranted,
   type BusinessToolsAccess,
   type BusinessToolsPurchase,
   type PaymentMethod,
@@ -267,7 +269,15 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
                   <span>{billingLabel(access.plan.billingMode, language)}</span>
                 </small>
               </div>
-              <p className="activation-explanation">{t.explanation}</p>
+              <p className="activation-explanation">
+                {access.purchaseNotice ||
+                  (access.pricingMode === "PER_TOOL" && access.tool !== "BUNDLE"
+                    ? language === "fr"
+                      ? `Cet achat active uniquement ${access.plan.name}. Les autres outils Business nécessitent un accès distinct.`
+                      : `This purchase unlocks ${access.plan.name} only. Other Business Tools require separate access.`
+                    : t.explanation)}
+              </p>
+              {state.submissionError && <PaymentError message={state.submissionError} />}
               <PaymentSelector access={access} onClose={onClose} />
             </div>
           )}
@@ -301,7 +311,14 @@ function PaymentSelector({
   const t = paymentCopy(usePaymentLanguage());
   return (
     <PaymentMethodWidget
-      action="BUSINESS_TOOLS_ACCESS"
+      key={JSON.stringify([
+        access.pricingMode,
+        access.plan.code,
+        access.plan.version,
+        access.purchaseAction,
+        access.pricing,
+      ])}
+      action={access.purchaseAction || "BUSINESS_TOOLS_ACCESS"}
       amount={0}
       baseAmount={access.pricing.amountDue}
       baseCurrency={access.pricing.currency}
@@ -335,11 +352,14 @@ function PurchaseProgress({
   const language = usePaymentLanguage();
   const t = paymentCopy(language);
   const [automaticStopped, setAutomaticStopped] = useState(false);
-  const pending =
-    purchase.status === "PENDING" && !purchase.accessGranted && !purchase.access.accessGranted;
+  const pending = purchase.status === "PENDING";
   const legacyReview =
     purchase.status === "COMPLETED" &&
     purchase.failureCode === "BUSINESS_TOOLS_LEGACY_CREDIT_UNAVAILABLE";
+  const otherToolActive =
+    purchase.status === "COMPLETED" &&
+    !state.access?.accessGranted &&
+    purchaseScopeGranted(state.accountAccess, purchase);
   useEffect(() => {
     if (!pending || !purchase.id) return;
     let alive = true;
@@ -386,15 +406,17 @@ function PurchaseProgress({
     <>
       <p className="activation-state-copy">
         {purchase.failureMessage ||
-          (legacyReview
-            ? t.legacyReviewBody
-            : pending
-              ? t.processingBody
-              : purchase.status === "COMPLETED"
-                ? t.completedBody
-                : purchase.status === "REFUNDED"
-                  ? t.refundedBody
-                  : t.failedBody)}
+          (otherToolActive
+            ? t.otherToolActive
+            : legacyReview
+              ? t.legacyReviewBody
+              : pending
+                ? t.processingBody
+                : purchase.status === "COMPLETED"
+                  ? t.completedBody
+                  : purchase.status === "REFUNDED"
+                    ? t.refundedBody
+                    : t.failedBody)}
       </p>
       {pending && <PaymentInstructions purchase={purchase} />}
       {automaticStopped && (
@@ -449,13 +471,13 @@ function PurchaseProgress({
           {t.checkStatus}
         </button>
       </div>
-      {["FAILED", "CANCELLED"].includes(purchase.status) && (
+      {(["FAILED", "CANCELLED", "REFUNDED"].includes(purchase.status) || otherToolActive) && (
         <button
           className="text-button activation-retry-method"
           disabled={state.loading || state.busy || !!state.error}
           onClick={() => void client.startAgain()}
         >
-          {t.anotherMethod}
+          {purchase.status === "COMPLETED" ? t.reviewOffer : t.anotherMethod}
         </button>
       )}
     </>
@@ -469,8 +491,9 @@ function PaymentInstructions({ purchase }: { purchase: BusinessToolsPurchase }) 
     error?: string;
     id?: number;
   }>({});
+  const action = effectivePurchaseAction(purchase);
   const methods = useQuery<unknown>(
-    "/customer-api/payment_methods?type=COLLECTION&action=BUSINESS_TOOLS_ACCESS",
+    action ? `/customer-api/payment_methods?type=COLLECTION&action=${action}` : null,
     { "X-Client-Version": paymentClientVersion, "Accept-Language": language },
   );
   useEffect(() => {
@@ -582,7 +605,8 @@ export function ActiveAccessPaymentNotice() {
       <aside className="info-box active-payment-notice" aria-label={t.earlierPayment}>
         <ShieldCheck size={20} />
         <p>
-          <strong>{t.active}</strong> {t.earlierPending}
+          <strong>{state.accountAccess?.accessGranted ? t.active : t.toolActive}</strong>{" "}
+          {t.earlierPending}
         </p>
         <button className="button secondary small" onClick={() => setOpen(true)}>
           {t.viewPayment}
@@ -619,7 +643,12 @@ function ExistingPaymentDialog({ id, onClose }: { id: string; onClose: () => voi
         (purchase) => {
           if (!active) return;
           setResult({ attempt, purchase });
-          if (!purchase.accessGranted || !purchase.access.accessGranted) void client.reload();
+          if (
+            purchase.status !== "PENDING" ||
+            !purchase.accessGranted ||
+            !purchase.access.accessGranted
+          )
+            void client.reload(false, { background: true });
           if (purchase.status !== "PENDING") refresh();
         },
         (failure) => {

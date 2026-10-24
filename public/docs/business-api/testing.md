@@ -36,6 +36,6 @@ Merchant endpoint errors contain `message`, `status`, `statusCode`, `errorCode`,
 | 429 | Back off; observe applicable quotas, including the UTC top-up limit |
 | 500/503 or connection timeout | Preserve the intent/reference and retry with backoff using the same key; reconcile before creating another payment |
 
-A framework error on an unknown URL outside the documented merchant handlers can have a different shape. Do not infer payment failure from a polling/network error. If a payment remains PROCESSING, retain its reference and continue polling with backoff; investigate long-running payments before creating a replacement. Include the payment reference, Business ID and request ID when contacting support, without sharing credentials.
+A framework error on an unknown URL outside the documented merchant handlers can have a different shape. Do not infer payment failure from a polling/network error. If a payment remains ACCEPTED or PROCESSING, retain its reference and continue polling with backoff; investigate long-running payments before creating a replacement. Include the payment reference, Business ID and request ID when contacting support, without sharing credentials.
 
 The [Postman collection](postman.v1.json) contains sandbox guards. Set `apiKey` locally, `businessId`, and a unique `intent` once per logical run. It captures accepted payment references for polling but does not wait for worker completion automatically. Keep exported/shared credentials blank.

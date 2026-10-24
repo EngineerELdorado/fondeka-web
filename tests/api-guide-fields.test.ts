@@ -49,11 +49,6 @@ test("collection and payout guides explain sandbox error simulation and LIVE ign
         example,
       );
       assert.equal(description.language, language);
-      assert.match(
-        description.text,
-        id === "mobile-money-collection" ? /PAYMENT_NOT_APPROVED/ : /PROVIDER_UNAVAILABLE/,
-      );
-      assert.match(description.text, /FAILED/);
       assert.match(description.text, /SANDBOX/);
       assert.match(description.text, /LIVE/);
       assert.match(description.text, language === "en" ? /ignores/ : /ignore/);

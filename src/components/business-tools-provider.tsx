@@ -12,7 +12,8 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { request } from "@/lib/data";
-import { businessDestination } from "@/lib/business-tools";
+import { businessDestination, isBusinessTool, type BusinessTool } from "@/lib/business-tools";
+import { useUrlState } from "@/lib/use-url-state";
 import { BusinessToolsClient, mayMountOwnerData } from "@/lib/business-tools-client";
 import { mayContinueToTool, paymentCopy } from "@/lib/business-tools-ui";
 import { usePaymentLanguage } from "@/lib/use-payment-language";
@@ -32,7 +33,7 @@ const proactiveGate = process.env.NEXT_PUBLIC_BUSINESS_TOOLS_ENABLED === "true";
 const Context = createContext<BusinessToolsClient | null>(null);
 const Navigation = createContext({
   enabled: false,
-  open: (_destination: string, _denied = false) => {},
+  open: (_destination: string, _denied = false, _tool?: BusinessTool) => {},
   enter: (_destination: string) => {},
 });
 export function useToolNavigation() {
@@ -85,14 +86,17 @@ function ScopedProvider({
     });
     const stores = new PosStoresClient(request);
     setScope({ client: scoped, stores });
+    const resumePayment = () => {
+      if (scoped.getSnapshot().purchase?.status === "PENDING") return scoped.checkStatus();
+    };
     // Let the mount settle so development Strict Mode’s discarded scope makes no request.
     const initialCheck = proactiveGate
-      ? window.setTimeout(() => void scoped.ensureAccess(), 0)
+      ? window.setTimeout(() => void scoped.ensureAccess().then(resumePayment), 0)
       : undefined;
     const resume = () => {
       if (document.visibilityState !== "visible") return;
       const state = scoped.getSnapshot();
-      if (proactiveGate || state.forced) void scoped.revalidate();
+      if (proactiveGate || state.forced) void scoped.revalidate().then(resumePayment);
     };
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
@@ -219,9 +223,10 @@ function Experience({
     void stores.load(0, language).catch(() => {});
   }, [enabled, language, pathname, state, stores]);
   const open = useCallback(
-    (destination: string, denied = false) => {
+    (destination: string, denied = false, tool?: BusinessTool) => {
       const known = businessDestination(destination);
       if (!known) return;
+      const hadAccess = mayMountOwnerData(client.getSnapshot(), known, enabled);
       navigation.current++;
       resolvingPos.current = false;
       setPosResolution(undefined);
@@ -230,7 +235,7 @@ function Experience({
         void navigate(known);
         return;
       }
-      void client.enter(known, denied);
+      void client.enter(known, denied, tool);
       if (!denied && mayContinueToTool(client.getSnapshot(), known)) {
         setDialog(undefined);
         void navigate(known);
@@ -239,8 +244,9 @@ function Experience({
       const current = window.location.pathname;
       setDialog({
         destination: known,
-        returnTo:
-          current === "/settings"
+        returnTo: hadAccess
+          ? businessDestination(window.location.pathname + window.location.search) || "/overview"
+          : current === "/settings"
             ? "/settings"
             : current === "/business"
               ? "/business"
@@ -251,11 +257,13 @@ function Experience({
   );
   useEffect(() => {
     const denied = (event: Event) => {
-      if ((event as CustomEvent<{ accountKey: string }>).detail?.accountKey !== accountKey) return;
+      const detail = (event as CustomEvent<{ accountKey: string; tool?: BusinessTool }>).detail;
+      if (detail?.accountKey !== accountKey) return;
       const destination = resolvingPos.current
         ? "/pos"
         : businessDestination(window.location.pathname + window.location.search);
-      if (destination) open(destination, true);
+      if (destination)
+        open(destination, true, isBusinessTool(detail.tool) ? detail.tool : undefined);
     };
     window.addEventListener("fondeka:business-tools-required", denied);
     return () => window.removeEventListener("fondeka:business-tools-required", denied);
@@ -286,7 +294,9 @@ function Experience({
   const close = () => {
     if (state.busy) return;
     setDialog(undefined);
-    if (dialog && pathname !== dialog.returnTo) router.push(dialog.returnTo);
+    client.dismissOffer();
+    if (dialog && window.location.pathname + window.location.search !== dialog.returnTo)
+      router.push(dialog.returnTo);
   };
   return (
     <Context.Provider value={client}>
@@ -326,10 +336,14 @@ function Experience({
 }
 export function OwnerArea({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { values } = useUrlState();
   if (["/overview", "/business", "/settings"].includes(pathname) || !businessDestination(pathname))
     return children;
   return (
-    <BusinessToolsGate key={pathname} destination={pathname}>
+    <BusinessToolsGate
+      key={pathname}
+      destination={businessDestination(`${pathname}?${values}`) || pathname}
+    >
       {children}
     </BusinessToolsGate>
   );

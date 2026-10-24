@@ -1318,6 +1318,11 @@ tbody tr:hover {
   color: var(--amber);
   border-color: color-mix(in srgb, var(--amber), transparent 88%);
 }
+.badge.blue {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-color: color-mix(in srgb, var(--blue), transparent 88%);
+}
 .badge.red {
   background: var(--red-soft);
   color: var(--red);
@@ -4643,9 +4648,6 @@ textarea {
     border-radius: 14px;
     font-size: 11px;
   }
-  .store-detail-summary > span:nth-of-type(3) {
-    display: none;
-  }
   .store-detail-summary a {
     min-height: 34px;
     width: 100%;
@@ -6699,14 +6701,12 @@ textarea {
   gap: 10px;
   padding: 16px 0;
 }
-.share-panel details,
-.store-share {
+.share-panel details {
   padding: 14px 0;
   font-size: 12px;
   color: var(--secondary);
 }
-.share-panel summary,
-.store-share summary {
+.share-panel summary {
   cursor: pointer;
   min-height: 32px;
 }
@@ -8398,6 +8398,31 @@ button.detail-row:hover {
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
+.store-profile-description p {
+  margin: 0;
+}
+.store-profile-description p.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.store-profile-description .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.store-description-full {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .store-avatar.pos-chooser-avatar {
   width: 48px;
   height: 48px;
@@ -9557,7 +9582,7 @@ button.detail-row:hover {
 }
 .guide-confirmation-outcomes dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
   gap: 14px;
 }
 .guide-confirmation-outcomes dt {
@@ -11036,6 +11061,69 @@ button.detail-row:hover {
 .guide-field-detail .guide-contract-description {
   color: var(--muted);
 }
+.guide-simulation-help {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.guide-simulation-help h5 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink);
+}
+.guide-simulation-help p {
+  margin: 0;
+}
+.guide-simulation-help > .text-button {
+  justify-self: start;
+  text-align: left;
+}
+.guide-simulation-help .guide-code-card {
+  min-width: 0;
+}
+.guide-simulation-help .guide-code-card > header {
+  flex-wrap: wrap;
+}
+.guide-simulation-help .guide-code-card pre {
+  max-height: 160px;
+  padding: 14px 0;
+  font-size: 10px;
+}
+.guide-simulation-endpoint,
+.guide-simulation-examples > section > code {
+  display: block;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.guide-simulation-examples {
+  display: grid;
+  gap: 12px;
+}
+.guide-simulation-examples > section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-hover);
+}
+.guide-simulation-examples ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--secondary);
+}
 .guide-constraints {
   display: flex;
   flex-wrap: wrap;
@@ -11067,8 +11155,7 @@ button.detail-row:hover {
   max-height: 180px;
   overflow: auto;
 }
-.guide-enum code,
-.guide-state-detail code {
+.guide-enum code {
   padding: 4px 6px;
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -11213,20 +11300,19 @@ button.detail-row:hover {
   color: var(--red);
   background: var(--red-soft);
 }
-.guide-state-options > button.unresolved[aria-pressed="true"] {
+.guide-state-options > button.pending[aria-pressed="true"] {
   color: var(--amber);
   background: var(--amber-soft);
+}
+.guide-state-options > button.queued[aria-pressed="true"] {
+  color: var(--blue);
+  background: var(--blue-soft);
 }
 .guide-state-detail {
   padding: 14px 0 0;
 }
-.guide-state-detail > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
 .guide-state-detail p {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: 11px;
   color: var(--secondary);
   line-height: 1.8;
@@ -11715,16 +11801,88 @@ button.detail-row:hover {
   line-height: 1.65;
   margin-top: 9px;
 }
-.guide-error-result {
+.guide-error-lifecycle {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 15px 0;
+  list-style: none;
+}
+.guide-error-lifecycle > li {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.guide-error-lifecycle h5 {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin: 0 0 12px;
+  line-height: 1.6;
 }
-.guide-error-result > span:last-child {
-  width: 100%;
+.guide-error-lifecycle h5 > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 21px;
+  height: 21px;
+  border-radius: 7px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 10px;
 }
-.guide-error-result code {
+.guide-error-lifecycle dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+.guide-error-lifecycle dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.guide-error-lifecycle dt {
+  color: var(--muted);
+  font-size: 10px;
+}
+.guide-error-lifecycle dd {
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+}
+.guide-error-lifecycle code {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.guide-error-lifecycle dd .pending {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.guide-error-lifecycle dd .queued {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.guide-error-lifecycle dd .failure {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+.guide-error-detail .guide-error-lifecycle p {
+  margin-bottom: 0;
+}
+.guide-error-detail .guide-error-lifecycle small {
+  margin: -4px 0 12px;
+}
+.guide-error-detail .guide-error-webhook-note {
+  color: var(--muted);
   font-size: 10px;
 }
 .guide-error-reset {
@@ -11763,4 +11921,286 @@ button.detail-row:hover {
 }
 .guide-code-caption code {
   overflow-wrap: anywhere;
+}
+
+/* Creator curriculum and purchased learning share the portal's focused card language. */
+.training-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 20px 0;
+}
+.training-heading > div:first-child {
+  max-width: 650px;
+}
+.training-heading h1 {
+  margin: 8px 0;
+}
+.training-heading p {
+  line-height: 1.8;
+}
+.training-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 18px 0;
+}
+.training-count strong {
+  color: var(--amber);
+}
+.training-workspace {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+  margin: 24px 0;
+}
+.training-outline {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.training-module {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.training-module h2 {
+  font-size: 15px;
+  margin: 4px 0 8px;
+}
+.training-module p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.training-module-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+}
+.training-module-title strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.training-module-title small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.training-move {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.training-module ol {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.training-module li > button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: var(--surface-hover);
+  color: var(--secondary);
+  border-radius: 8px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.training-module li small {
+  width: 100%;
+  color: var(--muted);
+  font-size: 10px;
+}
+.training-module button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.training-edit-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 26px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.training-edit-panel fieldset {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.training-edit-panel legend {
+  padding: 0 0 18px;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+.training-edit-panel label {
+  display: grid;
+  gap: 8px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.training-edit-panel label.checkbox-label {
+  display: flex;
+}
+.training-edit-panel label small {
+  color: var(--muted);
+  line-height: 1.75;
+}
+.training-empty {
+  text-align: center;
+  padding: 40px 10px;
+  color: var(--muted);
+}
+.training-empty > svg {
+  color: var(--accent);
+}
+.training-empty h2 {
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.5;
+}
+.training-empty p {
+  line-height: 1.85;
+  font-size: 13px;
+  max-width: 500px;
+  margin-inline: auto;
+}
+.training-reference {
+  padding: 18px;
+  border: 1px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.training-reference section {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.training-progress {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+}
+.training-progress progress {
+  flex: 1;
+  min-width: 140px;
+  accent-color: var(--accent);
+}
+.training-progress strong {
+  font-size: 12px;
+}
+.training-notes {
+  color: var(--secondary);
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 20px 0;
+}
+.training-completion {
+  margin: 24px 0 10px;
+}
+.training-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 22px;
+}
+.training-library-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.training-library-image {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 2/1;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.training-library-image img {
+  width: 100%;
+  height: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+.training-library-image > * {
+  grid-area: 1 / 1;
+}
+.training-library-body {
+  padding: 22px;
+}
+.training-library-body small {
+  color: var(--muted);
+}
+.training-library-body h2 {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 12px 0 20px;
+  overflow-wrap: anywhere;
+}
+.training-library-body progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.training-library-body p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.training-library-body strong {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--accent);
+  font-size: 12px;
+  margin-top: 20px;
+}
+@media (max-width: 760px) {
+  .training-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .training-edit-panel {
+    padding: 20px;
+  }
+  .training-heading .heading-actions {
+    width: 100%;
+  }
+  .training-heading .heading-actions > button {
+    flex: 1;
+  }
 }

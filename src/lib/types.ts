@@ -30,6 +30,8 @@ export interface StoreInput {
   contactEmail?: string;
   status?: string;
 }
+export const productTypes = ["PHYSICAL", "DIGITAL", "SERVICE", "TRAINING"] as const;
+export type ProductType = (typeof productTypes)[number];
 export interface Product {
   id: number;
   storeId: number;
@@ -162,7 +164,7 @@ export interface ApiKey {
   createdAt: string;
   environment?: ApiEnvironment;
 }
-export type BusinessApiPaymentStatus = "PROCESSING" | "COMPLETED" | "FAILED";
+export type BusinessApiPaymentStatus = "ACCEPTED" | "PROCESSING" | "COMPLETED" | "FAILED";
 export interface ApiTransaction {
   requestId: number;
   apiKeyName: string;

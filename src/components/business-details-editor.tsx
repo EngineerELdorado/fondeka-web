@@ -222,9 +222,7 @@ export function BusinessDetailsEditor({
           </span>
           <div>
             <h2>{t("Edit Business details", "Modifier les informations Business")}</h2>
-            <p>
-              {t("Business ID", "Identifiant Business")} : {business.id}
-            </p>
+            <p>Business ID : {business.id}</p>
           </div>
           {dirty && (
             <span className="business-unsaved" role="status">

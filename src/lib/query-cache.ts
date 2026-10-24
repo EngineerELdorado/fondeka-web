@@ -1,4 +1,5 @@
 /** Memory-only account cache. Stale reads stay visible while revalidating; never cache secrets or mutations. */
+import { hasTrainingAccessUrls, isTrainingContentPath } from "./training";
 let generation = 0;
 let dataRevision = 0;
 export const queryDataRevision = () => dataRevision;
@@ -67,6 +68,7 @@ export function cacheQuery(
   version = "",
 ) {
   if (expectedGeneration !== generation) return;
+  if (isTrainingContentPath(path) || hasTrainingAccessUrls(data)) return;
   if (!entries.has(key) && entries.size >= 200) entries.delete(entries.keys().next().value!);
   entries.set(key, { data, time: now, path, version });
 }

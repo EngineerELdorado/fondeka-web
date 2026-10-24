@@ -1,4 +1,19 @@
 const routes: [RegExp, string[]][] = [
+  [/^customer-api\/commerce\/products\/\d+\/training$/, ["GET", "PUT"]],
+  [/^customer-api\/commerce\/products\/\d+\/training\/assets\/presign$/, ["POST"]],
+  [
+    /^customer-api\/commerce\/products\/\d+\/training\/materials\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/access$/,
+    ["GET"],
+  ],
+  [/^customer-api\/commerce\/trainings(?:\/\d+)?$/, ["GET"]],
+  [
+    /^customer-api\/commerce\/trainings\/\d+\/materials\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/access$/,
+    ["GET"],
+  ],
+  [
+    /^customer-api\/commerce\/trainings\/\d+\/materials\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/progress$/,
+    ["PATCH"],
+  ],
   [/^customer-api\/devices\/(register|challenge|verify)$/, ["POST"]],
   [/^customer-api\/devices\/status$/, ["GET"]],
   [/^customer-api\/fees$/, ["GET"]],
@@ -52,4 +67,9 @@ const routes: [RegExp, string[]][] = [
 ];
 export function allowedProxyRoute(path: string, method: string) {
   return routes.some(([pattern, methods]) => pattern.test(path) && methods.includes(method));
+}
+export function proxyBodyLimit(path: string, method: string) {
+  return method === "PUT" && /^customer-api\/commerce\/products\/\d+\/training$/.test(path)
+    ? 64 * 1024 * 1024
+    : 64_000;
 }

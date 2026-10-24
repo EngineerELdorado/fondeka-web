@@ -281,6 +281,7 @@ export function MobileRecord({
   meta,
   amount,
   status,
+  badge,
   icon,
   onClick,
   href,
@@ -290,6 +291,7 @@ export function MobileRecord({
   meta?: ReactNode;
   amount?: ReactNode;
   status?: string;
+  badge?: ReactNode;
   icon?: ReactNode;
   onClick?: () => void;
   href?: string;
@@ -304,7 +306,7 @@ export function MobileRecord({
       </span>
       <span className="mobile-record-value">
         {amount != null && <strong>{amount}</strong>}
-        {status && <Badge value={status} />}
+        {badge ?? (status && <Badge value={status} />)}
       </span>
     </>
   );

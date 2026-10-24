@@ -23,7 +23,7 @@ async function poll(config,reference) {
   for(let attempt=0;attempt<30;attempt++) {
     const result=await api(config,'GET',`/transactions/${encodeURIComponent(reference)}`);
     if(['COMPLETED','FAILED'].includes(result.status)) return result;
-    if(result.status!=='PROCESSING') throw new Error(`Unexpected payment status for ${reference}; preserve its reference and do not replace it.`);
+    if(!['ACCEPTED','PROCESSING'].includes(result.status)) throw new Error(`Unexpected payment status for ${reference}; preserve its reference and do not replace it.`);
     await new Promise(resolve=>setTimeout(resolve,2000));
   }
   throw new Error(`Polling timed out for ${reference}. Keep the reference/idempotency key and continue polling later.`);

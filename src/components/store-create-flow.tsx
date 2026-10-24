@@ -6,6 +6,8 @@ import { useQuery } from "@/lib/use-query";
 import { request } from "@/lib/data";
 import { invalidateQueryPaths } from "@/lib/query-cache";
 import type { Store } from "@/lib/types";
+import { hasToolAccess } from "@/lib/business-tools";
+import { useBusinessTools } from "./business-tools-provider";
 import { useWorkspace } from "./workspace-provider";
 import {
   GuidedFlow,
@@ -26,6 +28,10 @@ export function StoreCreateFlow({
   const { t } = useI18n();
   const router = useRouter();
   const { refresh } = useWorkspace();
+  const { state } = useBusinessTools();
+  const access = state.accountAccess;
+  const privateStore =
+    !!access && !hasToolAccess(access, "ONLINE_STORES") && hasToolAccess(access, "POS");
   const draft = useFlowDraft<Draft>("store", { name: "", description: "" }, [
     "name",
     "description",
@@ -112,7 +118,11 @@ export function StoreCreateFlow({
             </div>
             <div className="flow-row">
               <span>{t("Visibility", "Visibilité")}</span>
-              <strong>{t("Public", "Public")}</strong>
+              <strong>
+                {privateStore
+                  ? t("Private · for POS", "Privée · pour le POS")
+                  : t("Public", "Public")}
+              </strong>
             </div>
             <div className="flow-row">
               <span>{t("Currency", "Devise")}</span>
@@ -125,6 +135,14 @@ export function StoreCreateFlow({
               </strong>
             </div>
           </FlowReview>
+          {privateStore && (
+            <p className="info-box">
+              {t(
+                "Your POS access includes a private store and catalogue. Activate Online Stores when you want to publish it.",
+                "Votre accès POS inclut une boutique privée et son catalogue. Activez Boutiques en ligne pour la publier.",
+              )}
+            </p>
+          )}
         </>
       ),
     },
@@ -139,7 +157,7 @@ export function StoreCreateFlow({
         reportCurrency: currency,
         ...(account.data?.countryCode ? { countryCode: account.data.countryCode } : {}),
         status: "ACTIVE",
-        visibility: "PUBLIC",
+        visibility: privateStore ? "PRIVATE" : "PUBLIC",
       }),
     });
     draft.clear();
@@ -150,10 +168,17 @@ export function StoreCreateFlow({
     return (
       <FlowSuccess
         title={t("Store created", "Boutique créée")}
-        message={t(
-          "Your store is ready. Add products, customize it and share its link.",
-          "Votre boutique est prête. Ajoutez des produits, personnalisez-la et partagez son lien.",
-        )}
+        message={
+          privateStore
+            ? t(
+                "Your private store is ready. Add products and start selling with POS.",
+                "Votre boutique privée est prête. Ajoutez des produits et commencez à vendre avec le POS.",
+              )
+            : t(
+                "Your store is ready. Add products, customize it and share its link.",
+                "Votre boutique est prête. Ajoutez des produits, personnalisez-la et partagez son lien.",
+              )
+        }
         action={forPos ? t("Open POS", "Ouvrir le POS") : t("View store", "Voir la boutique")}
         onContinue={() => router.push(`/stores/${saved.id}${forPos ? "/pos" : ""}`)}
       />

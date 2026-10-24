@@ -41,7 +41,10 @@ export function PosCatalog({
         const outOfStock =
           product.inventoryPolicy === "TRACKED" &&
           Number(product.inventoryQuantity ?? 0) <= quantity;
-        const unavailable = product.status !== "ACTIVE" || outOfStock;
+        const unavailable =
+          product.status !== "ACTIVE" ||
+          outOfStock ||
+          (product.type === "TRAINING" && quantity >= 1);
         return (
           <div className="pos-catalog-cell" role="listitem" key={product.id}>
             <button

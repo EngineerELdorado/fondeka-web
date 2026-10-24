@@ -2,6 +2,8 @@
 
 Next.js App Router + React + strict TypeScript. A separate customer web application for Fondeka’s B2B services, using the existing customer backend and Cognito login.
 
+For other frontend projects adopting this look and feel, share the standalone [Fondeka frontend design and UX guide](docs/fondeka-frontend-design-and-ux-guide.md). It covers progressive forms, polished inputs, page composition, visual tokens and adoption while preserving existing business logic.
+
 ## Run locally
 
 Use Node.js 22 LTS (`nvm use`) and npm; Node 20.19+ is also supported. The default port is **4200**, keeping the existing commerce and admin apps separate.
@@ -124,6 +126,16 @@ npm run docs:check
 ```
 
 Sync copies only the listed public files and records their SHA-256 hashes in `release.json`. Commit the bundle with the portal change. `docs:check` verifies the published release and relative links without needing a backend checkout, database, credentials or provider calls. Do not reformat or hand-edit the copied files; regenerate/review the backend release and sync it again.
+
+## Training file uploads and media-bucket CORS
+
+Training uploads request `/customer-api/commerce/products/{productId}/training/assets/presign` through the authenticated customer client, then send the raw `File` directly to the original S3 URL using a separate XHR transport. The signed method and headers, including the exact signed Content-Type, are preserved. The direct request excludes credentials and portal/device headers, supports progress/cancellation, and never stores or logs the signed URL. Each retry requests a fresh capability. The curriculum stores only the returned private key and file name.
+
+The browser needs a media-bucket CORS rule in addition to the backend signer’s existing S3 permissions. Reviewed exact-origin configurations are in [development CORS](deployment/s3-media-cors.dev.json) and [production CORS](deployment/s3-media-cors.production.json). Development includes the portal’s default port 4200 and the local 4300/4301 instances; production allows only `https://web.fondeka.com`. Confirm the actual bucket and deployment origins before applying either file. Read the existing CORS configuration first: `put-bucket-cors` replaces it, so merge existing rules rather than dropping them. Add staging origins explicitly when applicable. Do not add OPTIONS to AllowedMethods or wildcard production origins.
+
+An OPTIONS 403 with `CORSResponse: CORS is not enabled for this bucket` blocks upload before PUT. After configuration, verify that a preflight with the exact portal Origin, requested method PUT, and requested headers content-type succeeds. A PUT 403 after a successful preflight requires its S3 code: SignatureDoesNotMatch indicates signing inputs differ; AccessDenied indicates a permissions/policy rejection; ExpiredToken/RequestExpired require a fresh capability and possibly renewed backend signer credentials. The UI shows safe status/code/request-ID details when the browser exposes them. Network/CORS failures without readable HTTP details remain distinct. Full S3 XML is discarded because it can contain signing inputs.
+
+CORS does not grant object permissions and does not replace the prefix-scoped private-read policy for `commerce-training-assets/*`. Keep that prefix private in S3/CDN, verify anonymous reads fail and authorized short-lived reads work, and preserve public store/product media. No training files are uploaded by automated tests.
 
 ## Validation
 

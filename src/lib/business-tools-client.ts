@@ -1,5 +1,10 @@
 import {
   accessDecision,
+  accessForDestination,
+  hasAnyToolAccess,
+  hasToolAccess,
+  purchaseScopeGranted,
+  isBusinessTool,
   accessPath,
   businessDestination,
   parseAccess,
@@ -9,6 +14,8 @@ import {
   subscriptionsPath,
   validateReviewedQuote,
   type BusinessToolsAccess,
+  type BusinessTool,
+  type BusinessToolScope,
   type BusinessToolsPurchase,
   type PaymentSelection,
   type PurchaseIntent,
@@ -23,6 +30,9 @@ export interface BusinessToolsState {
   refreshing?: boolean;
   refreshError?: string;
   access?: BusinessToolsAccess;
+  accountAccess?: BusinessToolsAccess;
+  requiredTool?: BusinessTool;
+  requiredToolFor?: string;
   error?: string;
   submissionError?: string;
   busy: boolean;
@@ -43,10 +53,22 @@ export function mayMountOwnerData(
     !enabled ||
     (!state.loading &&
       !state.error &&
-      state.access?.accessGranted === true &&
+      effectiveAccess(state, destination)?.accessGranted === true &&
       !!businessDestination(destination) &&
       !resourceAccessUnavailable(state, destination))
   );
+}
+export function effectiveAccess(
+  state: BusinessToolsState,
+  destination = state.destination || "/overview",
+) {
+  const required =
+    state.requiredTool && state.requiredToolFor?.split("?")[0] === destination.split("?")[0]
+      ? state.requiredTool
+      : undefined;
+  return state.accountAccess
+    ? accessForDestination(state.accountAccess, destination, required)
+    : state.access;
 }
 export function resourceAccessUnavailable(state: BusinessToolsState, destination: string) {
   return (
@@ -74,6 +96,7 @@ export class BusinessToolsClient {
   private restored = false;
   private recoveredPurchaseId?: string;
   private pricingReviewRefreshed = false;
+  private intentTool: BusinessToolScope = "BUNDLE";
   constructor(
     private dependencies: {
       accountKey: string;
@@ -105,7 +128,10 @@ export class BusinessToolsClient {
   }
   private save(recovery?: { intent?: PurchaseIntent; purchaseId?: string }) {
     if (recovery) {
-      this.dependencies.storage.setItem(this.storageKey, JSON.stringify(recovery));
+      this.dependencies.storage.setItem(
+        this.storageKey,
+        JSON.stringify({ ...recovery, tool: this.intentTool, destination: this.state.destination }),
+      );
       this.recoveredPurchaseId = recovery.purchaseId;
     } else {
       this.recoveredPurchaseId = undefined;
@@ -121,6 +147,12 @@ export class BusinessToolsClient {
     this.restored = true;
     try {
       const recovery = JSON.parse(this.dependencies.storage.getItem(this.storageKey) || "null");
+      this.intentTool = isBusinessTool(recovery?.tool) ? recovery.tool : "BUNDLE";
+      const destination =
+        typeof recovery?.destination === "string"
+          ? businessDestination(recovery.destination)
+          : undefined;
+      if (!this.state.destination && destination) this.update({ destination });
       if (recovery?.intent) {
         const intent = recovery.intent as PurchaseIntent;
         if (
@@ -143,11 +175,38 @@ export class BusinessToolsClient {
       this.save();
     }
   }
-  enter(destination: string, denied = false) {
+  enter(destination: string, denied = false, requiredTool?: BusinessTool) {
     const known = businessDestination(destination);
     if (!known || this.disposed) return Promise.resolve();
     if (this.state.destination !== known) this.update({ destination: known });
+    if (denied || requiredTool)
+      this.update({ requiredTool, requiredToolFor: requiredTool ? known : undefined });
+    this.selectOffer();
     return denied ? this.reload(true) : this.ensureAccess();
+  }
+  private selectOffer() {
+    if (!this.state.accountAccess) return;
+    const access = effectiveAccess(this.state);
+    this.update({ access });
+    // A pending payment belongs to its original offer; never replace it when selecting another card.
+    if (
+      !access?.accessGranted &&
+      access?.pendingPurchase &&
+      this.state.purchase?.id !== access.pendingPurchase.id
+    ) {
+      this.update({
+        purchase: {
+          ...access.pendingPurchase,
+          accessGranted: false,
+          access,
+          failureCode: null,
+          failureMessage: null,
+        },
+        intent: undefined,
+        uncertain: false,
+      });
+      this.save({ purchaseId: access.pendingPurchase.id });
+    }
   }
   /** One account-level result in memory; entering another tool does not invalidate it. */
   ensureAccess(): Promise<void> {
@@ -188,7 +247,7 @@ export class BusinessToolsClient {
     const revision = ++this.revision;
     const background =
       !!options.background &&
-      this.state.access?.accessGranted === true &&
+      hasAnyToolAccess(this.state.accountAccess || this.state.access) &&
       !this.state.error &&
       !denied;
     this.accessCheckedAt = (this.dependencies.now ?? Date.now)();
@@ -210,30 +269,45 @@ export class BusinessToolsClient {
       try {
         const access = await this.readAccess();
         if (this.disposed || revision !== this.revision) return;
-        const previouslyGranted = this.state.access?.accessGranted;
+        const previous = this.state.accountAccess || this.state.access;
+        const previouslyGranted = effectiveAccess(this.state)?.accessGranted;
+        this.update({ accountAccess: access });
+        this.selectOffer();
+        const selected = this.state.access;
+        if (!selected)
+          throw new Error(
+            "The selected Business Tool offer is unavailable. Refresh access or contact support.",
+          );
         this.update({
-          access,
+          access: selected,
           loading: false,
           refreshing: false,
-          ...(!access.accessGranted
+          ...(!selected.accessGranted
             ? { resourceUnavailable: false, resourceUnavailableFor: undefined }
             : {}),
         });
-        if (access.accessGranted) {
-          this.save();
+        if (selected.accessGranted) {
+          const intentGranted =
+            this.intentTool === "BUNDLE"
+              ? access.accessGranted
+              : hasToolAccess(access, this.intentTool);
+          const clear = !this.state.uncertain || intentGranted;
+          if (!selected.pendingPurchase && clear) this.save();
           this.update({
-            intent: undefined,
-            purchase: undefined,
-            uncertain: false,
+            ...(clear ? { intent: undefined, purchase: undefined, uncertain: false } : {}),
             accessIssue: false,
           });
-          if (!previouslyGranted) this.dependencies.onGranted();
-        } else if (access.pendingPurchase) {
-          const pending = access.pendingPurchase;
+          if (
+            !previouslyGranted ||
+            JSON.stringify(previous?.tools) !== JSON.stringify(access.tools)
+          )
+            this.dependencies.onGranted();
+        } else if (selected.pendingPurchase) {
+          const pending = selected.pendingPurchase;
           this.update({
             purchase: {
               ...pending,
-              access,
+              access: selected,
               accessGranted: false,
               failureCode: null,
               failureMessage: null,
@@ -266,7 +340,7 @@ export class BusinessToolsClient {
   }
   async purchase(paymentMethod: PaymentSelection, quote: ReviewedQuote) {
     if (this.state.busy || this.disposed) return;
-    const access = this.state.access;
+    const access = effectiveAccess(this.state);
     if (
       !access ||
       this.state.loading ||
@@ -285,6 +359,7 @@ export class BusinessToolsClient {
     };
     // Persist before POST. A reload must never turn an uncertain payment into a new intent.
     try {
+      this.intentTool = access.tool || "BUNDLE";
       this.save({ intent });
     } catch {
       throw new Error(
@@ -316,7 +391,9 @@ export class BusinessToolsClient {
       // before allowing the customer to correct their selection with a fresh intent.
       const status = (error as { status?: number } | null)?.status;
       if (
-        (status === 400 || status === 422) &&
+        (status === 400 ||
+          status === 422 ||
+          (status === 409 && this.state.access?.plan.code !== intent.planCode)) &&
         !this.disposed &&
         !this.state.loading &&
         !this.state.error &&
@@ -354,6 +431,7 @@ export class BusinessToolsClient {
   private async acceptPurchase(purchase: BusinessToolsPurchase) {
     if (this.disposed) return;
     const revision = this.revision;
+    this.intentTool = purchase.tool || "BUNDLE";
     const needsAccess =
       purchase.accessGranted || purchase.access.accessGranted || purchase.status !== "PENDING";
     this.update({
@@ -361,27 +439,23 @@ export class BusinessToolsClient {
       intent: undefined,
       uncertain: false,
       error: undefined,
-      access: purchase.access,
       loading: needsAccess,
     });
-    if (purchase.id && purchase.status === "PENDING") this.save({ purchaseId: purchase.id });
-    else if (
-      purchase.status === "COMPLETED" &&
-      !purchase.accessGranted &&
-      !purchase.access.accessGranted
-    ) {
-      if (purchase.id) this.save({ purchaseId: purchase.id });
-    } else this.save();
+    if (purchase.id && ["PENDING", "COMPLETED"].includes(purchase.status))
+      this.save({ purchaseId: purchase.id });
+    else this.save();
     if (purchase.accessGranted || purchase.access.accessGranted || purchase.status !== "PENDING") {
       // Payment status never substitutes for current access, including failed payments with an independent grant.
       const access = await this.readAccess();
       if (this.disposed || revision !== this.revision) return;
       this.update({
-        access,
+        accountAccess: access,
         loading: false,
-        accessIssue: !access.accessGranted && purchase.status === "COMPLETED",
       });
-      if (access.accessGranted) {
+      this.selectOffer();
+      const granted = this.state.access?.accessGranted === true;
+      this.update({ accessIssue: !granted && purchase.status === "COMPLETED" });
+      if (granted) {
         this.save();
         this.update({ intent: undefined, purchase: undefined, uncertain: false });
         this.dependencies.onGranted();
@@ -421,7 +495,9 @@ export class BusinessToolsClient {
     if (
       !this.state.access?.accessGranted &&
       this.state.purchase &&
-      ["FAILED", "CANCELLED", "REFUNDED"].includes(this.state.purchase.status)
+      (["FAILED", "CANCELLED", "REFUNDED"].includes(this.state.purchase.status) ||
+        (this.state.purchase.status === "COMPLETED" &&
+          purchaseScopeGranted(this.state.accountAccess, this.state.purchase)))
     ) {
       this.save();
       this.update({ purchase: undefined, intent: undefined, uncertain: false, error: undefined });
@@ -431,6 +507,10 @@ export class BusinessToolsClient {
   retryResource() {
     this.update({ resourceUnavailable: false, resourceUnavailableFor: undefined });
     return this.reload();
+  }
+  dismissOffer() {
+    this.update({ requiredTool: undefined, requiredToolFor: undefined });
+    this.selectOffer();
   }
 }
 

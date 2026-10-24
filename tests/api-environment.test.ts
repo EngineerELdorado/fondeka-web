@@ -104,7 +104,7 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
     "/customer-api/businesses/1/api-transactions?environment=SANDBOX",
   );
   assert.equal(live.totalElements, 12);
-  assert.equal(sandbox.totalElements, 5);
+  assert.equal(sandbox.totalElements, 6);
   assert.ok(
     sandbox.content.every(
       (row) =>

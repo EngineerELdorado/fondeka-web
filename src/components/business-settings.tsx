@@ -13,7 +13,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { mayMountOwnerData } from "@/lib/business-tools-client";
+import { effectiveAccess, mayMountOwnerData } from "@/lib/business-tools-client";
 import { businessDetailsPath, businessDisplayName, businessListPath } from "@/lib/business-profile";
 import { useQuery } from "@/lib/use-query";
 import type { Business, Page } from "@/lib/types";
@@ -77,7 +77,7 @@ function BusinessProfile({ onEdit }: { onEdit: (business: Business) => void }) {
   if (!allowed) {
     if (state.loading) return <Loading rows={4} />;
     if (state.error) return <ErrorState message={state.error} retry={() => void client.reload()} />;
-    if (state.access?.accessGranted)
+    if (effectiveAccess(state, "/settings")?.accessGranted)
       return (
         <ErrorState
           message={t(
@@ -178,13 +178,13 @@ function BusinessProfile({ onEdit }: { onEdit: (business: Business) => void }) {
                 <h2>{name || t("Your Business", "Votre Business")}</h2>
                 <div className="business-profile-id">
                   <span>
-                    {t("Business ID", "Identifiant Business")} : <code>{business.id}</code>
+                    Business ID : <code>{business.id}</code>
                   </span>
                   <button
                     type="button"
                     className="icon-button"
                     onClick={() => void copyId()}
-                    aria-label={t("Copy Business ID", "Copier l’identifiant Business")}
+                    aria-label={t("Copy Business ID", "Copier le Business ID")}
                   >
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                   </button>
@@ -192,7 +192,7 @@ function BusinessProfile({ onEdit }: { onEdit: (business: Business) => void }) {
               </div>
             </div>
             <p className="sr-only" role="status">
-              {copied ? t("Business ID copied", "Identifiant Business copié") : ""}
+              {copied ? t("Business ID copied", "Business ID copié") : ""}
             </p>
             {copyError && (
               <p className="form-error" role="alert">

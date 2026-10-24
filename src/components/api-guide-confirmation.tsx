@@ -99,6 +99,27 @@ export function ApiGuideConfirmation({
             {t("Read", "Lisez")} <code>{mode === "lookup" ? "status" : "data.status"}</code>
           </h4>
           <dl>
+            {mode === "lookup" && (
+              <>
+                <div>
+                  <dt>
+                    <code>ACCEPTED</code>
+                  </dt>
+                  <dd>{t("Queued — keep checking", "En file d’attente — poursuivez le suivi")}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <code>PROCESSING</code>
+                  </dt>
+                  <dd>
+                    {t(
+                      "Execution started or result unresolved — keep checking",
+                      "Exécution commencée ou résultat indéterminé — poursuivez le suivi",
+                    )}
+                  </dd>
+                </div>
+              </>
+            )}
             <div>
               <dt>
                 <code>COMPLETED</code>
@@ -110,12 +131,6 @@ export function ApiGuideConfirmation({
                 <code>FAILED</code>
               </dt>
               <dd>{t("Payment unsuccessful", "Paiement non abouti")}</dd>
-            </div>
-            <div>
-              <dt>
-                <code>PROCESSING</code>
-              </dt>
-              <dd>{t("Pending — keep checking", "En attente — poursuivez le suivi")}</dd>
             </div>
           </dl>
           <p>
@@ -145,16 +160,16 @@ export function ApiGuideConfirmation({
           {mode === "lookup" ? (
             <p>
               {t(
-                "Poll the original reference with backoff if a webhook is delayed or missed. Unresolved provider/manual-review outcomes remain PROCESSING. Investigate long-running payments; do not submit a replacement automatically.",
-                "Consultez la référence d’origine en espaçant les appels si un webhook tarde ou manque. Les résultats fournisseur ou manuels non résolus restent PROCESSING. Examinez les paiements longs ; ne créez pas de remplacement automatique.",
+                "Poll the original reference with backoff while ACCEPTED or PROCESSING, including if a webhook is delayed or missed. A fast payment may skip intermediate states between reads. Idempotent replays return the existing payment’s current state. Investigate long-running payments; do not submit a replacement automatically.",
+                "Consultez la référence d’origine en espaçant les appels tant que l’état est ACCEPTED ou PROCESSING, notamment si un webhook tarde ou manque. Un paiement rapide peut passer des étapes entre deux consultations. Une relance idempotente retourne l’état actuel du paiement existant. Examinez les paiements longs ; ne créez pas de remplacement automatique.",
               )}
             </p>
           ) : (
             <>
               <p>
                 {t(
-                  "Verify the signature before trusting data.status. Only COMPLETED and FAILED generate terminal payment events. PROCESSING has no terminal event; use transaction lookup while waiting. Older saved webhook bodies retain their recorded contents across retries.",
-                  "Vérifiez la signature avant de vous fier à data.status. Seuls COMPLETED et FAILED génèrent des événements finaux. PROCESSING n’en génère pas ; consultez la transaction pendant l’attente. Les anciens corps webhook restent inchangés lors des nouvelles tentatives.",
+                  "Verify the signature before trusting data.status. Only COMPLETED and FAILED generate terminal payment events. Neither ACCEPTED nor PROCESSING generates one; use transaction lookup while waiting. Older saved webhook bodies retain their recorded contents across retries.",
+                  "Vérifiez la signature avant de vous fier à data.status. Seuls COMPLETED et FAILED génèrent des événements finaux. Ni ACCEPTED ni PROCESSING n’en génère ; consultez la transaction pendant l’attente. Les anciens corps webhook restent inchangés lors des nouvelles tentatives.",
                 )}
               </p>
               <button

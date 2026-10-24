@@ -10,6 +10,8 @@ import { managedVideoCleanupCandidates } from "@/lib/media";
 import { storeEditInput } from "@/lib/commerce";
 import { invalidateQueryPaths } from "@/lib/query-cache";
 import type { Store, StoreInput } from "@/lib/types";
+import { hasToolAccess } from "@/lib/business-tools";
+import { useBusinessTools, useToolNavigation } from "./business-tools-provider";
 import { Modal, SubmitButton } from "./ui";
 import { MediaUpload } from "./media-upload";
 import { StoreCreateFlow } from "./store-create-flow";
@@ -23,6 +25,12 @@ export function StoreForm(props: { store?: Store; onClose: () => void; forPos?: 
 }
 function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void }) {
   const { t } = useI18n();
+  const { state } = useBusinessTools();
+  const navigation = useToolNavigation();
+  const canPublish =
+    !navigation.enabled ||
+    !state.accountAccess ||
+    hasToolAccess(state.accountAccess, "ONLINE_STORES");
   const router = useRouter();
   const { notify } = useWorkspace();
   const [step, setStep] = useState(0);
@@ -364,13 +372,34 @@ function StoreEditor({ store, onClose }: { store?: Store; onClose: () => void })
                 {t("Visibility", "Visibilité")}
                 <select value={form.visibility} onChange={(e) => set("visibility", e.target.value)}>
                   {["PRIVATE", "PUBLIC"].map((v) => (
-                    <option key={v} value={v}>
+                    <option key={v} value={v} disabled={v === "PUBLIC" && !canPublish}>
                       {label(v)}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
+            {!canPublish && (
+              <p className="muted small">
+                {t(
+                  "Public publication requires Online Stores access.",
+                  "La publication publique nécessite l’accès Boutiques en ligne.",
+                )}{" "}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() =>
+                    navigation.open(
+                      window.location.pathname + window.location.search,
+                      false,
+                      "ONLINE_STORES",
+                    )
+                  }
+                >
+                  {t("Activate Online Stores", "Activer Boutiques en ligne")}
+                </button>
+              </p>
+            )}
             <label>
               {t("Report currency", "Devise des rapports")}
               <select

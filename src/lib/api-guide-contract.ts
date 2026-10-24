@@ -150,22 +150,27 @@ export function contractCurl(
 }
 export const paymentStateGroups: {
   states: string[];
-  title: GuideCopy;
   note: GuideCopy;
   tone: string;
 }[] = [
   {
-    states: ["PROCESSING"],
-    title: ["In progress", "En cours"],
+    states: ["ACCEPTED"],
     note: [
-      "Pending includes accepted payments and unresolved provider/manual reconciliation. Poll the same reference with backoff; never replace a payment because waiting times out.",
-      "L’attente inclut les paiements acceptés et les rapprochements fournisseur/manuels non résolus. Consultez la même référence en espaçant les appels ; un délai dépassé ne justifie pas un remplacement.",
+      "ACCEPTED means the payment is queued for execution. Keep its reference and original idempotency key, and poll with backoff. Payout funds are reserved or debited at acceptance. An idempotent replay returns the current status, which may already have changed.",
+      "ACCEPTED signifie que le paiement est en file d’attente d’exécution. Conservez sa référence et la clé d’idempotence d’origine, puis espacez les appels de suivi. Les fonds d’un décaissement sont réservés ou débités dès l’acceptation. Une relance idempotente retourne l’état actuel, qui peut déjà avoir changé.",
+    ],
+    tone: "queued",
+  },
+  {
+    states: ["PROCESSING"],
+    note: [
+      "PROCESSING means execution has started or a provider/reconciliation result is unresolved. Keep polling the same reference with backoff. Retrying a previously started job does not return it to ACCEPTED; a timeout is not proof of failure.",
+      "PROCESSING signifie que l’exécution a commencé ou que le résultat du fournisseur ou du rapprochement reste indéterminé. Continuez le suivi de la même référence en espaçant les appels. Relancer un traitement déjà commencé ne le remet pas à ACCEPTED ; un délai dépassé ne prouve pas un échec.",
     ],
     tone: "pending",
   },
   {
     states: ["COMPLETED"],
-    title: ["Completed", "Terminé"],
     note: [
       "Reconcile Business, environment, currency and settlement. Collections credit net once; payouts never debit twice.",
       "Rapprochez Business, environnement, devise et règlement. Encaissements crédités une fois ; décaissements jamais débités deux fois.",
@@ -174,7 +179,6 @@ export const paymentStateGroups: {
   },
   {
     states: ["FAILED"],
-    title: ["Failed", "Échec"],
     note: [
       "Confirmed failure includes cancellation and expiry. Read failureMessage/failureCode for details. For payouts, inspect refunded separately; failure does not guarantee a refund.",
       "L’échec confirmé inclut annulation et expiration. Consultez failureMessage/failureCode. Pour les décaissements, vérifiez refunded séparément ; l’échec ne garantit pas un remboursement.",

@@ -1,5 +1,9 @@
 import { businessDestination } from "./business-tools";
-import { resourceAccessUnavailable, type BusinessToolsState } from "./business-tools-client";
+import {
+  effectiveAccess,
+  resourceAccessUnavailable,
+  type BusinessToolsState,
+} from "./business-tools-client";
 
 export type PaymentLanguage = "en" | "fr";
 export function paymentLanguage(value = "en"): PaymentLanguage {
@@ -27,7 +31,7 @@ export function mayContinueToTool(state: BusinessToolsState, destination: string
     !state.loading &&
     !state.error &&
     !resourceAccessUnavailable(state, destination) &&
-    state.access?.accessGranted === true
+    effectiveAccess(state, destination)?.accessGranted === true
   );
 }
 const en = {
@@ -104,6 +108,9 @@ const en = {
   legacyReviewTitle: "Payment received",
   legacyReviewBody: "Access needs review. Contact Fondeka support with the payment reference.",
   anotherMethod: "Choose another method",
+  reviewOffer: "Review this tool’s offer",
+  otherToolActive:
+    "Your purchase is active for its tool. The selected tool still requires separate access; review its offer to continue.",
   pollingStopped: "Automatic checks have paused. You can still check status.",
   reference: "Payment reference",
   purchaseReference: "Purchase reference",
@@ -124,6 +131,7 @@ const en = {
   historicalPricing: "Accepted payment pricing",
   historicalCredit: "Historical store credit",
   active: "Your tools are active.",
+  toolActive: "This tool is active.",
   earlierPending: "An earlier activation payment is still processing.",
   viewPayment: "View payment status",
   done: "Done",
@@ -216,6 +224,9 @@ const fr: typeof en = {
   legacyReviewBody:
     "L’accès nécessite une vérification. Contactez l’assistance Fondeka avec la référence du paiement.",
   anotherMethod: "Choisir un autre moyen",
+  reviewOffer: "Voir l’offre de cet outil",
+  otherToolActive:
+    "Votre achat donne accès à son outil. L’outil sélectionné nécessite encore un accès distinct ; consultez son offre pour continuer.",
   pollingStopped:
     "Les vérifications automatiques sont en pause. Vous pouvez toujours vérifier le statut.",
   reference: "Référence de paiement",
@@ -239,6 +250,7 @@ const fr: typeof en = {
   historicalPricing: "Prix du paiement accepté",
   historicalCredit: "Crédit historique de boutique",
   active: "Vos outils sont actifs.",
+  toolActive: "Cet outil est actif.",
   earlierPending: "Un ancien paiement d’activation est toujours en cours.",
   viewPayment: "Voir le statut du paiement",
   done: "Terminé",

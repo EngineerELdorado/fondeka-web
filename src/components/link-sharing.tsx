@@ -6,7 +6,15 @@ import { useI18n } from "@/lib/i18n";
 import { escapeHtml } from "@/lib/receipt";
 import { safeLink } from "@/lib/format";
 import { useWorkspace } from "./workspace-provider";
-export function LinkSharing({ url, title }: { url?: string; title: string }) {
+export function LinkSharing({
+  url,
+  title,
+  showQr = false,
+}: {
+  url?: string;
+  title: string;
+  showQr?: boolean;
+}) {
   const { t } = useI18n();
   const { notify } = useWorkspace();
   const link = safeLink(url);
@@ -92,7 +100,7 @@ export function LinkSharing({ url, title }: { url?: string; title: string }) {
         </button>
       </div>
       {qr?.link === link && (
-        <details>
+        <details open={showQr}>
           <summary>{t("QR code", "Code QR")}</summary>
           <div className="qr-print">
             <h3>{title}</h3>

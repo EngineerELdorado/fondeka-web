@@ -140,8 +140,8 @@ const lookup: GuideExample = {
     ),
     field(
       "status",
-      "PROCESSING is still pending. Only confirmed COMPLETED can support fulfillment after reconciliation.",
-      "PROCESSING est en attente. Seul COMPLETED confirmé permet la livraison après rapprochement.",
+      "ACCEPTED is queued; PROCESSING means execution has started or its outcome is unresolved. Keep polling both states. Only confirmed COMPLETED can support fulfillment after reconciliation.",
+      "ACCEPTED est en file d’attente ; PROCESSING signifie que l’exécution a commencé ou que le résultat reste indéterminé. Poursuivez le suivi dans ces deux états. Seul COMPLETED confirmé permet la livraison après rapprochement.",
       "response",
     ),
     field(
@@ -239,7 +239,7 @@ export const apiGuideTracks: GuideTrack[] = [
     title: ["Get ready to integrate", "Préparez votre intégration"],
     summary: [
       "Your Business ID, API key and webhook signing secret. Everything you need to get started.",
-      "Votre identifiant Business, votre clé API et votre secret de signature webhook. L’essentiel pour commencer.",
+      "Votre Business ID, votre clé API et votre secret de signature webhook. L’essentiel pour commencer.",
     ],
     icon: "rocket",
     tone: "rose",
@@ -249,10 +249,10 @@ export const apiGuideTracks: GuideTrack[] = [
         title: ["Integration essentials", "Les essentiels de l’intégration"],
         summary: [
           "Find your Business ID and create your sandbox credentials.",
-          "Retrouvez votre identifiant Business et créez vos identifiants sandbox.",
+          "Retrouvez votre Business ID et créez vos identifiants sandbox.",
         ],
         flow: [
-          ["Business ID", "Identifiant Business"],
+          ["Business ID", "Business ID"],
           ["API key", "Clé API"],
           ["Ready to integrate", "Prêt à intégrer"],
         ],
@@ -610,13 +610,13 @@ export const apiGuideTracks: GuideTrack[] = [
         id: "states",
         title: ["Separate acceptance from completion", "Distinguez acceptation et confirmation"],
         summary: [
-          "Pending → reconcile later. Completed → verify amounts. Unknown → investigate.",
-          "En attente → rapprocher plus tard. Terminé → vérifier les montants. Inconnu → examiner.",
+          "ACCEPTED is queued. PROCESSING is executing or unresolved. COMPLETED and FAILED are final.",
+          "ACCEPTED est en file d’attente. PROCESSING est en cours d’exécution ou indéterminé. COMPLETED et FAILED sont finaux.",
         ],
         flow: [
-          ["202 accepted", "202 accepté"],
+          ["ACCEPTED", "ACCEPTED"],
           ["PROCESSING", "PROCESSING"],
-          ["COMPLETED", "COMPLETED"],
+          ["COMPLETED / FAILED", "COMPLETED / FAILED"],
         ],
         tips: [
           [
@@ -746,8 +746,8 @@ export const apiGuideTracks: GuideTrack[] = [
           fields: [
             field(
               "X-Simulate-Error-Code",
-              "Omit for success. Choose an endpoint request error for immediate rejection, or a supported processing error for HTTP 202 followed by FAILED. LIVE ignores this header.",
-              "Omettez-le pour un succès. Choisissez une erreur de requête pour un refus immédiat ou une erreur de traitement prise en charge pour HTTP 202 puis FAILED. LIVE ignore cet en-tête.",
+              "Test how your integration handles an error without contacting a real payment provider.",
+              "Testez la gestion d’une erreur par votre intégration sans contacter de fournisseur de paiement réel.",
               "header",
             ),
             intent,

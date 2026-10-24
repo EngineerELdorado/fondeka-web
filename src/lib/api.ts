@@ -3,8 +3,8 @@
 import { accessToken, customerScope } from "./auth";
 import { clearDeviceSession, deviceHeaders, ensureDeviceSession, isDeviceError } from "./device";
 import { DeviceError, mayRetryDeviceRead } from "./device-session";
-import { needsBusinessToolsRecovery } from "./business-tools";
-import { clearQueryCache } from "./query-cache";
+import { isBusinessTool, needsBusinessToolsRecovery } from "./business-tools";
+import { clearQueryCache, invalidateQueryPaths } from "./query-cache";
 import { tokenCustomerScope } from "./session-scope";
 
 export class ApiError extends Error {
@@ -114,16 +114,22 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         device = await proof(device["X-Device-Session"]);
         continue;
       }
-      if (response.status === 401 || code === "BUSINESS_TOOLS_ACCESS_REQUIRED") clearQueryCache();
+      if (response.status === 401) clearQueryCache();
       if (isDeviceError(code)) {
         clearDeviceSession();
         window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
       } else if (response.status === 401)
         window.dispatchEvent(new Event("fondeka:session-expired"));
-      else if (needsBusinessToolsRecovery(response.status, code, path))
+      else if (needsBusinessToolsRecovery(response.status, code, path)) {
+        invalidateQueryPaths([path.split("?")[0]]);
+        const deniedAccess = body?.access ?? body?.details?.access;
+        const tool = deniedAccess?.requestedTool ?? deniedAccess?.tool;
         window.dispatchEvent(
-          new CustomEvent("fondeka:business-tools-required", { detail: { accountKey } }),
+          new CustomEvent("fondeka:business-tools-required", {
+            detail: { accountKey, tool: isBusinessTool(tool) ? tool : undefined },
+          }),
         );
+      }
       throw new ApiError(
         body?.message ||
           body?.detail ||

@@ -19,7 +19,7 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
       <section className="guide-setup-card">
         <span className="guide-setup-number">1</span>
         <div>
-          <h3>{t("Your Business ID", "Votre identifiant Business")}</h3>
+          <h3>{t("Your Business ID", "Votre Business ID")}</h3>
           {setup.loading ? (
             <Loading rows={1} />
           ) : setup.error ? (
@@ -54,7 +54,7 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
                 )}
               </small>
               <span className="sr-only" role="status">
-                {copied === businessId ? t("Business ID copied", "Identifiant Business copié") : ""}
+                {copied === businessId ? t("Business ID copied", "Business ID copié") : ""}
               </span>
               {copyError && (
                 <p className="form-error" role="alert">

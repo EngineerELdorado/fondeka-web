@@ -80,12 +80,12 @@ function ProductEditor({
         requiresShipping: type === "PHYSICAL" && f.get("requiresShipping") === "on",
         sku: String(f.get("sku") || "").trim(),
         barcodeOrQrCode: String(f.get("barcode") || "").trim(),
-        fulfillmentUrl:
-          type !== "PHYSICAL" ? String(f.get("fulfillmentUrl") || "").trim() || null : null,
-        fulfillmentInstructions:
-          type !== "PHYSICAL"
-            ? String(f.get("fulfillmentInstructions") || "").trim() || null
-            : null,
+        fulfillmentUrl: ["DIGITAL", "SERVICE"].includes(type)
+          ? String(f.get("fulfillmentUrl") || "").trim() || null
+          : null,
+        fulfillmentInstructions: ["DIGITAL", "SERVICE"].includes(type)
+          ? String(f.get("fulfillmentInstructions") || "").trim() || null
+          : null,
         digitalAssetKey: type === "DIGITAL" ? asset || null : null,
         status: String(f.get("status")),
         storefrontEnabled: f.get("storefront") === "on",
@@ -238,15 +238,30 @@ function ProductEditor({
           <h3>5. {t("Type", "Type")}</h3>
           <label>
             {t("Product type", "Type de produit")}
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              {["PHYSICAL", "DIGITAL", "SERVICE"].map((v) => (
+            <select
+              value={type}
+              disabled={product?.type === "TRAINING"}
+              onChange={(e) => setType(e.target.value)}
+            >
+              {(product?.type === "TRAINING"
+                ? ["TRAINING"]
+                : ["PHYSICAL", "DIGITAL", "SERVICE"]
+              ).map((v) => (
                 <option key={v} value={v}>
                   {label(v)}
                 </option>
               ))}
             </select>
           </label>
-          {type !== "PHYSICAL" && (
+          {type === "TRAINING" && (
+            <p className="info-box">
+              {t(
+                "Training type is permanent. Manage paid lessons in the curriculum. Publish only after saving at least one published material in a published module.",
+                "Le type Formation est définitif. Gérez les leçons payantes dans le programme. Publiez après avoir enregistré au moins une ressource publiée dans un module publié.",
+              )}
+            </p>
+          )}
+          {["DIGITAL", "SERVICE"].includes(type) && (
             <>
               <label>
                 {type === "SERVICE"

@@ -33,6 +33,7 @@ import {
 } from "./business-profile";
 
 const storageKey = "fondeka-business-demo-v1";
+import { demoTrainingRequest, demoTrainingPublishable, seedDemoTraining } from "./demo-training";
 interface DemoData {
   businesses?: Business[];
   apiKeys?: ApiKey[];
@@ -343,6 +344,9 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   const method = init.method ?? "GET";
   const body = typeof init.body === "string" ? JSON.parse(init.body) : {};
   const db = data();
+  seedDemoTraining(db.products);
+  const training = demoTrainingRequest(route, method, body, url.searchParams, db.products);
+  if (training?.handled) return structuredClone(training.data) as T;
   db.customers ??= [
     {
       id: 1,
@@ -650,7 +654,16 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   } else if (/^\/commerce\/products\/\d+$/.test(route)) {
     const p = db.products.find((p) => p.id === Number(route.split("/")[3]));
     if (!p) throw new Error("Product not found.");
-    if (method === "PATCH") Object.assign(p, body);
+    if (method === "PATCH") {
+      if (p.type === "TRAINING" && body.type && body.type !== "TRAINING")
+        throw Object.assign(new Error("Training type cannot be changed."), { status: 400 });
+      if (p.type === "TRAINING" && body.status === "ACTIVE" && !demoTrainingPublishable(p.id))
+        throw Object.assign(
+          new Error("Publish at least one material in a published module first."),
+          { status: 400 },
+        );
+      Object.assign(p, body);
+    }
     result = p;
   } else if (/^\/commerce\/stores\/\d+\/pos\/products\/search$/.test(route)) {
     const query = (url.searchParams.get("query") || "").toLowerCase();
@@ -1099,9 +1112,11 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
 
 function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
   if (environment === "SANDBOX")
-    return Array.from({ length: 5 }, (_, i) => {
-      const status = (["COMPLETED", "FAILED", "COMPLETED", "PROCESSING", "FAILED"] as const)[i];
-      const amount = [10, 25, 40, 15, 12][i];
+    return Array.from({ length: 6 }, (_, i) => {
+      const status = (
+        ["COMPLETED", "FAILED", "COMPLETED", "PROCESSING", "FAILED", "ACCEPTED"] as const
+      )[i];
+      const amount = [10, 25, 40, 15, 12, 20][i];
       return {
         requestId: 100 + i,
         apiKeyName: "Sandbox checkout",
@@ -1155,11 +1170,12 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
       reference: `TXDEMO${8421 - i}`,
       clientReference: `order-${i + 1}`,
       action: i % 3 === 0 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
-      status: i === 3 || i === 7 ? "PROCESSING" : "COMPLETED",
+      status:
+        i === 1 ? "ACCEPTED" : i === 4 ? "FAILED" : i === 3 || i === 7 ? "PROCESSING" : "COMPLETED",
       amount: [125, 84, 260][i % 3],
       grossAmount: [125.5, 84.5, 260.5][i % 3],
       allFees: 0.5,
-      settlementNet: [125, 84, 260][i % 3],
+      settlementNet: [1, 3, 4, 7].includes(i) ? null : [125, 84, 260][i % 3],
       refunded: false,
       currency: i === 5 ? "EUR" : "USD",
       cryptoDetails:

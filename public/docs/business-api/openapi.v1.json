@@ -4,7 +4,7 @@
       "TerminalPaymentEvent" : {
         "https://merchant.example/fondeka/webhooks" : {
           "post" : {
-            "description" : "POST to the originating credential's webhook URL configured when this delivery attempt is claimed. Owners can edit an active key's URL in the portal without rotating its signing secret; queued retries use the updated URL, while in-flight attempts may use the previous URL. The URL below is a placeholder, not an API endpoint. HMAC-SHA256 uses the webhook secret over UTF-8 timestamp + '.' + exact raw request bytes. X-Fondeka-Signature is v1=<lowercase hex>. Verify in constant time, reject stale timestamps (recommended ±300s), validate environment and deduplicate event ID before fulfillment. Return any 2xx after durable acceptance. Non-2xx, redirects and transport failures retry up to 10 attempts with 30/60/120/240/480/960/1800/1800/1800-second scheduled delays; scheduling can be later. IDs and payload bytes stay fixed; attempt timestamp/signature change. Revoked credentials still deliver accepted payments. Payments still PROCESSING do not emit terminal events. Cancellation/expiry generate failed events. No ordering guarantee across payments.",
+            "description" : "POST to the originating credential's webhook URL configured when this delivery attempt is claimed. Owners can edit an active key's URL in the portal without rotating its signing secret; queued retries use the updated URL, while in-flight attempts may use the previous URL. The URL below is a placeholder, not an API endpoint. HMAC-SHA256 uses the webhook secret over UTF-8 timestamp + '.' + exact raw request bytes. X-Fondeka-Signature is v1=<lowercase hex>. Verify in constant time, reject stale timestamps (recommended ±300s), validate environment and deduplicate event ID before fulfillment. Return any 2xx after durable acceptance. Non-2xx, redirects and transport failures retry up to 10 attempts with 30/60/120/240/480/960/1800/1800/1800-second scheduled delays; scheduling can be later. IDs and payload bytes stay fixed; attempt timestamp/signature change. Revoked credentials still deliver accepted payments. Payments still ACCEPTED or PROCESSING do not emit terminal events. Cancellation/expiry generate failed events. No ordering guarantee across payments.",
             "operationId" : "receiveTerminalPaymentEvent",
             "parameters" : [ {
               "description" : "Stable event UUID, equal to body.id.",
@@ -381,8 +381,8 @@
             "type" : "number"
           },
           "status" : {
-            "description" : "PROCESSING means pending, including accepted payments and unresolved provider/reconciliation outcomes. COMPLETED and FAILED are terminal; cancellation/expiry are FAILED. Keep polling PROCESSING with the original reference.",
-            "enum" : [ "PROCESSING", "COMPLETED", "FAILED" ],
+            "description" : "ACCEPTED means queued for execution. PROCESSING means execution has started or the outcome is unresolved. COMPLETED and FAILED are terminal; cancellation/expiry are FAILED. Poll ACCEPTED and PROCESSING with the original reference.",
+            "enum" : [ "ACCEPTED", "PROCESSING", "COMPLETED", "FAILED" ],
             "type" : "string"
           },
           "transactionId" : {
@@ -713,7 +713,7 @@
             "type" : "array"
           },
           "resultingStatus" : {
-            "enum" : [ "PROCESSING", "COMPLETED", "FAILED" ],
+            "enum" : [ "ACCEPTED", "PROCESSING", "COMPLETED", "FAILED" ],
             "type" : "string"
           },
           "simulatable" : {
@@ -895,7 +895,7 @@
                       "service" : "BUSINESS_API",
                       "settlementAmount" : 10.3,
                       "settlementNet" : 10.0,
-                      "status" : "PROCESSING",
+                      "status" : "ACCEPTED",
                       "transactionId" : null
                     }
                   }
@@ -2921,7 +2921,7 @@
             "$ref" : "#/components/callbacks/TerminalPaymentEvent"
           }
         },
-        "description" : "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. PROCESSING includes accepted and unresolved provider outcomes and keeps funds reserved; do not submit a replacement payment while investigating.",
+        "description" : "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.",
         "operationId" : "createPayout",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -3014,7 +3014,7 @@
                       "service" : "BUSINESS_API",
                       "settlementAmount" : 10.3,
                       "settlementNet" : 10.0,
-                      "status" : "PROCESSING",
+                      "status" : "ACCEPTED",
                       "transactionId" : null
                     }
                   }
@@ -5685,7 +5685,7 @@
     },
     "/business-api/v1/businesses/{businessId}/transactions/{reference}" : {
       "get" : {
-        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded.",
+        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded.",
         "operationId" : "getTransaction",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",

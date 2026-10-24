@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Package, Download, CalendarDays } from "lucide-react";
+import { Package, Download, CalendarDays, BookOpen } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useCurrencies } from "@/lib/use-currencies";
 import { money, parseAmount, label, safeLink } from "@/lib/format";
@@ -25,7 +25,7 @@ type Draft = {
   video: string;
   duration: number;
   description: string;
-  type: "PHYSICAL" | "DIGITAL" | "SERVICE";
+  type: "PHYSICAL" | "DIGITAL" | "SERVICE" | "TRAINING";
   stock: string;
   fulfillmentUrl: string;
   instructions: string;
@@ -176,7 +176,7 @@ export function ProductCreateFlow({
     {
       id: "type",
       validate: (v) =>
-        ["PHYSICAL", "DIGITAL", "SERVICE"].includes(v.type)
+        ["PHYSICAL", "DIGITAL", "SERVICE", "TRAINING"].includes(v.type)
           ? {}
           : { type: t("Choose a product type.", "Choisissez un type de produit.") },
       title: t("Product type", "Type de produit"),
@@ -211,11 +211,17 @@ export function ProductCreateFlow({
             {
               value: "SERVICE",
               title: t("Service", "Service"),
-              description: t(
-                "A service, training or appointment.",
-                "Un service, une formation ou un rendez-vous.",
-              ),
+              description: t("A service or appointment.", "Un service ou un rendez-vous."),
               icon: <CalendarDays size={22} />,
+            },
+            {
+              value: "TRAINING",
+              title: t("Training", "Formation"),
+              description: t(
+                "A paid curriculum with modules and private files or links.",
+                "Un programme payant avec modules et fichiers privés ou liens.",
+              ),
+              icon: <BookOpen size={22} />,
             },
           ]}
         />
@@ -249,65 +255,84 @@ export function ProductCreateFlow({
             ),
           },
         ]
-      : [
-          {
-            id: "fulfillment",
-            title: t("Fulfillment", "Livraison et accès"),
-            helper: t(
-              "Tell customers how to access their purchase.",
-              "Indiquez aux clients comment accéder à leur achat.",
-            ),
-            validate: (v: Draft) =>
-              v.fulfillmentUrl && !safeLink(v.fulfillmentUrl)
-                ? {
-                    fulfillmentUrl: t(
-                      "Enter a valid access or booking link.",
-                      "Saisissez un lien d’accès ou de réservation valide.",
-                    ),
-                  }
-                : {},
-            render: ({ value, set }: Parameters<GuidedStep<Draft>["render"]>[0]) => (
-              <>
-                {value.type === "DIGITAL" && (
-                  <MediaUpload
-                    kind="digital"
-                    disabled={uploading}
-                    label={t("Digital file", "Fichier numérique")}
-                    value={value.asset}
-                    scope="commerce-digital-assets"
-                    storeId={store.id}
-                    onBusy={setUploading}
-                    onChange={(asset) => set({ asset })}
-                  />
-                )}
-                <FlowField
-                  name="fulfillmentUrl"
-                  label={
-                    value.type === "SERVICE"
-                      ? t("Booking link", "Lien de réservation")
-                      : t("Access or download link", "Lien d’accès ou de téléchargement")
-                  }
-                >
-                  <input
-                    type="url"
-                    value={value.fulfillmentUrl}
-                    onChange={(e) => set({ fulfillmentUrl: e.target.value })}
-                    maxLength={1024}
-                  />
-                </FlowField>
-                <FlowField
-                  name="instructions"
-                  label={t("Customer instructions", "Instructions pour le client")}
-                >
-                  <textarea
-                    value={value.instructions}
-                    onChange={(e) => set({ instructions: e.target.value })}
-                  />
-                </FlowField>
-              </>
-            ),
-          },
-        ]),
+      : draft.value.type === "TRAINING"
+        ? [
+            {
+              id: "fulfillment",
+              title: t("Training curriculum", "Programme de formation"),
+              helper: t(
+                "Create the draft first, then arrange and publish its modules and materials.",
+                "Créez d’abord le brouillon, puis organisez et publiez ses modules et ressources.",
+              ),
+              render: () => (
+                <p className="info-box">
+                  {t(
+                    "One product purchase unlocks all published content, including later additions. Keep paid lessons in the curriculum; product photos, description and promotional video are public.",
+                    "Un achat donne accès à tous les contenus publiés, y compris les ajouts futurs. Placez les leçons payantes dans le programme ; les photos, la description et la vidéo promotionnelle du produit sont publiques.",
+                  )}
+                </p>
+              ),
+            },
+          ]
+        : [
+            {
+              id: "fulfillment",
+              title: t("Fulfillment", "Livraison et accès"),
+              helper: t(
+                "Tell customers how to access their purchase.",
+                "Indiquez aux clients comment accéder à leur achat.",
+              ),
+              validate: (v: Draft) =>
+                v.fulfillmentUrl && !safeLink(v.fulfillmentUrl)
+                  ? {
+                      fulfillmentUrl: t(
+                        "Enter a valid access or booking link.",
+                        "Saisissez un lien d’accès ou de réservation valide.",
+                      ),
+                    }
+                  : {},
+              render: ({ value, set }: Parameters<GuidedStep<Draft>["render"]>[0]) => (
+                <>
+                  {value.type === "DIGITAL" && (
+                    <MediaUpload
+                      kind="digital"
+                      disabled={uploading}
+                      label={t("Digital file", "Fichier numérique")}
+                      value={value.asset}
+                      scope="commerce-digital-assets"
+                      storeId={store.id}
+                      onBusy={setUploading}
+                      onChange={(asset) => set({ asset })}
+                    />
+                  )}
+                  <FlowField
+                    name="fulfillmentUrl"
+                    label={
+                      value.type === "SERVICE"
+                        ? t("Booking link", "Lien de réservation")
+                        : t("Access or download link", "Lien d’accès ou de téléchargement")
+                    }
+                  >
+                    <input
+                      type="url"
+                      value={value.fulfillmentUrl}
+                      onChange={(e) => set({ fulfillmentUrl: e.target.value })}
+                      maxLength={1024}
+                    />
+                  </FlowField>
+                  <FlowField
+                    name="instructions"
+                    label={t("Customer instructions", "Instructions pour le client")}
+                  >
+                    <textarea
+                      value={value.instructions}
+                      onChange={(e) => set({ instructions: e.target.value })}
+                    />
+                  </FlowField>
+                </>
+              ),
+            },
+          ]),
     {
       id: "review",
       title: t("Preview your product", "Aperçu de votre produit"),
@@ -332,12 +357,19 @@ export function ProductCreateFlow({
             <p>
               {value.type === "PHYSICAL"
                 ? t("Available stock: ", "Stock disponible : ") + value.stock
-                : value.fulfillmentUrl ||
-                  (value.asset
-                    ? t("Digital file attached", "Fichier numérique joint")
-                    : t("No access link", "Aucun lien d’accès"))}
+                : value.type === "TRAINING"
+                  ? t(
+                      "Draft · Add your curriculum before publishing",
+                      "Brouillon · Ajoutez le programme avant publication",
+                    )
+                  : value.fulfillmentUrl ||
+                    (value.asset
+                      ? t("Digital file attached", "Fichier numérique joint")
+                      : t("No access link", "Aucun lien d’accès"))}
             </p>
-            {value.type !== "PHYSICAL" && value.instructions && <p>{value.instructions}</p>}
+            {["DIGITAL", "SERVICE"].includes(value.type) && value.instructions && (
+              <p>{value.instructions}</p>
+            )}
           </FlowReview>
         </>
       ),
@@ -364,10 +396,14 @@ export function ProductCreateFlow({
           inventoryPolicy: v.type === "PHYSICAL" ? "TRACKED" : "UNLIMITED",
           inventoryQuantity: v.type === "PHYSICAL" ? Number(v.stock) : null,
           requiresShipping: v.type === "PHYSICAL",
-          fulfillmentUrl: v.type === "PHYSICAL" ? null : v.fulfillmentUrl.trim() || null,
-          fulfillmentInstructions: v.type === "PHYSICAL" ? null : v.instructions.trim() || null,
+          fulfillmentUrl: ["DIGITAL", "SERVICE"].includes(v.type)
+            ? v.fulfillmentUrl.trim() || null
+            : null,
+          fulfillmentInstructions: ["DIGITAL", "SERVICE"].includes(v.type)
+            ? v.instructions.trim() || null
+            : null,
           digitalAssetKey: v.type === "DIGITAL" ? v.asset || null : null,
-          status: "ACTIVE",
+          status: v.type === "TRAINING" ? "DRAFT" : "ACTIVE",
           storefrontEnabled: true,
           directLinkEnabled: true,
           marketplaceEnabled: true,
@@ -395,7 +431,11 @@ export function ProductCreateFlow({
       onDiscard={draft.clear}
       onClose={onClose}
       onFinish={create}
-      finalLabel={t("Add product", "Ajouter le produit")}
+      finalLabel={
+        draft.value.type === "TRAINING"
+          ? t("Create training draft", "Créer le brouillon de formation")
+          : t("Add product", "Ajouter le produit")
+      }
       busy={uploading}
       loading={draft.restoring || currencies.loading}
       dependencyError={currencies.error}

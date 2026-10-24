@@ -1,0 +1,17 @@
+{
+  "CORSRules": [
+    {
+      "ID": "FondekaPortalMedia",
+      "AllowedOrigins": [
+        "https://web.fondeka.com",
+        "http://localhost:4200",
+        "http://localhost:4300",
+        "http://localhost:4301"
+      ],
+      "AllowedMethods": ["PUT", "GET", "HEAD"],
+      "AllowedHeaders": ["content-type", "x-amz-*"],
+      "ExposeHeaders": ["ETag", "x-amz-request-id", "x-amz-id-2"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}

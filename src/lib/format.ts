@@ -72,6 +72,7 @@ export function label(value?: string) {
       PHYSICAL: "Physique",
       DIGITAL: "Numérique",
       SERVICE: "Service",
+      TRAINING: "Formation",
       OWNER: "Propriétaire",
       STAFF: "Équipe",
       POS: "POS",

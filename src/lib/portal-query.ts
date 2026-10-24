@@ -30,7 +30,9 @@ export function portalQuery(
     const value = filters[key].trim();
     if (!value) continue;
     if (key === "status" && !isBusinessApiPaymentStatus(value))
-      throw new Error("Choose PROCESSING, COMPLETED or FAILED, or clear the status filter.");
+      throw new Error(
+        "Choose ACCEPTED, PROCESSING, COMPLETED or FAILED, or clear the status filter.",
+      );
     if ((key === "reference" || key === "clientReference") && value.length > 128)
       throw new Error("References must be 128 characters or fewer.");
     if (key === "currency" && !/^[A-Za-z]{3}$/.test(value))

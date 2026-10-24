@@ -7,11 +7,13 @@ import { request } from "@/lib/data";
 import { safeLink } from "@/lib/format";
 import { demoMode } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { trainingAssetKey } from "@/lib/training";
+import { StorageUploadError, storageUploadCopy, uploadToStorage } from "@/lib/storage-upload";
 interface Presign {
   url: string;
   method: string;
   headers: Record<string, string>;
-  publicUrl?: string;
+  publicUrl?: string | null;
   key: string;
   maxBytes: number;
 }
@@ -21,6 +23,7 @@ export function MediaUpload({
   onChange,
   scope,
   storeId,
+  productId,
   kind = "image",
   maxBytes,
   maxSeconds = 30,
@@ -34,10 +37,11 @@ export function MediaUpload({
 }: {
   label: string;
   value?: string | null;
-  onChange: (url: string, duration?: number) => void;
+  onChange: (url: string, duration?: number, fileName?: string) => void;
   scope: string;
   storeId?: number;
-  kind?: "image" | "video" | "digital";
+  productId?: number;
+  kind?: "image" | "video" | "digital" | "training";
   maxBytes?: number;
   maxSeconds?: number;
   onBusy?: (busy: boolean) => void;
@@ -49,6 +53,7 @@ export function MediaUpload({
   compact?: boolean;
 }) {
   const { t } = useI18n();
+  const privateFile = kind === "digital" || kind === "training";
   const videoLimit = Math.min(maxSeconds, 30);
   const mediaName = ownerName ? `${ownerName} · ${label}` : label;
   const [busy, setBusy] = useState(false);
@@ -58,7 +63,6 @@ export function MediaUpload({
   const [preview, setPreview] = useState<File>();
   const input = useRef<HTMLInputElement>(null);
 
-  const xhr = useRef<XMLHttpRequest | null>(null);
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -66,7 +70,6 @@ export function MediaUpload({
     return () => {
       mounted.current = false;
       abort.current?.abort();
-      xhr.current?.abort();
     };
   }, []);
   function select(file?: File) {
@@ -101,37 +104,54 @@ export function MediaUpload({
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
       const accepted =
-        kind === "image"
-          ? ["jpg", "jpeg", "png", "webp", "heic", "heif"]
-          : kind === "video"
-            ? ["mp4", "mov"]
-            : [
-                "pdf",
-                "epub",
-                "txt",
-                "doc",
-                "docx",
-                "xls",
-                "xlsx",
-                "ppt",
-                "pptx",
-                "zip",
-                "mp3",
-                "m4a",
-                "mp4",
-                "mov",
-              ];
+        kind === "training"
+          ? [
+              "pdf",
+              "epub",
+              "txt",
+              "doc",
+              "docx",
+              "xls",
+              "xlsx",
+              "ppt",
+              "pptx",
+              "zip",
+              "mp3",
+              "m4a",
+              "mp4",
+              "mov",
+              "jpg",
+              "jpeg",
+              "png",
+              "webp",
+            ]
+          : kind === "image"
+            ? ["jpg", "jpeg", "png", "webp", "heic", "heif"]
+            : kind === "video"
+              ? ["mp4", "mov"]
+              : [
+                  "pdf",
+                  "epub",
+                  "txt",
+                  "doc",
+                  "docx",
+                  "xls",
+                  "xlsx",
+                  "ppt",
+                  "pptx",
+                  "zip",
+                  "mp3",
+                  "m4a",
+                  "mp4",
+                  "mov",
+                ];
       if (!accepted.includes(ext))
         throw new Error(
           t("Choose a supported file type.", "Choisissez un type de fichier compatible."),
         );
       const localCap =
         maxBytes ??
-        (kind === "image"
-          ? 10 * 1024 * 1024
-          : kind === "digital"
-            ? 250 * 1024 * 1024
-            : 50 * 1024 * 1024);
+        (kind === "image" ? 10 * 1024 * 1024 : privateFile ? 250 * 1024 * 1024 : 50 * 1024 * 1024);
       if (file.size <= 0 || file.size > localCap)
         throw new Error(
           t("This file is too large or empty.", "Ce fichier est trop volumineux ou vide."),
@@ -189,6 +209,7 @@ export function MediaUpload({
         );
       }
       const contentType =
+        (kind === "training" ? file.type || "application/octet-stream" : "") ||
         (file.type && file.type !== "application/octet-stream" ? file.type : "") ||
         (
           {
@@ -200,17 +221,31 @@ export function MediaUpload({
             mov: "video/quicktime",
             zip: "application/zip",
             pdf: "application/pdf",
+            epub: "application/epub+zip",
+            txt: "text/plain",
+            doc: "application/msword",
+            docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            xls: "application/vnd.ms-excel",
+            xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ppt: "application/vnd.ms-powerpoint",
+            pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            mp3: "audio/mpeg",
+            m4a: "audio/mp4",
           } as Record<string, string>
         )[ext] ||
         "application/octet-stream";
       const endpoint =
-        kind === "digital"
-          ? `/customer-api/commerce/stores/${storeId}/products/digital-assets/presign`
-          : "/customer-api/storage/presign";
+        kind === "training"
+          ? `/customer-api/commerce/products/${productId}/training/assets/presign`
+          : kind === "digital"
+            ? `/customer-api/commerce/stores/${storeId}/products/digital-assets/presign`
+            : "/customer-api/storage/presign";
       const signed = await request<Presign>(endpoint, {
         method: "POST",
         signal: controller.signal,
-        body: JSON.stringify({ scope, storeId, contentType, ext }),
+        body: JSON.stringify(
+          kind === "training" ? { contentType, ext } : { scope, storeId, contentType, ext },
+        ),
       });
       if (controller.signal.aborted) return;
       if (file.size > signed.maxBytes)
@@ -223,50 +258,44 @@ export function MediaUpload({
       const destination = new URL(signed.url);
       if (
         destination.protocol !== "https:" ||
-        signed.method !== "PUT" ||
-        (kind === "digital" ? !signed.key : !signed.publicUrl || !safeLink(signed.publicUrl))
+        (signed.method || "PUT") !== "PUT" ||
+        (privateFile ? !signed.key : !signed.publicUrl || !safeLink(signed.publicUrl)) ||
+        (kind === "training" &&
+          (signed.publicUrl != null ||
+            !trainingAssetKey.test(signed.key) ||
+            !Number.isFinite(signed.maxBytes) ||
+            signed.maxBytes <= 0))
       )
         throw new Error(
           t("The upload destination is invalid.", "La destination d’envoi est invalide."),
         );
-      await new Promise<void>((resolve, reject) => {
-        const task = new XMLHttpRequest();
-        xhr.current = task;
-        task.open("PUT", signed.url);
-        for (const [key, v] of Object.entries(signed.headers)) task.setRequestHeader(key, v);
-        task.upload.onprogress = (e) => {
-          if (e.lengthComputable && mounted.current)
-            setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        task.onload = () =>
-          task.status >= 200 && task.status < 300
-            ? resolve()
-            : reject(
-                new Error(
-                  t("Upload failed. Please try again.", "Échec de l’envoi. Veuillez réessayer."),
-                ),
-              );
-        task.onerror = () =>
-          reject(
-            new Error(
-              t(
-                "Upload failed. Check your connection.",
-                "Échec de l’envoi. Vérifiez votre connexion.",
-              ),
-            ),
-          );
-        task.onabort = () => reject(new DOMException("Aborted", "AbortError"));
-        controller.signal.addEventListener("abort", () => task.abort(), { once: true });
-        task.send(file);
+      await uploadToStorage(signed, file, {
+        contentType,
+        signal: controller.signal,
+        onProgress: (percentage) => {
+          if (mounted.current) setProgress(percentage);
+        },
       });
       if (mounted.current && !controller.signal.aborted)
         onChange(
-          kind === "digital" ? signed.key : signed.publicUrl!,
+          privateFile ? signed.key : signed.publicUrl!,
           duration ? Math.round(duration) : undefined,
+          file.name,
         );
     } catch (e) {
-      if (mounted.current && !(e instanceof DOMException && e.name === "AbortError"))
-        setError(e instanceof Error ? e.message : t("Upload failed.", "Échec de l’envoi."));
+      if (mounted.current && !(e instanceof DOMException && e.name === "AbortError")) {
+        if (e instanceof StorageUploadError) {
+          const [en, fr] = storageUploadCopy(e);
+          const details = [
+            e.status ? `HTTP ${e.status}` : "",
+            e.code,
+            e.requestId ? `${t("Support reference", "Référence support")} : ${e.requestId}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          setError(`${t(en, fr)} ${details}`);
+        } else setError(e instanceof Error ? e.message : t("Upload failed.", "Échec de l’envoi."));
+      }
     } finally {
       if (mounted.current) {
         setBusy(false);
@@ -274,7 +303,6 @@ export function MediaUpload({
         setPreview(undefined);
         onBusy?.(false);
       }
-      xhr.current = null;
       abort.current = null;
     }
   }
@@ -305,7 +333,7 @@ export function MediaUpload({
       {!value && kind === "video" && (
         <Video className="media-upload-icon" size={28} strokeWidth={1.4} aria-hidden="true" />
       )}
-      {kind === "digital" && <FileUp size={25} aria-hidden="true" />}
+      {privateFile && <FileUp size={25} aria-hidden="true" />}
       <input
         ref={input}
         className="sr-only"
@@ -317,7 +345,9 @@ export function MediaUpload({
             ? ".jpg,.jpeg,.png,.webp,.heic,.heif"
             : kind === "video"
               ? ".mp4,.mov"
-              : ".pdf,.epub,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.m4a,.mp4,.mov"
+              : kind === "training"
+                ? ".pdf,.epub,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.m4a,.mp4,.mov,.jpg,.jpeg,.png,.webp"
+                : ".pdf,.epub,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp3,.m4a,.mp4,.mov"
         }
         onChange={(e) => {
           select(e.target.files?.[0]);
@@ -367,9 +397,7 @@ export function MediaUpload({
           </button>
         )}
       </div>
-      {kind === "digital" && value && (
-        <span className="muted">{t("File added", "Fichier ajouté")}</span>
-      )}
+      {privateFile && value && <span className="muted">{t("File added", "Fichier ajouté")}</span>}
       {busy && (
         <div className="media-upload-progress">
           <span role="status">

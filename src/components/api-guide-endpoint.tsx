@@ -27,7 +27,11 @@ import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import { ApiGuideCatalog } from "./api-guide-catalog";
 import { ApiGuideErrors } from "./api-guide-errors";
 import { useApiErrorCatalog } from "@/lib/use-api-error-catalog";
-import { simulationHeaders, type ErrorSimulation } from "@/lib/api-error-catalog";
+import {
+  processingErrorsFor,
+  simulationHeaders,
+  type ErrorSimulation,
+} from "@/lib/api-error-catalog";
 import { useWorkspace } from "./workspace-provider";
 import {
   guideSchemaFields as schemaFields,
@@ -168,9 +172,162 @@ export function GuideCodeCard({
   );
 }
 
+function SimulationHeaderHelp({
+  example,
+  setup,
+  data,
+  onViewErrors,
+}: {
+  example: GuideExample;
+  setup?: ApiGuideSetup;
+  data: ReturnType<typeof useApiErrorCatalog>;
+  onViewErrors: () => void;
+}) {
+  const { t } = useI18n();
+  const businessId = setup?.business?.id ?? "$FONDEKA_BUSINESS_ID";
+  const catalogUrl = `https://api.fondeka.com/business-api/v1/businesses/${businessId}/error-codes`;
+  const curl = [`curl "${catalogUrl}" \\`, '  -H "X-API-Key: $FONDEKA_SANDBOX_API_KEY"'].join("\n");
+  const endpoint = data.endpoint;
+  const immediate = endpoint?.requestErrors.find(
+    (entry) => entry.errorCode === "RATE_LIMITED" && entry.simulatable,
+  );
+  const processing =
+    endpoint &&
+    processingErrorsFor(endpoint, example.paymentKind).find(
+      (entry) =>
+        entry.simulatable &&
+        entry.errorCode ===
+          (example.paymentKind === "MOBILE_MONEY" && example.path.endsWith("/collections")
+            ? "PAYMENT_NOT_APPROVED"
+            : "PROVIDER_UNAVAILABLE"),
+    );
+  const canShowExamples =
+    !data.error &&
+    !data.refreshError &&
+    data.catalog?.environment === "SANDBOX" &&
+    data.catalog.simulationEnabled &&
+    endpoint?.available;
+  return (
+    <div className="guide-simulation-help">
+      <h5>{t("Find the errors you can test", "Trouvez les erreurs à tester")}</h5>
+      <p>
+        {t(
+          "Call this URL from your server with a SANDBOX API key. It returns the supported errors for each endpoint.",
+          "Appelez cette URL depuis votre serveur avec une clé API SANDBOX. Elle renvoie les erreurs prises en charge par chaque endpoint.",
+        )}
+      </p>
+      <GuideCodeCard
+        title={t("Get available test errors", "Obtenir les erreurs de test disponibles")}
+        code={curl}
+      />
+      <p>
+        {t("In the response, find this endpoint:", "Dans la réponse, recherchez cet endpoint :")}
+      </p>
+      <code className="guide-simulation-endpoint">
+        {example.method} {example.path}
+      </code>
+      <p>
+        {t(
+          "Each error marked simulatable: true can be tested. Copy its simulationValue into the X-Simulate-Error-Code header. This tells SANDBOX which test error to produce.",
+          "Chaque erreur marquée simulatable: true peut être testée. Copiez sa simulationValue dans l’en-tête X-Simulate-Error-Code pour indiquer à SANDBOX quelle erreur de test produire.",
+        )}
+      </p>
+      <button type="button" className="text-button" onClick={onViewErrors}>
+        {t(
+          "View this endpoint’s errors in the portal",
+          "Voir les erreurs de cet endpoint dans le portail",
+        )}
+      </button>
+      {canShowExamples && (
+        <div className="guide-simulation-examples">
+          {immediate?.simulationValue && (
+            <section>
+              <h5>
+                {t(
+                  "Example: the request is refused immediately",
+                  "Exemple : la requête est refusée immédiatement",
+                )}
+              </h5>
+              <code>X-Simulate-Error-Code: {immediate.simulationValue}</code>
+              <p>
+                {t(
+                  `The API returns HTTP ${immediate.httpStatus} with errorCode: ${immediate.errorCode}. The request stops here; no payment is created.`,
+                  `L’API renvoie HTTP ${immediate.httpStatus} avec errorCode : ${immediate.errorCode}. La requête s’arrête ici ; aucun paiement n’est créé.`,
+                )}
+              </p>
+            </section>
+          )}
+          {processing?.simulationValue && (
+            <section>
+              <h5>
+                {t("Example: the payment fails later", "Exemple : le paiement échoue plus tard")}
+              </h5>
+              <code>X-Simulate-Error-Code: {processing.simulationValue}</code>
+              <p>
+                {processing.errorCode === "PAYMENT_NOT_APPROVED"
+                  ? t(
+                      "This tests a customer who does not approve the mobile-money prompt on their phone.",
+                      "Ce test simule un client qui ne valide pas la demande mobile money sur son téléphone.",
+                    )
+                  : t(
+                      "This tests a payment that the provider cannot process.",
+                      "Ce test simule un paiement que le fournisseur ne peut pas traiter.",
+                    )}
+              </p>
+              <ol>
+                <li>
+                  {t(
+                    "First, HTTP 202 confirms acceptance of the new request. The payment status is ACCEPTED: it is queued.",
+                    "D’abord, HTTP 202 confirme l’acceptation de la nouvelle requête. L’état du paiement est ACCEPTED : il est en file d’attente.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    "When the worker starts execution, the payment status becomes PROCESSING. Keep checking the same reference.",
+                    "Quand le traitement commence, l’état du paiement devient PROCESSING. Poursuivez le suivi de la même référence.",
+                  )}
+                </li>
+                <li>
+                  {t(
+                    `Later, the payment status becomes FAILED with failureCode: ${processing.errorCode}.`,
+                    `Plus tard, l’état du paiement devient FAILED avec failureCode : ${processing.errorCode}.`,
+                  )}
+                </li>
+              </ol>
+              <p>
+                {t(
+                  "Read the result with the transaction lookup below, or receive it in the signed failed-payment webhook. No real provider is contacted.",
+                  "Consultez le résultat via l’endpoint de suivi ci-dessous, ou recevez-le dans le webhook signé d’échec de paiement. Aucun fournisseur réel n’est contacté.",
+                )}
+              </p>
+              <code className="guide-simulation-endpoint">
+                GET /business-api/v1/businesses/{businessId}/transactions/{"{reference}"}
+              </code>
+            </section>
+          )}
+        </div>
+      )}
+      {setup?.environment !== "SANDBOX" && (
+        <p>
+          {t(
+            "Select SANDBOX in the portal header to explore test errors here. Use a SANDBOX API key in your server requests.",
+            "Sélectionnez SANDBOX dans l’en-tête du portail pour explorer les erreurs de test ici. Utilisez une clé API SANDBOX dans vos requêtes serveur.",
+          )}
+        </p>
+      )}
+      <p>
+        {t(
+          "For a normal payment test, leave this header out. Do not send SUCCESS or PENDING: they are not error codes. Blank or unsupported values return HTTP 400 with INVALID_TEST_ERROR_CODE. LIVE ignores the header.",
+          "Pour un test de paiement normal, omettez cet en-tête. N’envoyez pas SUCCESS ou PENDING : ce ne sont pas des codes d’erreur. Une valeur vide ou non prise en charge renvoie HTTP 400 avec INVALID_TEST_ERROR_CODE. LIVE ignore l’en-tête.",
+        )}
+      </p>
+    </div>
+  );
+}
+
 const statusNames: Record<string, readonly [string, string]> = {
   "200": ["OK", "OK"],
-  "202": ["Accepted · queued, not completed", "Accepté · en attente, pas terminé"],
+  "202": ["Accepted · inspect payment status", "Accepté · consultez l’état du paiement"],
   "400": ["Invalid request", "Requête invalide"],
   "401": ["Authentication failed", "Authentification échouée"],
   "403": ["Forbidden", "Accès refusé"],
@@ -593,6 +750,7 @@ function EndpointContent({
   const [selected, setSelected] = useState<string | undefined>(example.fields[0]?.key);
   const [stateGroup, setStateGroup] = useState(0);
   const responsePreview = useRef<HTMLDivElement>(null);
+  const errorPanel = useRef<HTMLElement>(null);
   const headers = guideHeaders(operation, example.incoming, headerOverrides);
   const parameterFields: Field[] = (operation.parameters || []).map((parameter) => ({
     name: parameter.name,
@@ -919,6 +1077,17 @@ function EndpointContent({
               note={hint?.note[language === "fr" ? 1 : 0]}
               example={example}
             >
+              {scope === "header" && activeField.path === "X-Simulate-Error-Code" && (
+                <SimulationHeaderHelp
+                  example={example}
+                  setup={setup}
+                  data={errorData}
+                  onViewErrors={() => {
+                    errorPanel.current?.scrollIntoView({ block: "start", behavior: "instant" });
+                    errorPanel.current?.querySelector("h4")?.focus({ preventScroll: true });
+                  }}
+                />
+              )}
               {catalogProps &&
                 scope === "body" &&
                 ["paymentMethodName", "networkName"].includes(activeField.path) && (
@@ -934,9 +1103,10 @@ function EndpointContent({
         </section>
         <section
           className="guide-http-statuses"
+          ref={errorPanel}
           aria-label={t("HTTP statuses and error codes", "États HTTP et codes d’erreur")}
         >
-          <h4>
+          <h4 tabIndex={-1}>
             <ArrowRightLeft size={17} />
             {t("HTTP statuses & errors", "États HTTP et erreurs")}
           </h4>
@@ -1021,18 +1191,15 @@ function EndpointContent({
                 aria-pressed={stateGroup === index}
                 onClick={() => setStateGroup(index)}
               >
-                {group.title[language === "fr" ? 1 : 0]}
+                {group.states
+                  .filter((state) => declaredPaymentStates.includes(state))
+                  .map((state) => (
+                    <code key={state}>{state}</code>
+                  ))}
               </button>
             ))}
           </div>
           <div className={`guide-state-detail ${paymentStateGroups[stateGroup].tone}`}>
-            <div>
-              {paymentStateGroups[stateGroup].states
-                .filter((state) => declaredPaymentStates.includes(state))
-                .map((state) => (
-                  <code key={state}>{state}</code>
-                ))}
-            </div>
             <p>{paymentStateGroups[stateGroup].note[language === "fr" ? 1 : 0]}</p>
           </div>
         </section>

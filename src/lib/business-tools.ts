@@ -1,6 +1,21 @@
 export type BillingMode = "ONE_TIME" | "MONTHLY" | "YEARLY";
 export type PurchaseStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "REFUNDED";
+export const businessToolCodes = ["PAYMENT_REQUESTS", "ONLINE_STORES", "POS", "API"] as const;
+export type BusinessTool = (typeof businessToolCodes)[number];
+export type BusinessToolScope = BusinessTool | "BUNDLE";
+export type BusinessPricingMode = "BUNDLE" | "PER_TOOL";
+export type BusinessPurchaseAction =
+  "BUSINESS_TOOLS_ACCESS" | `BUSINESS_TOOLS_${BusinessTool}_ACCESS`;
 export interface BusinessToolsAccess {
+  tool?: BusinessToolScope;
+  pricingMode?: BusinessPricingMode;
+  purchaseAction?: BusinessPurchaseAction;
+  purchaseNotice?: string;
+  paymentRequired?: boolean;
+  free?: boolean;
+  accessSource?: string;
+  bundle?: BusinessToolAccess | null;
+  tools?: BusinessToolAccess[];
   accessGranted: boolean;
   status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "REVOKED";
   validFrom: string | null;
@@ -13,6 +28,8 @@ export interface BusinessToolsAccess {
     currency: string;
     purchasesEnabled: boolean;
     version: number;
+    tool?: BusinessToolScope;
+    purchaseAction?: BusinessPurchaseAction;
   };
   pendingPurchase: { id: string; status: "PENDING"; paymentTransactionId: number | null } | null;
   pricing: {
@@ -22,7 +39,12 @@ export interface BusinessToolsAccess {
     currency: string;
   };
 }
+export interface BusinessToolAccess extends Omit<BusinessToolsAccess, "bundle" | "tools"> {
+  tool: BusinessToolScope;
+  purchaseAction: BusinessPurchaseAction;
+}
 export interface BusinessToolsPurchase {
+  tool?: BusinessToolScope;
   id: string | null;
   status: PurchaseStatus;
   paymentTransactionId: number | null;
@@ -113,6 +135,86 @@ export const isPositiveId = (value: unknown): value is number =>
   Number.isSafeInteger(value) && Number(value) > 0;
 export const isFiatCurrency = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Z]{3}$/.test(value);
+export const isBusinessTool = (value: unknown): value is BusinessTool =>
+  businessToolCodes.some((tool) => tool === value);
+export function hasToolAccess(access: BusinessToolsAccess | undefined, tool: BusinessTool) {
+  if (!access) return false;
+  const individual = access.tools?.find((entry) => entry.tool === tool);
+  return (
+    individual?.accessGranted ?? (access.pricingMode === "PER_TOOL" ? false : access.accessGranted)
+  );
+}
+export function hasAnyToolAccess(access: BusinessToolsAccess | undefined) {
+  return businessToolCodes.some((tool) => hasToolAccess(access, tool));
+}
+/** Shared store/catalog routes accept POS access; publication always requires ONLINE_STORES. */
+export function toolForDestination(
+  destination: string,
+  access?: BusinessToolsAccess,
+): BusinessTool | undefined {
+  const known = businessDestination(destination);
+  if (!known) return;
+  const url = new URL(known, "https://portal.invalid");
+  if (url.pathname.startsWith("/payment-requests")) return "PAYMENT_REQUESTS";
+  if (url.pathname.startsWith("/developers") || url.pathname === "/settings") return "API";
+  if (
+    url.pathname === "/pos" ||
+    /\/pos$/.test(url.pathname) ||
+    url.searchParams.get("mode") === "pos"
+  )
+    return "POS";
+  if (url.pathname.startsWith("/stores")) {
+    if (url.searchParams.has("training")) return "ONLINE_STORES";
+    if (url.pathname === "/stores") return "ONLINE_STORES";
+    if (["customers", "staff"].includes(url.searchParams.get("tab") || "")) return "POS";
+    return !hasToolAccess(access, "ONLINE_STORES") && hasToolAccess(access, "POS")
+      ? "POS"
+      : "ONLINE_STORES";
+  }
+}
+/** Mode selects the offer; a returned individual grant remains valid in either mode. */
+export function accessForDestination(
+  access: BusinessToolsAccess,
+  destination = "/overview",
+  requiredTool?: BusinessTool,
+): BusinessToolsAccess | undefined {
+  const tool = requiredTool || toolForDestination(destination, access);
+  const mode = access.pricingMode ?? "BUNDLE";
+  const individual = access.tools?.find((entry) => entry.tool === tool);
+  const offer = mode === "PER_TOOL" && tool ? individual : access;
+  if (!offer) return;
+  return {
+    ...offer,
+    tool: mode === "PER_TOOL" && tool ? tool : "BUNDLE",
+    pricingMode: mode,
+    purchaseAction:
+      mode === "PER_TOOL" && tool ? individual!.purchaseAction : "BUSINESS_TOOLS_ACCESS",
+    purchaseNotice:
+      mode === "PER_TOOL" && tool ? individual!.purchaseNotice : access.bundle?.purchaseNotice,
+    accessGranted: individual?.accessGranted ?? offer.accessGranted,
+  };
+}
+/** Accepted purchases keep their own action even if the current offer/mode changes. */
+export function effectivePurchaseAction(
+  purchase: BusinessToolsPurchase,
+): BusinessPurchaseAction | undefined {
+  if (purchase.tool === "BUNDLE") return "BUSINESS_TOOLS_ACCESS";
+  if (purchase.tool)
+    return (
+      purchase.access.tools?.find((item) => item.tool === purchase.tool)?.purchaseAction ||
+      purchase.access.plan.purchaseAction
+    );
+  return purchase.access.pricingMode === "PER_TOOL" ? undefined : "BUSINESS_TOOLS_ACCESS";
+}
+export function purchaseScopeGranted(
+  access: BusinessToolsAccess | undefined,
+  purchase: BusinessToolsPurchase,
+) {
+  if (!access) return false;
+  return purchase.tool && purchase.tool !== "BUNDLE"
+    ? hasToolAccess(access, purchase.tool)
+    : access.accessGranted;
+}
 
 /** Only destinations owned by this portal; query parameters are reconstructed, never forwarded blindly. */
 export function businessDestination(value: string): string | undefined {
@@ -148,7 +250,7 @@ export function businessDestination(value: string): string | undefined {
     const tab = url.searchParams.get("tab");
     if (tab && ["products", "sales", "customers", "reports", "staff", "settings"].includes(tab))
       query.set("tab", tab);
-    for (const key of ["page", "product", "customer", "customerSalesPage"])
+    for (const key of ["page", "product", "customer", "customerSalesPage", "training"])
       if (/^\d+$/.test(url.searchParams.get(key) || "")) query.set(key, url.searchParams.get(key)!);
     const sale = url.searchParams.get("sale");
     if (sale && /^[A-Za-z0-9_-]{1,128}$/.test(sale)) query.set("sale", sale);
@@ -247,6 +349,14 @@ export function parseAccess(value: unknown): BusinessToolsAccess {
     !Number.isFinite(access.pricing.amountDue) ||
     access.pricing.amountDue < 0 ||
     !isFiatCurrency(access.pricing.currency) ||
+    (access.pricingMode !== undefined && !["BUNDLE", "PER_TOOL"].includes(access.pricingMode)) ||
+    (access.tool !== undefined && access.tool !== "BUNDLE" && !isBusinessTool(access.tool)) ||
+    (access.purchaseAction !== undefined &&
+      ![
+        "BUSINESS_TOOLS_ACCESS",
+        ...businessToolCodes.map((tool) => `BUSINESS_TOOLS_${tool}_ACCESS`),
+      ].includes(access.purchaseAction)) ||
+    (access.purchaseNotice !== undefined && typeof access.purchaseNotice !== "string") ||
     (access.pendingPurchase &&
       (!purchaseIdPattern.test(access.pendingPurchase.id) ||
         access.pendingPurchase.status !== "PENDING" ||
@@ -256,12 +366,35 @@ export function parseAccess(value: unknown): BusinessToolsAccess {
     throw new Error(
       "Fondeka returned an invalid Business Tools access response. Please retry or contact support.",
     );
+  if (access.bundle != null) {
+    parseAccess(access.bundle);
+    if (access.bundle.tool !== "BUNDLE" || access.bundle.purchaseAction !== "BUSINESS_TOOLS_ACCESS")
+      throw new Error("Invalid Business Tools bundle offer.");
+  }
+  if (access.tools !== undefined) {
+    if (
+      !Array.isArray(access.tools) ||
+      new Set(access.tools.map((item) => item?.tool)).size !== access.tools.length
+    )
+      throw new Error("Invalid Business Tools offers.");
+    for (const item of access.tools) {
+      parseAccess(item);
+      if (
+        !isBusinessTool(item.tool) ||
+        !item.purchaseAction ||
+        (access.pricingMode === "PER_TOOL" &&
+          item.purchaseAction !== `BUSINESS_TOOLS_${item.tool}_ACCESS`)
+      )
+        throw new Error("Invalid Business Tool offer.");
+    }
+  }
   return access;
 }
 export function parsePurchase(value: unknown): BusinessToolsPurchase {
   const purchase = value as BusinessToolsPurchase;
   if (
     !purchase ||
+    (purchase.tool !== undefined && purchase.tool !== "BUNDLE" && !isBusinessTool(purchase.tool)) ||
     typeof purchase.accessGranted !== "boolean" ||
     !["PENDING", "COMPLETED", "FAILED", "CANCELLED", "REFUNDED"].includes(purchase.status) ||
     (purchase.id !== null && !purchaseIdPattern.test(purchase.id)) ||

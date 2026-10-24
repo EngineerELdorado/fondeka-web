@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   BarChart3,
   Package,
+  QrCode,
   ReceiptText,
   Settings2,
   ShieldCheck,
@@ -19,7 +20,7 @@ import { invalidateQueryPaths } from "@/lib/query-cache";
 import { canUseStore, isStoreOwner, storeTabAllowed, storeUpdateInput } from "@/lib/commerce";
 import { money, label } from "@/lib/format";
 import type { Store, Product, Page } from "@/lib/types";
-import { Badge, PageHeading, Loading, Empty, ErrorState, Pagination } from "@/components/ui";
+import { Badge, PageHeading, Loading, Empty, ErrorState, Pagination, Modal } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace-provider";
 import { StoreForm } from "@/components/store-form";
 import { ProductForm } from "@/components/product-form";
@@ -29,6 +30,10 @@ import { CustomersPanel, StaffPanel } from "@/components/store-people";
 import { ReportsPanel, SalesPanel } from "@/components/store-sales";
 import { LinkSharing } from "@/components/link-sharing";
 import { StoreMedia } from "@/components/store-media";
+import { StoreDescription } from "@/components/store-description";
+import { TrainingEditor } from "@/components/training-editor";
+import { hasToolAccess } from "@/lib/business-tools";
+import { useBusinessTools, useToolNavigation } from "@/components/business-tools-provider";
 const storeTabIcons: Record<string, LucideIcon> = {
   products: Package,
   sales: ReceiptText,
@@ -40,11 +45,18 @@ const storeTabIcons: Record<string, LucideIcon> = {
 export default function StoreDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { t } = useI18n();
+  const { state: businessAccess } = useBusinessTools();
+  const toolNavigation = useToolNavigation();
+  const posOnly =
+    !!businessAccess.accountAccess &&
+    !hasToolAccess(businessAccess.accountAccess, "ONLINE_STORES") &&
+    hasToolAccess(businessAccess.accountAccess, "POS");
   const { values, update, page } = useUrlState();
   const { refresh, notify } = useWorkspace();
   const router = useRouter();
   const store = useQuery<Store>(/^\d+$/.test(id) ? `/customer-api/commerce/stores/${id}` : null);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const adding = values.get("newProduct") === "1";
   const setAdding = (value: boolean) =>
     update({ newProduct: value ? 1 : null, step: null, flow: null });
@@ -65,11 +77,17 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
   const tab = requested || permitted[0]?.[0] || "";
   const authorized = !!s && storeTabAllowed(s, tab);
   const products = useQuery<Page<Product>>(
-    s && authorized && tab === "products"
+    s && authorized && tab === "products" && !values.get("training")
       ? `/customer-api/commerce/stores/${id}/products?page=${page}&size=20`
       : null,
   );
   const productId = values.get("product");
+  const trainingId = values.get("training");
+  const trainingProduct = useQuery<Product>(
+    s && canUseStore(s, "PRODUCTS") && trainingId && /^\d+$/.test(trainingId)
+      ? `/customer-api/commerce/products/${trainingId}`
+      : null,
+  );
   const product = useQuery<Product>(
     s && canUseStore(s, "PRODUCTS") && productId && /^\d+$/.test(productId)
       ? `/customer-api/commerce/products/${productId}`
@@ -77,6 +95,19 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
   );
   async function mutate(mode: "delete" | "publish") {
     if (!s || busy) return;
+    if (
+      mode === "publish" &&
+      toolNavigation.enabled &&
+      businessAccess.accountAccess &&
+      !hasToolAccess(businessAccess.accountAccess, "ONLINE_STORES")
+    ) {
+      toolNavigation.open(
+        window.location.pathname + window.location.search,
+        false,
+        "ONLINE_STORES",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -103,7 +134,7 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
           mode === "delete" ? "Boutique supprimée." : "Boutique publiée.",
         ),
       );
-      if (mode === "delete") router.push("/stores");
+      if (mode === "delete") router.push(posOnly ? "/stores?mode=pos" : "/stores");
     } catch (e) {
       setError(
         e instanceof Error
@@ -114,18 +145,55 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
       setBusy(false);
     }
   }
+  if (trainingId && s && canUseStore(s, "PRODUCTS")) {
+    if (trainingProduct.loading) return <Loading />;
+    if (trainingProduct.error)
+      return <ErrorState message={trainingProduct.error} retry={trainingProduct.refetch} />;
+    if (trainingProduct.data?.type === "TRAINING" && trainingProduct.data.storeId === s.id)
+      return (
+        <TrainingEditor
+          productId={trainingProduct.data.id}
+          onClose={() => update({ training: null, tab: "products" })}
+          onProductSettings={() => update({ training: null, product: trainingId })}
+        />
+      );
+    return (
+      <Empty
+        title={t("Training unavailable", "Formation indisponible")}
+        description={t(
+          "Choose a training product from this store.",
+          "Choisissez un produit de formation de cette boutique.",
+        )}
+      >
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => update({ training: null })}
+        >
+          {t("Back to products", "Retour aux produits")}
+        </button>
+      </Empty>
+    );
+  }
   if (adding && s && canUseStore(s, "PRODUCTS"))
     return (
       <ProductForm
         store={s}
         onClose={() => setAdding(false)}
-        onSaved={(p) => update({ product: p.id })}
+        onSaved={(p) =>
+          p.type === "TRAINING"
+            ? update({ product: null, training: p.id })
+            : update({ product: p.id })
+        }
       />
     );
   return (
     <>
-      <Link href="/stores" className="back-link">
-        ← {t("Online Stores", "Boutiques en ligne")}
+      <Link href={posOnly ? "/stores?mode=pos" : "/stores"} className="back-link">
+        ←{" "}
+        {posOnly
+          ? t("Select a store", "Choisir une boutique")
+          : t("Online Stores", "Boutiques en ligne")}
       </Link>
       {store.loading ? (
         <Loading />
@@ -145,29 +213,37 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                     {t("Edit store", "Modifier la boutique")}
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="button secondary"
+                  aria-haspopup="dialog"
+                  onClick={() => setSharing(true)}
+                >
+                  <QrCode size={16} aria-hidden="true" />
+                  {t("Link & QR", "Lien et QR")}
+                </button>
                 {canUseStore(s, "POS") && (
                   <Link href={`/stores/${s.id}/pos`} className="button primary">
                     {t("Open POS", "Ouvrir le POS")}
                   </Link>
                 )}
               </PageHeading>
-              {s.description && <p className="store-profile-description">{s.description}</p>}
+              {s.description && <StoreDescription key={s.id} description={s.description} />}
             </section>
             <div className="store-detail-summary">
               <Badge value={s.status} />
               <Badge value={s.visibility} />
-              <span>
-                {label(s.accessType)}
-                {s.ownerAccountId
-                  ? ` · ${t("Owner account", "Compte propriétaire")} #${s.ownerAccountId}`
-                  : ""}
-              </span>
               <strong>{s.defaultCurrency}</strong>
             </div>
-            <details className="store-share">
-              <summary>{t("Store link and QR code", "Lien et code QR de la boutique")}</summary>
-              <LinkSharing url={s.storefrontUrl || s.publicUrl} title={s.name} />
-            </details>
+            {sharing && (
+              <Modal
+                title={t("Store link and QR code", "Lien et code QR de la boutique")}
+                description={s.name}
+                onClose={() => setSharing(false)}
+              >
+                <LinkSharing url={s.storefrontUrl || s.publicUrl} title={s.name} showQr />
+              </Modal>
+            )}
             <section className="panel">
               <nav
                 className="owner-tabs"
@@ -255,6 +331,15 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                                     >
                                       {p.name}
                                     </button>
+                                    {p.type === "TRAINING" && (
+                                      <button
+                                        type="button"
+                                        className="text-button"
+                                        onClick={() => update({ training: p.id, product: null })}
+                                      >
+                                        {t("Manage curriculum", "Gérer le programme")}
+                                      </button>
+                                    )}
                                     <small className="table-subtitle">
                                       {label(p.type)} {p.sku ? `· ${p.sku}` : ""}
                                     </small>

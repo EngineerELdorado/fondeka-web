@@ -33,11 +33,12 @@ Crypto under/overpayments can produce settlement values different from the origi
 
 | State | Your integration should do |
 | --- | --- |
-| `PROCESSING` | Pending, including newly accepted payments and unresolved provider outcomes; poll with backoff and await the terminal event |
+| `ACCEPTED` | API submission is queued for execution; preserve its reference and poll with backoff |
+| `PROCESSING` | Execution started or a provider/reconciliation outcome remains unresolved; poll with backoff and await the terminal event |
 | `COMPLETED` | Reconcile success; completed collections credit net once, completed payouts do not debit again |
 | `FAILED` | Reconcile failure, including cancellation or expiration; inspect `refunded` for payouts |
 
-These are the only three payment statuses in both LIVE and SANDBOX, including the authenticated portal's payment snapshots. HTTP `202 Accepted` returns a payment with `status: "PROCESSING"`. "Pending" describes PROCESSING; it is not a separate status value. A payment awaiting reconciliation remains PROCESSING until its result is established. Keep its reference and original idempotency key; contact support if it remains unresolved rather than creating another payment automatically.
+These are the only four payment statuses in both LIVE and SANDBOX, including the authenticated portal's payment snapshots. A new HTTP `202 Accepted` intent returns a payment with `status: "ACCEPTED"`; an idempotent replay returns its current state. Both ACCEPTED and PROCESSING are pending states; PENDING is not a separate public value. A payment awaiting reconciliation remains PROCESSING until its result is established. Keep its reference and original idempotency key; contact support if it remains unresolved rather than creating another payment automatically.
 
 An accepted payout debits/reserves gross immediately. A completed collection credits only after payment confirmation. Failed/canceled payouts can require manual refunds when automatic refund policy is disabled; the status alone does not promise a refund. Webhooks are immutable snapshots; GET shows later refund updates. Unknown outcomes retain reserved payout funds until reconciliation.
 

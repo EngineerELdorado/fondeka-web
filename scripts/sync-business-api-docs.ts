@@ -29,6 +29,10 @@ async function publicationFile(directory: string, file: string, portalCopy = fal
       .replace(
         "[web portal catalog](../business-api-web-portal-error-codes.md)",
         "web portal catalog",
+      )
+      .replace(
+        "[the portal status contract](../business-api-web-portal-payment-statuses.md)",
+        "[payment states](concepts.md)",
       ),
   );
 }
@@ -54,7 +58,7 @@ async function validate(directory: string, portalCopy = false) {
   )
     throw new Error("Expected the published merchant-only Business API v1 contract.");
   for (const topic of businessApiTopics) {
-    const markdown = await readFile(resolve(directory, topic.file), "utf8");
+    const markdown = (await publicationFile(directory, topic.file, portalCopy)).toString("utf8");
     for (const match of markdown.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g))
       if (!businessApiDocLink(topic, match[1]))
         throw new Error(`Broken or unsupported link in ${topic.file}: ${match[1]}`);

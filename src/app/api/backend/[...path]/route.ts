@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allowedProxyRoute } from "@/lib/proxy-policy";
+import { allowedProxyRoute, proxyBodyLimit } from "@/lib/proxy-policy";
 
 export const dynamic = "force-dynamic";
-const noStore = { "Cache-Control": "no-store" };
+const noStore = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 const failure = (message: string, status: number) =>
   NextResponse.json({ message }, { status, headers: noStore });
 
@@ -30,7 +30,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     return failure("The Fondeka backend configuration is invalid.", 503);
   }
   const body = request.method === "GET" ? undefined : await request.text();
-  if (body && new TextEncoder().encode(body).length > 64_000)
+  if (body && new TextEncoder().encode(body).length > proxyBodyLimit(route, request.method))
     return failure("This request is too large.", 413);
   try {
     const response = await fetch(upstreamUrl, {

@@ -193,13 +193,107 @@ export function ApiGuideErrors({
             </>
           )}
           {!("httpStatus" in active) && (
-            <p className="guide-error-result">
-              <code>HTTP 202 · PROCESSING</code>
-              <span>→</span>
-              <code>HTTP 200 · {active.resultingStatus}</code>
-              <span>
-                failureCode: <code>{active.errorCode}</code>
-              </span>
+            <ol
+              className="guide-error-lifecycle"
+              aria-label={t(
+                "Request outcome and payment state",
+                "Résultat de la requête et état du paiement",
+              )}
+            >
+              <li>
+                <h5>
+                  <span aria-hidden="true">1</span>
+                  {t("When you submit the payment", "Lors de l’envoi du paiement")}
+                </h5>
+                <dl>
+                  <div>
+                    <dt>{t("HTTP response", "Réponse HTTP")}</dt>
+                    <dd>
+                      <code>{t("202 Accepted", "202 Accepté")}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("Payment status", "État du paiement")}</dt>
+                    <dd>
+                      <code className="queued">ACCEPTED</code>
+                    </dd>
+                  </div>
+                </dl>
+                <p>
+                  {t(
+                    "A new payment is queued for execution. An idempotent replay returns its existing state instead; it does not reset the payment to ACCEPTED.",
+                    "Un nouveau paiement est en file d’attente d’exécution. Une relance idempotente retourne son état actuel ; elle ne le remet pas à ACCEPTED.",
+                  )}
+                </p>
+              </li>
+              <li>
+                <h5>
+                  <span aria-hidden="true">2</span>
+                  {t("When execution starts", "Lorsque l’exécution commence")}
+                </h5>
+                <dl>
+                  <div>
+                    <dt>{t("Payment status", "État du paiement")}</dt>
+                    <dd>
+                      <code className="pending">PROCESSING</code>
+                    </dd>
+                  </div>
+                </dl>
+                <p>
+                  {t(
+                    "The worker has started the payment. Keep polling the same reference; this is still awaiting an outcome.",
+                    "Le traitement du paiement a commencé. Poursuivez le suivi de la même référence ; le résultat reste en attente.",
+                  )}
+                </p>
+              </li>
+              <li>
+                <h5>
+                  <span aria-hidden="true">3</span>
+                  {t(
+                    "Later, when you look up the payment",
+                    "Plus tard, lors de la consultation du paiement",
+                  )}
+                </h5>
+                <small>
+                  <code>GET /transactions/&#123;reference&#125;</code>
+                </small>
+                <dl>
+                  <div>
+                    <dt>{t("HTTP response", "Réponse HTTP")}</dt>
+                    <dd>
+                      <code>200 OK</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t("Payment status", "État du paiement")}</dt>
+                    <dd>
+                      <code className="failure">{active.resultingStatus}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      <code>failureCode</code>
+                    </dt>
+                    <dd>
+                      <code>{active.errorCode}</code>
+                    </dd>
+                  </div>
+                </dl>
+                <p>
+                  {t(
+                    "HTTP 200 means the lookup succeeded. The returned payment has FAILED in this simulation.",
+                    "HTTP 200 signifie que la consultation a réussi. Le paiement retourné est FAILED dans cette simulation.",
+                  )}
+                </p>
+              </li>
+            </ol>
+          )}
+          {!("httpStatus" in active) && (
+            <p className="guide-error-webhook-note">
+              {t(
+                "The signed failed-payment webhook reports the same final status and failureCode. ACCEPTED and PROCESSING do not generate terminal events. Worker timing means you may not observe every intermediate state.",
+                "Le webhook signé d’échec de paiement indique le même état final et le même failureCode. ACCEPTED et PROCESSING ne génèrent pas d’événement final. Selon la vitesse du traitement, certaines étapes intermédiaires peuvent ne pas être observées.",
+              )}
             </p>
           )}
           <button
@@ -262,8 +356,8 @@ export function ApiGuideErrors({
       )}
       <p className="guide-error-intent-note">
         {t(
-          "A failed poll or network timeout does not establish payment failure. HTTP status/statusCode are numbers; payment status is PROCESSING, COMPLETED or FAILED.",
-          "Un échec de consultation ou un délai réseau ne confirme pas l’échec du paiement. status/statusCode HTTP sont des nombres ; le status du paiement vaut PROCESSING, COMPLETED ou FAILED.",
+          "A failed poll or network timeout does not establish payment failure. HTTP status/statusCode are numbers; payment status is ACCEPTED, PROCESSING, COMPLETED or FAILED.",
+          "Un échec de consultation ou un délai réseau ne confirme pas l’échec du paiement. status/statusCode HTTP sont des nombres ; le status du paiement vaut ACCEPTED, PROCESSING, COMPLETED ou FAILED.",
         )}
       </p>
     </div>

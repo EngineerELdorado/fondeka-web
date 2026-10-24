@@ -182,7 +182,7 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     action: "Indique si ce paiement est un encaissement ou un décaissement de l’API Business.",
     allFees: "Total des frais internes et des frais du fournisseur, dans currency.",
     amount: "Montant fiat net du devis, après déduction des frais.",
-    businessId: "Identifiant du Business associé à la clé API qui a créé le paiement.",
+    businessId: "Business ID associé à la clé API qui a créé le paiement.",
     clientReference: "Référence de commande ou de facture fournie par votre intégration.",
     cryptoDetails:
       "Instructions de l’encaissement crypto ou destination du décaissement. Peut être null pendant la création de la facture, et pour le mobile money.",
@@ -205,7 +205,7 @@ const descriptionsFr: Record<string, Record<string, string>> = {
       "Montant fiat brut réellement rapproché. Un paiement crypto inférieur ou supérieur au devis peut modifier cette valeur.",
     settlementNet: "Montant fiat net réellement crédité pour un encaissement confirmé.",
     status:
-      "PROCESSING : résultat en attente ou à rapprocher. COMPLETED : succès confirmé. FAILED : échec confirmé, y compris annulation ou expiration.",
+      "ACCEPTED : en file d’attente d’exécution. PROCESSING : exécution commencée ou résultat fournisseur/rapprochement indéterminé. COMPLETED : succès confirmé. FAILED : échec confirmé, y compris annulation ou expiration. Poursuivez le suivi de la même référence pour ACCEPTED et PROCESSING.",
     transactionId:
       "Identifiant de la transaction financière interne en LIVE ; null en SANDBOX. Utilisez reference dans cette API.",
   },
@@ -306,15 +306,14 @@ const parameterDescriptionsFr: Record<string, string> = {
   "Idempotency-Key":
     "Clé obligatoire par intention logique. Réutilisez-la avec un contenu identique pour les nouvelles tentatives ; un contenu différent provoque un conflit 409.",
   "X-Simulate-Error-Code":
-    "En SANDBOX, utilisez la simulationValue d’une erreur simulatable du catalogue de cet endpoint. Une erreur de requête provoque un refus HTTP immédiat ; une erreur de traitement accepte HTTP 202 puis produit FAILED et failureCode par consultation et webhook. Exemple : PAYMENT_NOT_APPROVED simule une collecte mobile money non approuvée. Omettez l’en-tête pour un succès ; SUCCESS, PENDING et les valeurs invalides renvoient 400 INVALID_TEST_ERROR_CODE. LIVE ignore cet en-tête.",
+    "Cet en-tête facultatif provoque une erreur de test en SANDBOX pour vérifier comment votre intégration la gère. LIVE ignore cet en-tête.",
   "X-Fondeka-Event-Id":
     "Identifiant stable de l’événement, identique à id dans le corps. Utilisez-le pour dédupliquer les livraisons.",
   "X-Fondeka-Timestamp":
     "Horodatage Unix en secondes de la tentative de livraison actuelle. Vérifiez sa fraîcheur avant de traiter l’événement.",
   "X-Fondeka-Signature":
     "Signature HMAC créée avec le secret webhook de la clé, et non avec la clé API. Vérifiez-la sur les octets bruts exacts.",
-  businessId:
-    "Identifiant du Business associé à votre clé API. Une clé d’un autre Business est refusée.",
+  businessId: "Business ID associé à votre clé API. Une clé d’un autre Business est refusée.",
   reference:
     "Référence opaque du paiement renvoyée lors de l’envoi, dans le même Business et le même environnement.",
   currency:
@@ -438,31 +437,22 @@ export function guideFieldDescription(
       text: catalogDefinition[language === "fr" ? 1 : 0],
       language: language === "fr" ? "fr" : "en",
     };
-  if (field.location === "header" && field.name === "X-Simulate-Error-Code") {
-    const paymentSubmission =
-      example?.method === "POST" && /\/(collections|payouts)$/.test(example.path);
-    const mobileCollection =
-      example?.paymentKind === "MOBILE_MONEY" && example.path.endsWith("/collections");
+  if (example?.incoming && field.path === "data.status")
     return {
       text:
         language === "fr"
-          ? "En SANDBOX, utilisez la simulationValue d’une erreur simulatable du catalogue de cet endpoint. Les erreurs de requête provoquent un refus immédiat ; les erreurs de traitement acceptent HTTP 202 puis produisent FAILED et failureCode par consultation et webhook. " +
-            (!paymentSubmission
-              ? "Pour cette opération, choisissez uniquement une erreur de requête annoncée, par exemple RATE_LIMITED. "
-              : mobileCollection
-                ? "PAYMENT_NOT_APPROVED teste une demande mobile money non approuvée. "
-                : "PROVIDER_UNAVAILABLE teste un échec fournisseur après acceptation. ") +
-            "Omettez l’en-tête pour un succès ; SUCCESS, PENDING et les valeurs invalides renvoient 400 INVALID_TEST_ERROR_CODE. LIVE ignore cet en-tête."
-          : "In SANDBOX, use the simulationValue of a simulatable error from this endpoint’s catalog. Request errors reject immediately; processing errors accept HTTP 202, then produce FAILED and failureCode through polling and webhooks. " +
-            (!paymentSubmission
-              ? "For this operation, select an advertised request error such as RATE_LIMITED. "
-              : mobileCollection
-                ? "PAYMENT_NOT_APPROVED tests an unapproved mobile-money prompt. "
-                : "PROVIDER_UNAVAILABLE tests a provider failure after acceptance. ") +
-            "Omit for success; SUCCESS, PENDING and invalid values return 400 INVALID_TEST_ERROR_CODE. LIVE ignores this header.",
+          ? "État final du paiement : COMPLETED pour un succès ou FAILED pour un échec. Il correspond au type de l’événement. ACCEPTED et PROCESSING n’émettent pas d’événement final."
+          : "The payment’s terminal status: COMPLETED for success or FAILED for failure, matching the event type. ACCEPTED and PROCESSING do not emit terminal events.",
       language: language === "fr" ? "fr" : "en",
     };
-  }
+  if (field.location === "header" && field.name === "X-Simulate-Error-Code")
+    return {
+      text:
+        language === "fr"
+          ? "Cet en-tête facultatif provoque une erreur de test en SANDBOX pour vérifier comment votre intégration la gère. LIVE ignore cet en-tête."
+          : "Use this optional header to make a SANDBOX test return an error, so you can check how your integration handles it. LIVE ignores this header.",
+      language: language === "fr" ? "fr" : "en",
+    };
   if (example?.paymentKind === "MOBILE_MONEY" && field.name === "cryptoDetails")
     return {
       text:

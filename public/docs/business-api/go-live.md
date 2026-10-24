@@ -18,4 +18,4 @@ The example walkthrough clients and Postman collection deliberately refuse LIVE 
 
 Start with an appropriate small amount for the route's minimums. Compare quoted gross/net, stored payment status, verified webhook data and wallet movement. Check a real completed collection before depending on its proceeds, and confirm a payout does not debit again on completion.
 
-Retain idempotency keys and references durably. A timeout or a payment remaining PROCESSING must not trigger an automatic replacement payout. Provide request IDs and references to support for unresolved cases. This contract does not promise production provider behavior from sandbox results or offer public webhook replay controls.
+Retain idempotency keys and references durably. A timeout or a payment remaining ACCEPTED or PROCESSING must not trigger an automatic replacement payout. Provide request IDs and references to support for unresolved cases. This contract does not promise production provider behavior from sandbox results or offer public webhook replay controls.

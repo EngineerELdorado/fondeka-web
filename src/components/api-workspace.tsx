@@ -10,12 +10,13 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
-import { Badge, MobileRecord, Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
+import { MobileRecord, Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
+import { ApiPaymentBadge } from "./api-payment-badge";
 import { CryptoPaymentInstructions } from "./crypto-payment-instructions";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
 import { useMobileLayout } from "@/lib/use-mobile-layout";
-import { date, label, money } from "@/lib/format";
+import { date, money } from "@/lib/format";
 import {
   emptyFilters,
   portalQuery,
@@ -24,7 +25,10 @@ import {
 } from "@/lib/portal-query";
 import type { ApiEnvironment, ApiTransaction, Business, Page } from "@/lib/types";
 import { apiTransactionPath, assertTransactionEnvironment } from "@/lib/api-environment";
-import { isTerminalBusinessApiPayment } from "@/lib/business-api-status";
+import {
+  isPendingBusinessApiPayment,
+  isTerminalBusinessApiPayment,
+} from "@/lib/business-api-status";
 
 export function ApiTransactions({
   business,
@@ -116,7 +120,7 @@ export function ApiTransactions({
             <option value="">{uiText("All statuses")}</option>
             {transactionStatuses.map((status) => (
               <option key={status} value={status}>
-                {label(status)}
+                {status}
               </option>
             ))}
           </select>
@@ -308,7 +312,7 @@ export function ApiTransactions({
                         <td>{apiKeyName || "—"}</td>
                         <td>{date(createdAt)}</td>
                         <td>
-                          <Badge value={tx.status} />
+                          <ApiPaymentBadge status={tx.status} />
                         </td>
                         <td>
                           <button
@@ -335,7 +339,7 @@ export function ApiTransactions({
                   subtitle={tx.reference}
                   meta={`${tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection")} · ${date(createdAt)}`}
                   amount={money(tx.amount, tx.currency)}
-                  status={tx.status}
+                  badge={<ApiPaymentBadge status={tx.status} />}
                   icon={
                     tx.action === "BUSINESS_API_PAYOUT" ? (
                       <ArrowUpRight size={20} />
@@ -363,7 +367,7 @@ export function ApiTransactions({
                 "Simulated amounts only. Sandbox activity is separate from real transactions and financial reporting.",
               )
             : uiText(
-                "Amounts use each transaction’s fiat currency. Processing and unknown states are not confirmed failures.",
+                "Amounts use each transaction’s fiat currency. ACCEPTED and PROCESSING are awaiting an outcome; neither confirms success or failure.",
               )}
         </div>
       </section>
@@ -405,11 +409,25 @@ export function TransactionDetail({
       failure instanceof Error ? failure.message : uiText("Couldn’t read transaction environment.");
   }
   const status = !error ? tx?.status : undefined;
+  const pending = isPendingBusinessApiPayment(status);
+  useEffect(() => {
+    // Reopening/returning also checks for refunds posted after the terminal snapshot.
+    const revalidate = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    revalidate();
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", revalidate);
+    return () => {
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", revalidate);
+    };
+  }, [businessId, reference, environment, refresh]);
   useEffect(() => {
     if (status && isTerminalBusinessApiPayment(status)) onTerminal();
   }, [status, onTerminal]);
   useEffect(() => {
-    if (status !== "PROCESSING" || error) return;
+    if (!pending || error) return;
     let active = true;
     let running = false;
     let delay = 3000;
@@ -440,7 +458,7 @@ export function TransactionDetail({
       running = true;
       try {
         const latest = await refresh();
-        if (latest && latest.transaction?.status !== "PROCESSING") {
+        if (latest && isTerminalBusinessApiPayment(latest.transaction?.status)) {
           active = false;
           return;
         }
@@ -464,7 +482,7 @@ export function TransactionDetail({
       window.removeEventListener("focus", resume);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [businessId, reference, environment, status, error, refresh]);
+  }, [businessId, reference, environment, pending, error, refresh]);
   const crypto = tx?.cryptoDetails;
   return (
     <Modal
@@ -492,7 +510,7 @@ export function TransactionDetail({
             )}
             <div className="transaction-hero">
               <strong>{money(tx.amount, tx.currency)}</strong>
-              <Badge value={tx.status} />
+              <ApiPaymentBadge status={tx.status} />
             </div>
             <dl className="detail-list">
               {[
@@ -522,6 +540,13 @@ export function TransactionDetail({
             {tx.status === "FAILED" && (tx.failureMessage || tx.failureCode) && (
               <p className="info-box">{tx.failureMessage || tx.failureCode}</p>
             )}
+            {tx.status === "ACCEPTED" && (
+              <div className="info-box">
+                {uiText(
+                  "Payment queued for execution. Keep this reference while we check for updates. A payout may already reserve or debit funds at this stage.",
+                )}
+              </div>
+            )}
             {tx.status === "PROCESSING" && (
               <div className="info-box">
                 {uiText(
@@ -530,12 +555,19 @@ export function TransactionDetail({
               </div>
             )}
             {crypto && <CryptoPaymentInstructions details={crypto} environment={environment} />}
-            {!crypto && environment === "LIVE" && tx.status === "PROCESSING" && (
+            {!crypto && environment === "LIVE" && pending && (
               <div className="info-box">
                 {uiText(
                   "Payment instructions may still be on their way. Refresh to check the latest status.",
                 )}
               </div>
+            )}
+            {detail.refreshError && (
+              <p className="info-box" role="status">
+                {uiText(
+                  "Couldn’t refresh the payment. Showing its last known status; this does not mean the payment failed.",
+                )}
+              </p>
             )}
             <div className="modal-actions">
               <button className="button secondary" onClick={refresh}>

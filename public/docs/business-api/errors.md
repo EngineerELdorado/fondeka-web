@@ -7,7 +7,7 @@ Use `statusCode` (and `status`) for the HTTP status, and a meaningful business c
 | Request rejected | HTTP error body `errorCode` | The request was not accepted. Examples: `INSUFFICIENT_FUNDS`, `IDEMPOTENCY_CONFLICT`, `PAYMENT_METHOD_UNAVAILABLE`. |
 | Accepted payment fails during processing | Payment `failureCode` in GET responses and terminal webhook `data` | The payment was accepted but later failed. Examples: `PAYMENT_NOT_APPROVED`, `INVALID_DESTINATION`, `PROVIDER_UNAVAILABLE`. |
 
-HTTP 202 is acceptance, not completion. The public payment status is `PROCESSING`, `COMPLETED` or `FAILED`. Polling a failed payment still returns HTTP 200: inspect `status` and `failureCode`.
+HTTP 202 is acceptance, not completion. The public payment status is `ACCEPTED`, `PROCESSING`, `COMPLETED` or `FAILED`. Polling a failed payment still returns HTTP 200: inspect `status` and `failureCode`.
 
 ## Discover errors for an endpoint
 
@@ -77,8 +77,8 @@ Content-Type: application/json
 ```
 
 1. Normal payload, quota, access and wallet validations run.
-2. HTTP 202 returns an accepted payment with `status: "PROCESSING"` and its reference.
-3. The sandbox worker resolves the persisted failure after its scheduled due time (five seconds plus polling/queue delay).
+2. HTTP 202 returns an accepted payment with `status: "ACCEPTED"` and its reference.
+3. The sandbox worker exposes PROCESSING after its persisted due time (five seconds plus polling/queue delay), then resolves the failure on a later pass.
 4. `GET /transactions/{reference}` returns HTTP 200 with `status: "FAILED"`, `failureCode: "PAYMENT_NOT_APPROVED"` and a displayable `failureMessage`.
 5. The normal signed `business_api.collection.failed` webhook carries that same terminal snapshot. Its delivery follows the normal retry and deduplication rules.
 
@@ -98,7 +98,7 @@ Use the same idempotency key and same processing code to retry an accepted inten
 ## Header rules
 
 - `X-Simulate-Error-Code` is the single simulation header. Values are case-insensitive; surrounding spaces are trimmed.
-- Omit it for the normal sandbox success flow: HTTP 202 PROCESSING, then COMPLETED. SUCCESS and PENDING are not error codes and are not accepted header values.
+- Omit it for the normal sandbox success flow: HTTP 202 ACCEPTED, then PROCESSING and COMPLETED. SUCCESS and PENDING are not error codes and are not accepted header values.
 - Blank, unknown or unsupported codes return HTTP 400 `INVALID_TEST_ERROR_CODE` with SANDBOX credentials.
 - Real authentication, ownership and access restrictions take precedence; simulation cannot bypass them.
 - LIVE keys ignore every value, including invalid/blank values, regardless of the server's Spring profile. The header changes neither execution nor LIVE idempotency fingerprints.

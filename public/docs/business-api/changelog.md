@@ -1,5 +1,11 @@
 # Contract changelog
 
+## 2026-10-24 — API acceptance status
+
+Business API responses and portal API transaction views now expose ACCEPTED, PROCESSING, COMPLETED and FAILED. New intents are ACCEPTED while queued, then PROCESSING once execution begins. Retried jobs never return to ACCEPTED, and idempotent POST replays return the current state. Terminal webhook types and wallet effects are unchanged.
+
+The API-only request migration `20261117_business_api_accepted_status.sql` adds queue correlation and sandbox execution tracking; historical requests retain their previous projection. No client-app transaction enum, processor or workflow is changed. See [payment states](concepts.md).
+
 ## 2026-10-24 — Error discovery and simulation
 
 Added merchant `/business-api/v1/businesses/{businessId}/error-codes` and owner portal `/customer-api/businesses/{businessId}/api-error-codes?environment=SANDBOX`. Each endpoint lists immediate request errors separately from supported deferred processing failures.
@@ -12,9 +18,9 @@ The forward migration `20261116_business_api_processing_errors.sql` expands the 
 
 The authenticated customer portal can fetch `/customer-api/businesses/{businessId}/api-catalog` for configured mobile-money/crypto payment-method names, crypto-network names, configuration flags and active method/network associations. The response uses stable payload names, shares identifiers between LIVE and SANDBOX, and requires existing Business ownership and Business Tools access. This is a configuration reference, not a guarantee of account-specific payment availability.
 
-## 2026-10-24 — Three payment statuses
+## 2026-10-24 — Three payment statuses (superseded by API acceptance status)
 
-Payment responses and portal snapshots expose only PROCESSING, COMPLETED and FAILED. Newly accepted payments and unresolved provider/reconciliation outcomes remain PROCESSING. Cancellations and expiry expose FAILED, with a reason code where available. Portal status filters group the corresponding internal states.
+At this earlier stage, payment responses and portal snapshots exposed PROCESSING, COMPLETED and FAILED. Newly accepted payments and unresolved provider/reconciliation outcomes were PROCESSING. Cancellations and expiry expose FAILED, with a reason code where available. Portal status filters group the corresponding internal states.
 
 New terminal webhooks use `.completed` or `.failed`; cancellation/expiry generate failed events. Existing saved webhook payloads remain immutable across delivery retries. Internal financial statuses, reconciliation and refund rules retain their existing behavior.
 

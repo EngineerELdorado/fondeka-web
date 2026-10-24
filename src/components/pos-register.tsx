@@ -87,6 +87,7 @@ export function PosRegister({ store }: { store: Store }) {
     const current = cart.find((i) => i.product.id === p.id)?.quantity || 0;
     if (
       p.status !== "ACTIVE" ||
+      (p.type === "TRAINING" && current >= 1) ||
       (p.inventoryPolicy === "TRACKED" && current >= Number(p.inventoryQuantity ?? 0))
     ) {
       notify(
@@ -625,7 +626,7 @@ export function PosRegister({ store }: { store: Store }) {
                 <span>{i.quantity}</span>
                 <button
                   type="button"
-                  disabled={busy || uncertain}
+                  disabled={busy || uncertain || i.product.type === "TRAINING"}
                   aria-label={t("Increase quantity", "Augmenter la quantité")}
                   onClick={() => add(i.product)}
                 >
