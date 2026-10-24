@@ -206,10 +206,6 @@ export function ApiTransactions({
                 ? uiText("Sandbox API activity")
                 : uiText("Live API activity")}
             </h2>
-            <p className="muted">
-              {uiText("Collections and payouts for")}
-              {business.name}.
-            </p>
           </div>
           <div className="heading-actions">
             <button

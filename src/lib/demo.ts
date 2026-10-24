@@ -23,6 +23,7 @@ import { amountInMinorUnits } from "./format";
 import { apiEnvironment } from "./api-environment";
 import { sandboxFundingBody, walletCurrency } from "./api-wallets";
 import { conversionInput } from "./sandbox-conversion";
+import type { ApiCatalog } from "./api-catalog";
 
 const storageKey = "fondeka-business-demo-v1";
 interface DemoData {
@@ -757,6 +758,62 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       ],
       url.searchParams,
     );
+  } else if (/^\/businesses\/\d+\/api-catalog$/.test(route) && method === "GET") {
+    if (route.split("/")[2] !== "1")
+      throw Object.assign(new Error("Business not found."), { status: 404 });
+    // Fictional configuration for demo mode only; never a fallback for a real catalog.
+    result = {
+      paymentMethods: [
+        {
+          name: "BTC",
+          displayName: "Bitcoin",
+          type: "CRYPTO",
+          countryCode: null,
+          paymentCurrency: "BTC",
+          active: false,
+          allowingCollection: false,
+          allowingPayout: false,
+          networkNames: [],
+        },
+        {
+          name: "MPESA_DRC",
+          displayName: "M-Pesa DRC",
+          type: "MOBILE_MONEY",
+          countryCode: "CD",
+          paymentCurrency: "USD",
+          active: true,
+          allowingCollection: false,
+          allowingPayout: true,
+          networkNames: [],
+        },
+        {
+          name: "MPESA_KENYA",
+          displayName: "M-Pesa Kenya",
+          type: "MOBILE_MONEY",
+          countryCode: "KE",
+          paymentCurrency: "KES",
+          active: true,
+          allowingCollection: true,
+          allowingPayout: true,
+          networkNames: [],
+        },
+        {
+          name: "USDT",
+          displayName: "Tether",
+          type: "CRYPTO",
+          countryCode: null,
+          paymentCurrency: "USDT",
+          active: true,
+          allowingCollection: true,
+          allowingPayout: true,
+          networkNames: ["TRC20", "ERC20"],
+        },
+      ],
+      cryptoNetworks: [
+        { name: "ERC20", displayName: "Ethereum", active: true, invoiceCreationEnabled: false },
+        { name: "TRC20", displayName: "TRON", active: true, invoiceCreationEnabled: true },
+      ],
+    } satisfies ApiCatalog;
   } else if (/^\/businesses\/\d+\/api-wallets$/.test(route) && method === "GET") {
     const environment = apiEnvironment(url.searchParams.get("environment") ?? undefined);
     const currency = url.searchParams.has("currency")

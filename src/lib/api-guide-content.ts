@@ -13,6 +13,7 @@ export type GuideExample = {
   incoming?: boolean;
   paymentAction?: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT";
   responseFocus?: "cryptoDetails";
+  paymentKind?: "MOBILE_MONEY" | "CRYPTO";
 };
 export type GuideLesson = {
   id: string;
@@ -98,6 +99,7 @@ function paymentExample(payout = false, crypto = false): GuideExample {
     method: "POST",
     path: `${base}/${payout ? "payouts" : "collections"}`,
     exampleName: crypto ? "crypto" : "mobileMoney",
+    paymentKind: crypto ? "CRYPTO" : "MOBILE_MONEY",
     responseFocus: crypto ? "cryptoDetails" : undefined,
     fields: [
       amount,
@@ -173,8 +175,13 @@ function confirmationExamples(
 ): NonNullable<GuideLesson["confirmation"]> {
   const paymentAction = payout ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION";
   return {
-    lookup: { ...lookup, paymentAction, responseFocus: crypto ? "cryptoDetails" : undefined },
-    webhook: { ...collectionEvent, paymentAction },
+    lookup: {
+      ...lookup,
+      paymentAction,
+      paymentKind: crypto ? "CRYPTO" : "MOBILE_MONEY",
+      responseFocus: crypto ? "cryptoDetails" : undefined,
+    },
+    webhook: { ...collectionEvent, paymentAction, paymentKind: crypto ? "CRYPTO" : "MOBILE_MONEY" },
   };
 }
 const completionCheck: GuideLesson["check"] = {
@@ -369,7 +376,6 @@ export const apiGuideTracks: GuideTrack[] = [
     lessons: [
       {
         id: "invoice",
-        presentation: "payload",
         title: ["Crypto collection request", "Requête d’encaissement crypto"],
         summary: [
           "USDT is the payment method. USD is the fiat price. No payer address is required.",

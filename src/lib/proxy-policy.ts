@@ -38,6 +38,7 @@ const routes: [RegExp, string[]][] = [
   [/^customer-api\/accounts\/my-account$/, ["GET"]],
   [/^customer-api\/fiat-wallets(?:\/currencies)?$/, ["GET"]],
   [/^customer-api\/businesses(?:\/\d+)?$/, ["GET"]],
+  [/^customer-api\/businesses\/\d+\/api-catalog$/, ["GET"]],
   [/^customer-api\/businesses\/\d+\/api-keys$/, ["GET", "POST"]],
   [/^customer-api\/businesses\/\d+\/api-keys\/\d+$/, ["DELETE"]],
   [/^customer-api\/businesses\/\d+\/api-wallets$/, ["GET"]],

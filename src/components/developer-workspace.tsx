@@ -49,9 +49,7 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
   const businessPage = Math.max(0, Number(values.get("businessPage")) || 0);
   const businesses = useQuery<Page<Business>>(
-    section === "guides" && values.get("doc") !== "quickstart"
-      ? null
-      : `/customer-api/businesses?page=${businessPage}&size=20`,
+    `/customer-api/businesses?page=${businessPage}&size=20`,
     undefined,
     revision,
   );
@@ -103,6 +101,7 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
         <IntegrationGuide
           setup={{
             business: selected,
+            environment,
             loading: businesses.loading,
             error: businesses.error,
             refresh,

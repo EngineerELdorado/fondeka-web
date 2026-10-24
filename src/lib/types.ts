@@ -109,6 +109,9 @@ export interface Business {
   kybStatus: string;
   defaultBusiness?: boolean;
   countryCode?: string;
+  registrationNumber?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 export type ApiEnvironment = "LIVE" | "SANDBOX";
 export interface ApiWallet {

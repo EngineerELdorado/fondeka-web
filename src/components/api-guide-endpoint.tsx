@@ -20,9 +20,19 @@ import {
   resolveGuideSchema,
   paymentStateGroups,
   type GuideSpec,
-  type ApiSchema,
 } from "@/lib/api-guide-contract";
 import type { GuideExample } from "@/lib/api-guide-content";
+import type { ApiGuideSetup } from "@/lib/api-guide-setup";
+import { ApiGuideCatalog } from "./api-guide-catalog";
+import {
+  guideSchemaFields as schemaFields,
+  guideSchemaStructure,
+  guidePageFields,
+  guideFieldDescription,
+  guideCodePaths,
+  type GuideFieldScope as Scope,
+  type GuideSchemaField as Field,
+} from "@/lib/api-guide-fields";
 import release from "../../public/docs/business-api/release.json";
 import { ErrorState, Loading } from "./ui";
 
@@ -70,6 +80,7 @@ export function GuideCodeCard({
   const { t } = useI18n();
   const [copied, setCopied] = useState<string>();
   const [failed, setFailed] = useState(false);
+  const linePaths = guideCodePaths(code);
   return (
     <section className="guide-code-card" aria-label={title}>
       <header>
@@ -100,7 +111,9 @@ export function GuideCodeCard({
           {code.split("\n").map((line, index) => {
             const active =
               selectedKey &&
-              (line.includes(`"${selectedKey}":`) || line.startsWith(`${selectedKey}:`));
+              (linePaths.length
+                ? linePaths[index] === selectedKey
+                : line.includes(`"${selectedKey}":`) || line.startsWith(`${selectedKey}:`));
             return (
               <span className={`guide-code-line ${active ? "highlighted" : ""}`} key={index}>
                 <span className="guide-line-number" aria-hidden="true">
@@ -162,39 +175,43 @@ const statusNames: Record<string, readonly [string, string]> = {
   "500": ["Unexpected error", "Erreur inattendue"],
   "503": ["Temporarily unavailable", "Temporairement indisponible"],
 };
-type Scope = "body" | "header" | "path" | "query" | "response";
-type Field = { name: string; schema: ApiSchema; required: boolean; location: Scope };
-function schemaFields(spec: GuideSpec, schema: ApiSchema | undefined, location: Scope): Field[] {
-  const root = resolveGuideSchema(spec, schema);
-  const object = root.type === "array" ? resolveGuideSchema(spec, root.items) : root;
-  return Object.entries(object.properties || {}).map(([name, value]) => ({
-    name,
-    schema: resolveGuideSchema(spec, value),
-    required: object.required?.includes(name) || false,
-    location,
-  }));
-}
-function FieldDetail({ spec, field, note }: { spec: GuideSpec; field: Field; note?: string }) {
-  const { t } = useI18n();
+function FieldDetail({
+  spec,
+  field,
+  note,
+  example,
+}: {
+  spec: GuideSpec;
+  field: Field;
+  note?: string;
+  example?: GuideExample;
+}) {
+  const { t, language } = useI18n();
   const schema = field.schema;
-  const nested = schemaFields(spec, schema, field.location);
+  const nestedFields = schemaFields(spec, schema, field.location, field.path);
+  const nested = example ? guidePageFields(nestedFields, example) : nestedFields;
+  const description = guideFieldDescription(field, language, example);
   return (
     <div className="guide-field-detail" key={`${field.location}:${field.name}`}>
       <div>
-        <code>{field.name}</code>
+        <code>{field.path}</code>
         <span>
           {schema.type || "object"}
           {schema.nullable ? " | null" : ""}
         </span>
         <span className={field.required ? "required" : "optional"}>
-          {field.required ? t("Required", "Requis") : t("Optional", "Facultatif")}
+          {field.required
+            ? field.depth > 0 || field.path.startsWith("[]")
+              ? t("Required within this object", "Requis dans cet objet")
+              : t("Required", "Requis")
+            : t("Optional", "Facultatif")}
         </span>
         {schema.deprecated && <span>{t("Deprecated", "Obsolète")}</span>}
       </div>
-      {note && <p>{note}</p>}
-      {schema.description && (
-        <p className="guide-contract-description" lang="en">
-          {schema.description}
+      {note && note !== description.text && <p>{note}</p>}
+      {description.text && (
+        <p className="guide-contract-description" lang={description.language}>
+          {description.text}
         </p>
       )}
       <div className="guide-constraints">
@@ -242,26 +259,112 @@ function FieldDetail({ spec, field, note }: { spec: GuideSpec; field: Field; not
             <ChevronDown size={14} />
           </summary>
           <dl>
-            {nested.map((child) => (
-              <div key={child.name}>
-                <dt>
-                  <code>{child.name}</code>
-                  <small>
-                    {child.schema.type || "object"}
-                    {child.schema.nullable ? " | null" : ""} ·{" "}
-                    {child.required ? t("required", "requis") : t("optional", "facultatif")}
-                  </small>
-                </dt>
-                <dd lang="en">
-                  {child.schema.description || "—"}
-                  {child.schema.enum && <div>{child.schema.enum.join(" · ")}</div>}
-                </dd>
-              </div>
-            ))}
+            {nested.map((child) => {
+              const definition = guideFieldDescription(child, language, example);
+              return (
+                <div key={child.path}>
+                  <dt>
+                    <code>{child.path}</code>
+                    <small>
+                      {child.schema.type || "object"}
+                      {child.schema.nullable ? " | null" : ""} ·{" "}
+                      {child.required ? t("required", "requis") : t("optional", "facultatif")}
+                    </small>
+                  </dt>
+                  <dd lang={definition.language}>
+                    {definition.text}
+                    {child.schema.enum && <div>{child.schema.enum.join(" · ")}</div>}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         </details>
       )}
     </div>
+  );
+}
+
+function FieldPicker({
+  fields,
+  active,
+  onSelect,
+  event = false,
+  example,
+}: {
+  fields: Field[];
+  active?: Field;
+  onSelect: (path: string) => void;
+  event?: boolean;
+  example: GuideExample;
+}) {
+  const { t, language } = useI18n();
+  const [search, setSearch] = useState("");
+  const term = search.trim().toLocaleLowerCase(language);
+  const matches = fields.filter((field) =>
+    `${field.path} ${guideFieldDescription(field, language, example).text}`
+      .toLocaleLowerCase(language)
+      .includes(term),
+  );
+  return (
+    <>
+      <div className="guide-field-search">
+        <label>
+          <span className="sr-only">{t("Search fields", "Rechercher des champs")}</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(change) => setSearch(change.target.value)}
+            placeholder={t("Search fields…", "Rechercher des champs…")}
+          />
+        </label>
+        <span role="status">
+          {term ? `${matches.length} / ${fields.length}` : fields.length} {t("fields", "champs")}
+        </span>
+      </div>
+      <div
+        className="guide-field-options"
+        role="group"
+        aria-label={
+          event
+            ? t("Choose an event field", "Choisissez un champ de l’événement")
+            : t("Choose a field", "Choisissez un champ")
+        }
+      >
+        {matches.map((field) => {
+          const description = guideFieldDescription(field, language, example);
+          return (
+            <button
+              type="button"
+              key={field.path}
+              aria-pressed={active?.path === field.path}
+              onClick={() => onSelect(field.path)}
+              style={{ paddingInlineStart: `${8 + Math.min(field.depth, 3) * 10}px` }}
+            >
+              <span>
+                <code>{field.path}</code>
+                <span className="guide-field-preview" lang={description.language}>
+                  {description.text}
+                </span>
+              </span>
+              <small>
+                {field.schema.type || "object"}
+                {field.schema.nullable ? " | null" : ""}
+                {field.required ? " *" : ""}
+              </small>
+            </button>
+          );
+        })}
+        {!matches.length && (
+          <p className="guide-field-no-results">
+            {t(
+              "No matching fields. Try another search.",
+              "Aucun champ correspondant. Essayez une autre recherche.",
+            )}
+          </p>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -271,10 +374,10 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
   const media = guideMedia(operation.requestBody?.content);
   const event = publishedExample(media);
   const envelope = event as { type?: string; environment?: string } | undefined;
-  const fields = schemaFields(spec, media?.schema, "body");
+  const fields = guidePageFields(schemaFields(spec, media?.schema, "body"), example);
   const [selected, setSelected] = useState(example.fields[0]?.key || fields[0]?.name);
-  const active = fields.find((field) => field.name === selected) || fields[0];
-  const hint = example.fields.find((field) => field.key === active?.name);
+  const active = fields.find((field) => field.path === selected) || fields[0];
+  const hint = example.fields.find((field) => field.key === active?.path);
   const handling = [
     {
       title: t("Verify the signature", "Vérifiez la signature"),
@@ -316,7 +419,7 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
       <GuideCodeCard
         title={t("Webhook event body", "Corps de l’événement webhook")}
         code={JSON.stringify(event, null, 2)}
-        selectedKey={active?.name}
+        selectedKey={active?.path}
         caption={t("Published OpenAPI event example", "Exemple d’événement OpenAPI publié")}
       >
         <div className="guide-webhook-event-meta">
@@ -349,28 +452,20 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
           aria-label={t("Event fields", "Champs de l’événement")}
         >
           <h4>{t("Event fields", "Champs de l’événement")}</h4>
-          <div
-            className="guide-field-options"
-            role="group"
-            aria-label={t("Choose an event field", "Choisissez un champ de l’événement")}
-          >
-            {fields.map((field) => (
-              <button
-                type="button"
-                key={field.name}
-                aria-pressed={active?.name === field.name}
-                onClick={() => setSelected(field.name)}
-              >
-                <code>{field.name}</code>
-                <small>
-                  {field.schema.type || "object"}
-                  {field.required ? " *" : ""}
-                </small>
-              </button>
-            ))}
-          </div>
+          <FieldPicker
+            fields={fields}
+            active={active}
+            onSelect={setSelected}
+            example={example}
+            event
+          />
           {active && (
-            <FieldDetail spec={spec} field={active} note={hint?.note[language === "fr" ? 1 : 0]} />
+            <FieldDetail
+              spec={spec}
+              field={active}
+              note={hint?.note[language === "fr" ? 1 : 0]}
+              example={example}
+            />
           )}
         </section>
         <section
@@ -399,10 +494,12 @@ function EndpointContent({
   spec,
   example,
   hideRoute = false,
+  setup,
 }: {
   spec: GuideSpec;
   example: GuideExample;
   hideRoute?: boolean;
+  setup?: ApiGuideSetup;
 }) {
   const { language, t } = useI18n();
   const operation = guideOperation(spec, example);
@@ -412,9 +509,7 @@ function EndpointContent({
   );
   const response = operation.responses[responseCode];
   const requestMedia = guideMedia(operation.requestBody?.content);
-  const requestExamples = Object.keys(requestMedia?.examples || {});
-  const [exampleName, setExampleName] = useState(example.exampleName || requestExamples[0]);
-  const body = publishedExample(requestMedia, exampleName);
+  const body = publishedExample(requestMedia, example.exampleName);
   const responseMedia = guideMedia(response?.content);
   const responseBody = publishedExample(responseMedia);
   const [responseView, setResponseView] = useState<"example" | "structure">(
@@ -428,7 +523,7 @@ function EndpointContent({
           "response",
         )
       : [];
-  const showCryptoStructure =
+  const showResponseStructure =
     responseCode.startsWith("2") && responseView === "structure" && cryptoFields.length > 0;
   const [view, setView] = useState<"json" | "curl">("json");
   const initialScope = example.fields[0]?.in || (body === undefined ? "header" : "body");
@@ -439,6 +534,8 @@ function EndpointContent({
   const headers = guideHeaders(operation, example.incoming);
   const parameterFields: Field[] = (operation.parameters || []).map((parameter) => ({
     name: parameter.name,
+    path: parameter.name,
+    depth: 0,
     location: parameter.in as Scope,
     required: parameter.required || false,
     schema: {
@@ -449,6 +546,8 @@ function EndpointContent({
   if (!example.incoming)
     parameterFields.unshift({
       name: "X-API-Key",
+      path: "X-API-Key",
+      depth: 0,
       location: "header",
       required: true,
       schema: {
@@ -456,15 +555,19 @@ function EndpointContent({
         description: spec.components.securitySchemes["Business API Key"].description,
       },
     });
-  const fields = [
-    ...schemaFields(spec, requestMedia?.schema, "body"),
-    ...parameterFields,
-    ...schemaFields(spec, responseMedia?.schema, "response"),
-  ];
+  const fields = guidePageFields(
+    [
+      ...schemaFields(spec, requestMedia?.schema, "body"),
+      ...parameterFields,
+      ...schemaFields(spec, responseMedia?.schema, "response"),
+    ],
+    example,
+    body,
+  );
   const fieldsInScope = fields.filter((field) => field.location === scope);
-  const activeField = fieldsInScope.find((field) => field.name === selected) || fieldsInScope[0];
+  const activeField = fieldsInScope.find((field) => field.path === selected) || fieldsInScope[0];
   const hint = example.fields.find(
-    (field) => field.key === activeField?.name && (field.in || "body") === scope,
+    (field) => field.key === activeField?.path && (field.in || "body") === scope,
   );
   const requestCode =
     view === "curl"
@@ -489,7 +592,9 @@ function EndpointContent({
     query: t("Query", "Paramètres"),
     response: t("Response", "Réponse"),
   };
-  const firstRequiredAlternative = resolveGuideSchema(spec, requestMedia?.schema).anyOf;
+  const requiredAlternatives = (resolveGuideSchema(spec, requestMedia?.schema).anyOf || [])
+    .flatMap((part) => part.required || [])
+    .filter((name) => fields.some((field) => field.location === "body" && field.path === name));
   const statusLabel = (code: string) => statusNames[code]?.[language === "fr" ? 1 : 0] || code;
   function chooseResponse(code: string, reveal = false) {
     setResponseCode(code);
@@ -509,13 +614,13 @@ function EndpointContent({
         </div>
       )}
       <div className="guide-example-provenance">
-        <span>{t("No request is sent", "Aucune requête envoyée")}</span>
+        <span>{t("No payment is sent", "Aucun paiement envoyé")}</span>
       </div>
       <div className="guide-http-grid">
         <GuideCodeCard
           title={t("Request", "Requête")}
           code={requestCode}
-          selectedKey={scope === "response" ? undefined : activeField?.name}
+          selectedKey={scope === "response" ? undefined : activeField?.path}
           caption={
             example.incoming
               ? t(
@@ -543,48 +648,25 @@ function EndpointContent({
                 </button>
               )}
             </div>
-            {requestExamples.length > 1 && (
-              <label>
-                <span className="sr-only">{t("Request example", "Exemple de requête")}</span>
-                <select
-                  value={exampleName}
-                  onChange={(event) => {
-                    setExampleName(event.target.value);
-                    setScope("body");
-                    setSelected(undefined);
-                  }}
-                >
-                  {requestExamples.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {setup && example.method === "POST" && example.paymentKind && (
+              <ApiGuideCatalog
+                setup={setup}
+                kind={example.paymentKind}
+                payout={example.paymentAction === "BUSINESS_API_PAYOUT"}
+              />
             )}
           </div>
         </GuideCodeCard>
         <div ref={responsePreview} className="guide-response-preview">
           <GuideCodeCard
             title={
-              showCryptoStructure
-                ? t("Response structure · cryptoDetails", "Structure de réponse · cryptoDetails")
+              showResponseStructure
+                ? t("Response structure", "Structure de la réponse")
                 : t("Response", "Réponse")
             }
             code={
-              showCryptoStructure
-                ? JSON.stringify(
-                    {
-                      cryptoDetails: Object.fromEntries(
-                        cryptoFields.map((field) => [
-                          field.name,
-                          `${field.schema.type || "object"}${field.schema.nullable ? " | null" : ""}`,
-                        ]),
-                      ),
-                    },
-                    null,
-                    2,
-                  )
+              showResponseStructure
+                ? JSON.stringify(guideSchemaStructure(spec, responseMedia?.schema), null, 2)
                 : responseBody === undefined
                   ? t(
                       "No response body is published for this status.",
@@ -592,12 +674,12 @@ function EndpointContent({
                     )
                   : JSON.stringify(responseBody, null, 2)
             }
-            selectedKey={scope === "response" ? activeField?.name : undefined}
+            selectedKey={scope === "response" ? activeField?.path : undefined}
             caption={
-              showCryptoStructure
+              showResponseStructure
                 ? t(
-                    "OpenAPI field types, not payment values. cryptoDetails may initially be null; refresh the same reference until the backend returns the invoice instructions.",
-                    "Types des champs OpenAPI, pas des valeurs de paiement. cryptoDetails peut être null au départ ; actualisez la même référence jusqu’à réception des instructions de facture.",
+                    "Full response structure with field types, not payment values. cryptoDetails may initially be null; refresh the same reference until invoice instructions are available.",
+                    "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails peut être null au départ ; actualisez la même référence jusqu’à réception des instructions de facture.",
                   )
                 : t(
                     "Contract example, not the result of a request in this browser.",
@@ -692,42 +774,31 @@ function EndpointContent({
                   }}
                 >
                   {scopeLabels[location]}
+                  <span className="guide-field-count">
+                    {fields.filter((field) => field.location === location).length}
+                  </span>
                 </button>
               ))}
           </div>
-          {scope === "body" && firstRequiredAlternative && (
+          {scope === "body" && requiredAlternatives.length > 1 && (
             <p className="guide-field-rule">
               {t("Supply at least one:", "Fournissez au moins un champ :")}{" "}
-              <code>
-                {firstRequiredAlternative.flatMap((part) => part.required || []).join(" / ")}
-              </code>
+              <code>{requiredAlternatives.join(" / ")}</code>
             </p>
           )}
-          <div
-            className="guide-field-options"
-            role="group"
-            aria-label={t("Choose a field", "Choisissez un champ")}
-          >
-            {fieldsInScope.map((field) => (
-              <button
-                type="button"
-                key={field.name}
-                aria-pressed={activeField?.name === field.name}
-                onClick={() => setSelected(field.name)}
-              >
-                <code>{field.name}</code>
-                <small>
-                  {field.schema.type || "object"}
-                  {field.required ? " *" : ""}
-                </small>
-              </button>
-            ))}
-          </div>
+          <FieldPicker
+            key={`${scope}:${responseCode}`}
+            fields={fieldsInScope}
+            active={activeField}
+            onSelect={setSelected}
+            example={example}
+          />
           {activeField && (
             <FieldDetail
               spec={spec}
               field={activeField}
               note={hint?.note[language === "fr" ? 1 : 0]}
+              example={example}
             />
           )}
         </section>
@@ -827,9 +898,11 @@ function EndpointContent({
 export function ApiGuideEndpoint({
   example,
   hideRoute = false,
+  setup,
 }: {
   example: GuideExample;
   hideRoute?: boolean;
+  setup?: ApiGuideSetup;
 }) {
   const { t } = useI18n();
   const [spec, setSpec] = useState(publishedSpec);
@@ -867,6 +940,6 @@ export function ApiGuideEndpoint({
   return example.incoming ? (
     <WebhookEventGuide spec={spec} example={example} />
   ) : (
-    <EndpointContent spec={spec} example={example} hideRoute={hideRoute} />
+    <EndpointContent spec={spec} example={example} hideRoute={hideRoute} setup={setup} />
   );
 }

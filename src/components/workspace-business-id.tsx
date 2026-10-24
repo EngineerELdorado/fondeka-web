@@ -1,5 +1,6 @@
 "use client";
 import { mayMountOwnerData } from "@/lib/business-tools-client";
+import { businessDisplayName } from "@/lib/business-profile";
 import { useQuery } from "@/lib/use-query";
 import { useUiText } from "@/lib/use-ui-text";
 import type { Business, Page } from "@/lib/types";
@@ -15,12 +16,7 @@ export function WorkspaceBusinessId() {
       : null,
   );
   const business = businesses.data?.content?.[0];
-  // Default Businesses are provisioned with "Business <account reference or ID>".
-  // That generated identity is not a customer-provided business name.
-  const name = [business?.name, business?.legalName]
-    .map((value) => value?.trim())
-    .find((value) => value && !/^(?:Business\s+)?(?:FDK\d+|\d+)$/i.test(value))
-    ?.replace(/^Business\s+/i, "");
+  const name = businessDisplayName(business);
   const id = business?.id;
   const businessId = typeof id === "number" && Number.isSafeInteger(id) && id > 0 ? id : undefined;
   return (

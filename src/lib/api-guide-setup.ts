@@ -1,7 +1,8 @@
-import type { Business } from "./types";
+import type { ApiEnvironment, Business } from "./types";
 
 export type ApiGuideSetup = {
   business?: Business;
+  environment?: ApiEnvironment;
   loading: boolean;
   error?: string;
   refresh: () => void;

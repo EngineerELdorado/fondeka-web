@@ -1,87 +1,72 @@
 "use client";
 
 import { useState } from "react";
-import { Code2, FlaskConical, RotateCcw, Settings2, ShieldCheck } from "lucide-react";
+import { FlaskConical, RotateCcw, Settings2 } from "lucide-react";
 import { Modal, PageHeading } from "@/components/ui";
+import { BusinessSettings } from "@/components/business-settings";
 import { useWorkspace } from "@/components/workspace-provider";
-import { authConfigured, demoMode } from "@/lib/auth";
+import { demoMode } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { resetDemo } from "@/lib/demo";
 
 export default function Settings() {
+  const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const { refresh, notify } = useWorkspace();
   return (
     <>
       <PageHeading
         icon={Settings2}
-        mobileTitle="Settings"
-        eyebrow="WORKSPACE"
-        title="Make yourself at home."
-        description="A few details about your Fondeka Business workspace."
+        title={t("Settings", "Paramètres")}
+        description={t(
+          "Your business identity and registration details.",
+          "L’identité et les informations d’immatriculation de votre Business.",
+        )}
       />
-      <div className="settings-grid">
-        <section className="panel settings-panel">
-          <span className="tool-icon mint">
-            <ShieldCheck size={24} />
-          </span>
-          <h2>One account. Your business tools.</h2>
-          <p>
-            Fondeka Business uses your existing customer account, fiat wallets, and permissions.
-            Each business has its own API credentials and history. Wallets belong to your account.
-          </p>
-          <dl className="detail-list">
-            <div>
-              <dt>Environment</dt>
-              <dd>{demoMode ? "Demo workspace" : "Live workspace"}</dd>
-            </div>
-            <div>
-              <dt>Authentication</dt>
-              <dd>{authConfigured ? "Customer Cognito" : "Not configured"}</dd>
-            </div>
-            <div>
-              <dt>API key management</dt>
-              <dd>Managed by Fondeka</dd>
-            </div>
-          </dl>
-        </section>
-        <section className="panel settings-panel">
-          <span className={`tool-icon ${demoMode ? "peach" : "lilac"}`}>
-            {demoMode ? <FlaskConical size={24} /> : <Code2 size={24} />}
-          </span>
-          <h2>{demoMode ? "A little room to explore." : "Your workspace is connected."}</h2>
-          <p>
-            {demoMode
-              ? "All stores, requests, products, and sales in this workspace use fictional data. Changes stay in this browser. Reset the demo to start fresh."
-              : "Your workspace reads and updates your Fondeka account through the existing customer APIs. API keys and webhook signing secrets stay on your backend."}
-          </p>
-          {demoMode && (
-            <button className="button secondary" onClick={() => setConfirming(true)}>
+      <BusinessSettings />
+      {demoMode && (
+        <details className="panel settings-demo-panel">
+          <summary>
+            <FlaskConical size={18} />
+            {t("Demo workspace", "Espace de démonstration")}
+          </summary>
+          <div>
+            <p>
+              {t(
+                "Reset the fictional data in this browser to start fresh.",
+                "Réinitialisez les données fictives de ce navigateur pour repartir de zéro.",
+              )}
+            </p>
+            <button type="button" className="button secondary" onClick={() => setConfirming(true)}>
               <RotateCcw size={16} />
-              Reset demo data
+              {t("Reset demo data", "Réinitialiser les données de démonstration")}
             </button>
-          )}
-        </section>
-      </div>
+          </div>
+        </details>
+      )}
       {confirming && (
         <Modal
-          title="Start fresh?"
-          description="This resets fictional stores, products, payment requests, and sales saved in this browser."
+          title={t("Start fresh?", "Repartir de zéro ?")}
+          description={t(
+            "This resets fictional stores, products, payment requests, and sales saved in this browser.",
+            "Cette action réinitialise les boutiques, produits, demandes de paiement et ventes fictifs enregistrés dans ce navigateur.",
+          )}
           onClose={() => setConfirming(false)}
         >
           <div className="modal-actions">
             <button className="button secondary" onClick={() => setConfirming(false)}>
-              Keep exploring
+              {t("Keep exploring", "Continuer à explorer")}
             </button>
             <button
               className="button primary"
               onClick={() => {
                 resetDemo();
                 refresh();
-                notify("Demo workspace reset.");
+                notify(t("Demo workspace reset.", "Espace de démonstration réinitialisé."));
                 setConfirming(false);
               }}
             >
-              Reset demo
+              {t("Reset demo", "Réinitialiser la démonstration")}
             </button>
           </div>
         </Modal>

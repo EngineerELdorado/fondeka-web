@@ -178,7 +178,9 @@ function LessonContent({
           )}
         </>
       )}
-      {lesson.example && <ApiGuideEndpoint example={lesson.example} hideRoute={payloadOnly} />}
+      {lesson.example && (
+        <ApiGuideEndpoint example={lesson.example} hideRoute={payloadOnly} setup={setup} />
+      )}
       {lesson.confirmation && <ApiGuideConfirmation examples={lesson.confirmation} />}
       {track.id === "quickstart" && <ApiGuideQuickstart setup={setup} />}
       {lesson.tips && (
