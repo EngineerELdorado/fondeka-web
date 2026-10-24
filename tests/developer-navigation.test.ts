@@ -4,6 +4,14 @@ import { businessDestination } from "../src/lib/business-tools";
 import { toolLinkDestination } from "../src/lib/business-tools-ui";
 import { developerHref, legacyDeveloperDestination } from "../src/lib/developer-navigation";
 
+test("Settings remains directly accessible while activation can safely return to its retained Business editor", () => {
+  assert.equal(toolLinkDestination("/settings"), undefined);
+  assert.equal(
+    businessDestination("/settings?business=42&returnTo=https://foreign.example"),
+    "/settings",
+  );
+});
+
 test("developer child destinations remain protected, bookmarkable internal routes", () => {
   for (const section of ["wallets", "transactions", "guides"]) {
     const destination = businessDestination(

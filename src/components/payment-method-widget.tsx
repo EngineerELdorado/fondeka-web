@@ -24,6 +24,8 @@ import { usePaymentLanguage } from "@/lib/use-payment-language";
 import { request } from "@/lib/data";
 import { useQuery } from "@/lib/use-query";
 import { useWorkspace } from "./workspace-provider";
+import { useAffordableWallets } from "@/lib/use-affordable-wallets";
+import { ChevronDown } from "lucide-react";
 function PaymentLoading({ message }: { message?: string }) {
   const t = paymentCopy(usePaymentLanguage());
   return (
@@ -109,7 +111,14 @@ export function PaymentMethodWidget({
       methodsError = failure instanceof Error ? failure.message : t.methodsError;
     }
   }
-  const selected = methodList.find((method) => methodKey(method) === selectedKey);
+  const eligibleWallets = useAffordableWallets(
+    methodList,
+    { action, amount, currency: baseCurrency, feeMode, paymentRequestId, paymentRequestCode },
+    baseAmount,
+    paymentCountry,
+  );
+  const visibleMethods = eligibleWallets.methods;
+  const selected = visibleMethods.find((method) => methodKey(method) === selectedKey);
   const currency = selected?.type === "CRYPTO" ? cryptoCurrency : (selected?.currency ?? "");
   const networks = useQuery<{ id: number; name: string; displayName?: string }[]>(
     selected?.type === "CRYPTO"
@@ -263,7 +272,18 @@ export function PaymentMethodWidget({
         ) : (
           <PaymentMethodPicker
             key={paymentCountry}
-            methods={methodList}
+            methods={visibleMethods}
+            wallets={
+              eligibleWallets.showWallets
+                ? {
+                    checking: eligibleWallets.checking,
+                    unavailable: eligibleWallets.unavailable,
+                    retry: () => {
+                      void methods.refetch().then(() => eligibleWallets.retry());
+                    },
+                  }
+                : undefined
+            }
             selectedKey={selectedKey}
             onSelect={(key) => {
               setSelectedKey(key);
@@ -297,20 +317,25 @@ export function PaymentMethodWidget({
             <div className="form-grid">
               <label>
                 {t.settlementCurrency}
-                <select
-                  value={cryptoCurrency}
-                  onChange={(event) => setCryptoCurrency(event.target.value)}
-                >
-                  {Array.from(
-                    new Set([
-                      baseCurrency,
-                      baseCurrency,
-                      ...methodList.map((method) => method.currency).filter(isFiatCurrency),
-                    ]),
-                  ).map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
+                <span className="activation-select header-select">
+                  <select
+                    value={cryptoCurrency}
+                    onChange={(event) => setCryptoCurrency(event.target.value)}
+                  >
+                    {Array.from(
+                      new Set([
+                        baseCurrency,
+                        baseCurrency,
+                        ...methodList.map((method) => method.currency).filter(isFiatCurrency),
+                      ]),
+                    ).map((value) => (
+                      <option key={value}>{value}</option>
+                    ))}
+                  </select>
+                  <span className="switch-chevron" aria-hidden="true">
+                    <ChevronDown size={14} strokeWidth={2.5} />
+                  </span>
+                </span>
               </label>
               {networks.loading ? (
                 <PaymentLoading />
@@ -319,18 +344,23 @@ export function PaymentMethodWidget({
               ) : (
                 <label>
                   {t.network}
-                  <select
-                    required
-                    value={networkId}
-                    onChange={(event) => setNetworkId(event.target.value)}
-                  >
-                    <option value="">{t.selectNetwork}</option>
-                    {networks.data?.map((network) => (
-                      <option key={network.id} value={network.id}>
-                        {network.displayName || network.name}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="activation-select header-select">
+                    <select
+                      required
+                      value={networkId}
+                      onChange={(event) => setNetworkId(event.target.value)}
+                    >
+                      <option value="">{t.selectNetwork}</option>
+                      {networks.data?.map((network) => (
+                        <option key={network.id} value={network.id}>
+                          {network.displayName || network.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="switch-chevron" aria-hidden="true">
+                      <ChevronDown size={14} strokeWidth={2.5} />
+                    </span>
+                  </span>
                 </label>
               )}
             </div>

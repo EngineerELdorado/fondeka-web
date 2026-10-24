@@ -1,5 +1,7 @@
 /** Memory-only account cache. Stale reads stay visible while revalidating; never cache secrets or mutations. */
 let generation = 0;
+let dataRevision = 0;
+export const queryDataRevision = () => dataRevision;
 export function queryCacheGeneration() {
   return generation;
 }
@@ -68,6 +70,28 @@ export function cacheQuery(
   if (!entries.has(key) && entries.size >= 200) entries.delete(entries.keys().next().value!);
   entries.set(key, { data, time: now, path, version });
 }
+/** Apply authoritative mutation results only to the current account's matching cached reads. */
+export function updateCachedQueries(
+  accountKey: string,
+  update: (path: string, data: unknown) => unknown,
+  expectedGeneration = generation,
+) {
+  if (!accountKey || expectedGeneration !== generation) return;
+  let changed = false;
+  for (const [key, entry] of entries) {
+    if (!key.startsWith(accountKey + ":") || !entry.path) continue;
+    const next = update(entry.path, entry.data);
+    if (next === undefined) continue;
+    pending.get(key)?.controller.abort();
+    pending.delete(key);
+    entries.set(key, { ...entry, data: next, time: Date.now() });
+    changed = true;
+  }
+  if (changed) {
+    dataRevision++;
+    for (const listener of listeners) listener();
+  }
+}
 /** Concurrent views share one GET; account changes/invalidation abort and discard old responses. */
 export function fetchQuery<T>(
   key: string,
@@ -101,6 +125,12 @@ export function fetchQuery<T>(
       cacheQuery(key, data, Date.now(), expectedGeneration, path, version);
       return data;
     } catch (error) {
+      if (
+        pending.get(key) !== task ||
+        controller.signal.aborted ||
+        generation !== expectedGeneration
+      )
+        throw new DOMException("Query cancelled", "AbortError");
       const status = (error as { status?: number } | null)?.status;
       // A confirmed permission/not-found/validation error must not leave obsolete owner data visible.
       if (
@@ -121,6 +151,7 @@ export function fetchQuery<T>(
 }
 export function clearQueryCache() {
   generation++;
+  dataRevision++;
   for (const task of pending.values()) task.controller.abort();
   pending.clear();
   entries.clear();

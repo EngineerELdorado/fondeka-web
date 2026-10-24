@@ -11,6 +11,7 @@ import {
   queryCacheGeneration,
   subscribeQueries,
   queryRevision,
+  queryDataRevision,
 } from "./query-cache";
 import { usePaymentLanguage } from "./use-payment-language";
 
@@ -28,6 +29,7 @@ export function useQuery<T>(
   revision = 0,
 ): QueryResult<T> {
   const enabled = useContext(OwnerQueriesEnabled);
+  useSyncExternalStore(subscribeQueries, queryDataRevision, () => 0);
   const { version, accountKey } = useWorkspace();
   const [state, setState] = useState<{
     key: string;
@@ -77,6 +79,7 @@ export function useQuery<T>(
           return active ? data : undefined;
         },
         (error) => {
+          if (error instanceof Error && error.name === "AbortError") return undefined;
           if (active && generation === queryCacheGeneration())
             setState({
               key,

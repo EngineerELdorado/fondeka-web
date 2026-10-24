@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Check, Copy, Globe2, ListFilter, Network, RefreshCw, Search } from "lucide-react";
 import {
   apiCatalogPath,
+  catalogMethodsFor,
   catalogMethodSelectable,
   catalogNetworksFor,
   parseApiCatalog,
@@ -69,11 +70,13 @@ function CatalogContent({
   kind,
   payout,
   environment,
+  preferredMethod,
 }: {
   businessId: number;
   kind: ApiPaymentKind;
   payout: boolean;
   environment: ApiEnvironment;
+  preferredMethod?: string;
 }) {
   const { t } = useI18n();
   const query = useQuery<unknown>(apiCatalogPath(businessId));
@@ -131,14 +134,16 @@ function CatalogContent({
       />
     );
   }
-  const methods = catalog.paymentMethods.filter((method) => method.type === kind);
+  const methods = catalogMethodsFor(catalog, kind);
   const visible = methods.filter((method) =>
-    `${method.name} ${method.displayName || ""} ${method.countryCode || ""}`
+    `${method.name} ${method.displayName || ""} ${kind === "MOBILE_MONEY" ? method.countryCode || "" : ""}`
       .toLocaleLowerCase()
       .includes(search.trim().toLocaleLowerCase()),
   );
   const method = methods.find(
-    (item) => item.name === selection?.method && catalogMethodSelectable(item, environment, payout),
+    (item) =>
+      item.name === (selection?.method ?? preferredMethod) &&
+      catalogMethodSelectable(item, environment, payout),
   );
   const networks = method ? catalogNetworksFor(catalog, method, environment, payout) : [];
   const network = networks.find((item) => item.name === selection?.network) || networks[0];
@@ -146,8 +151,10 @@ function CatalogContent({
     <>
       <div className="api-catalog-context">
         <span>
-          <Globe2 size={15} />
-          {t("All configured countries", "Tous les pays configurés")}
+          {kind === "CRYPTO" ? <Network size={15} /> : <Globe2 size={15} />}
+          {kind === "CRYPTO"
+            ? t("Active cryptos & networks", "Cryptos et réseaux actifs")
+            : t("All configured countries", "Tous les pays configurés")}
         </span>
         <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>
         <button
@@ -164,27 +171,35 @@ function CatalogContent({
       {!methods.length ? (
         <Empty
           icon={ListFilter}
-          title={t("No configured methods", "Aucun moyen configuré")}
+          title={t("No active methods", "Aucun moyen actif")}
           description={t(
-            "No methods are configured for this payment type. Refresh after backend configuration changes.",
-            "Aucun moyen n’est configuré pour ce type de paiement. Actualisez après une modification de la configuration.",
+            "No active methods are available for this payment type. Refresh after backend configuration changes.",
+            "Aucun moyen actif n’est disponible pour ce type de paiement. Actualisez après une modification de la configuration.",
           )}
         />
       ) : (
         <div className="api-catalog-layout">
           <section
             className="api-catalog-methods"
-            aria-label={t("Payment methods", "Moyens de paiement")}
+            aria-label={kind === "CRYPTO" ? "Cryptos" : t("Payment methods", "Moyens de paiement")}
           >
             <label className="api-catalog-search">
-              <span>{t("Find a method", "Rechercher un moyen")}</span>
+              <span>
+                {kind === "CRYPTO"
+                  ? t("Find a crypto", "Rechercher une crypto")
+                  : t("Find a method", "Rechercher un moyen")}
+              </span>
               <div>
                 <Search size={16} />
                 <input
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder={t("Name or country code", "Nom ou code pays")}
+                  placeholder={
+                    kind === "CRYPTO"
+                      ? t("Name or symbol (e.g. USDT)", "Nom ou symbole (ex. USDT)")
+                      : t("Name or country code", "Nom ou code pays")
+                  }
                 />
               </div>
             </label>
@@ -216,15 +231,12 @@ function CatalogContent({
                     <code>{item.name}</code>
                     {!selectable ? (
                       <small>
-                        {!item.active
-                          ? t("Inactive in LIVE", "Inactif en LIVE")
-                          : payout
-                            ? t("Payouts disabled in LIVE", "Envois désactivés en LIVE")
-                            : t("Collections disabled in LIVE", "Encaissements désactivés en LIVE")}
+                        {payout
+                          ? t("Payouts disabled in LIVE", "Envois désactivés en LIVE")
+                          : t("Collections disabled in LIVE", "Encaissements désactivés en LIVE")}
                       </small>
                     ) : environment === "SANDBOX" &&
-                      (!item.active ||
-                        !(payout ? item.allowingPayout : item.allowingCollection)) ? (
+                      !(payout ? item.allowingPayout : item.allowingCollection) ? (
                       <small>{t("Sandbox testing only", "Tests sandbox uniquement")}</small>
                     ) : (
                       <small>{item.countryCode || t("Universal", "Universel")}</small>
@@ -235,7 +247,9 @@ function CatalogContent({
             </div>
             {!visible.length && (
               <p className="muted" role="status">
-                {t("No matching methods.", "Aucun moyen correspondant.")}
+                {kind === "CRYPTO"
+                  ? t("No matching cryptos.", "Aucune crypto correspondante.")
+                  : t("No matching methods.", "Aucun moyen correspondant.")}
               </p>
             )}
           </section>
@@ -246,11 +260,19 @@ function CatalogContent({
             <span className="api-catalog-selection-icon">
               <Copy size={20} />
             </span>
-            <h3>{t("Names for your payload", "Les noms de votre payload")}</h3>
+            <h3>
+              {kind === "CRYPTO"
+                ? t("Crypto & networks", "Crypto et réseaux")
+                : t("Names for your payload", "Les noms de votre payload")}
+            </h3>
             <p>
               {t(
-                "Select a method, then copy its exact identifier.",
-                "Sélectionnez un moyen, puis copiez son identifiant exact.",
+                kind === "CRYPTO"
+                  ? "Choose a crypto to see its active networks. Copy the exact names for your payload."
+                  : "Select a method, then copy its exact identifier.",
+                kind === "CRYPTO"
+                  ? "Choisissez une crypto pour voir ses réseaux actifs. Copiez les noms exacts pour votre payload."
+                  : "Sélectionnez un moyen, puis copiez son identifiant exact.",
               )}
             </p>
             {method && (
@@ -263,27 +285,32 @@ function CatalogContent({
                 />
                 {kind === "CRYPTO" && (
                   <>
-                    <label className="field">
-                      <span>{t("Associated network", "Réseau associé")}</span>
-                      <select
-                        value={network?.name || ""}
-                        disabled={!networks.length || checking || !!error}
-                        onChange={(event) =>
-                          setSelection({ method: method.name, network: event.target.value })
-                        }
-                      >
-                        {!networks.length && (
-                          <option value="">
-                            {t("No compatible network", "Aucun réseau compatible")}
-                          </option>
-                        )}
+                    <div className="api-catalog-networks">
+                      <h4>
+                        <Network size={15} aria-hidden="true" />
+                        {t("Available networks", "Réseaux disponibles")}
+                        <span>{networks.length}</span>
+                      </h4>
+                      <div role="group" aria-label={t("Available networks", "Réseaux disponibles")}>
                         {networks.map((item) => (
-                          <option key={item.name} value={item.name}>
-                            {item.displayName || item.name} · {item.name}
-                          </option>
+                          <button
+                            type="button"
+                            key={item.name}
+                            disabled={checking || !!error}
+                            aria-pressed={network?.name === item.name}
+                            onClick={() =>
+                              setSelection({ method: method.name, network: item.name })
+                            }
+                          >
+                            <span>
+                              <strong>{item.displayName || item.name}</strong>
+                              <code>{item.name}</code>
+                            </span>
+                            {network?.name === item.name && <Check size={16} aria-hidden="true" />}
+                          </button>
                         ))}
-                      </select>
-                    </label>
+                      </div>
+                    </div>
                     {network ? (
                       <CopyIdentifier
                         key={`${method.name}:${network.name}`}
@@ -318,8 +345,8 @@ function CatalogContent({
       <p className="api-catalog-footnote">
         {environment === "SANDBOX"
           ? t(
-              "Configured names are shared with LIVE. Sandbox uses simulated payments, including inactive configurations.",
-              "Les noms configurés sont partagés avec LIVE. Le sandbox simule les paiements, y compris les configurations inactives.",
+              "Only active methods and networks are shown. Sandbox uses simulated payments with the same configured names as LIVE.",
+              "Seuls les moyens et réseaux actifs sont affichés. Le sandbox simule les paiements avec les mêmes noms configurés qu’en LIVE.",
             )
           : t(
               "Configuration flags are a guide. Routing, currencies, fees and account restrictions are still validated by the backend.",
@@ -334,10 +361,14 @@ export function ApiGuideCatalog({
   setup,
   kind,
   payout,
+  target = "methods",
+  preferredMethod,
 }: {
   setup: ApiGuideSetup;
   kind: ApiPaymentKind;
   payout: boolean;
+  target?: "methods" | "networks";
+  preferredMethod?: string;
 }) {
   const { t } = useI18n();
   const { accountKey, apiEnvironment } = useWorkspace();
@@ -345,19 +376,32 @@ export function ApiGuideCatalog({
   const environment = setup.environment || apiEnvironment;
   return (
     <>
-      <button type="button" className="guide-catalog-trigger" onClick={() => setOpen(true)}>
-        <ListFilter size={14} />
-        {t("Available methods", "Moyens disponibles")}
+      <button
+        type="button"
+        className="guide-catalog-trigger"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        {target === "networks" ? <Network size={14} /> : <ListFilter size={14} />}
+        {target === "networks"
+          ? t("Available networks", "Réseaux disponibles")
+          : t("Available methods", "Moyens disponibles")}
       </button>
       {open &&
         createPortal(
           <Modal
-            title={t("Available payment methods", "Moyens de paiement disponibles")}
+            title={
+              target === "networks"
+                ? t("Available crypto networks", "Réseaux crypto disponibles")
+                : kind === "CRYPTO"
+                  ? t("Available methods & networks", "Moyens et réseaux disponibles")
+                  : t("Available payment methods", "Moyens de paiement disponibles")
+            }
             description={
               kind === "CRYPTO"
                 ? t(
-                    "Configured crypto names and their associated networks.",
-                    "Les noms des cryptos configurées et leurs réseaux associés.",
+                    "Choose a crypto to explore its active, compatible networks.",
+                    "Choisissez une crypto pour découvrir ses réseaux actifs et compatibles.",
                   )
                 : t(
                     "Configured mobile-money names across all countries.",
@@ -386,6 +430,7 @@ export function ApiGuideCatalog({
                 kind={kind}
                 payout={payout}
                 environment={environment}
+                preferredMethod={preferredMethod}
               />
             )}
           </Modal>,

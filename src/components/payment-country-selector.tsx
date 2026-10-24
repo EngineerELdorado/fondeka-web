@@ -43,7 +43,9 @@ export function PaymentCountrySelector({
         </span>
         <span className="payment-country-change">
           {t("Change", "Modifier")}
-          <ChevronDown size={15} />
+          <span className="payment-country-chevron" aria-hidden="true">
+            <ChevronDown size={15} strokeWidth={2.5} />
+          </span>
         </span>
       </button>
       {open && (

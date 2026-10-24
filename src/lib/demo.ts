@@ -24,9 +24,15 @@ import { apiEnvironment } from "./api-environment";
 import { sandboxFundingBody, walletCurrency } from "./api-wallets";
 import { conversionInput } from "./sandbox-conversion";
 import type { ApiCatalog } from "./api-catalog";
+import {
+  businessDetailsDraft,
+  businessDetailsErrors,
+  businessDetailsPatch,
+} from "./business-profile";
 
 const storageKey = "fondeka-business-demo-v1";
 interface DemoData {
+  businesses?: Business[];
   customers?: Customer[];
   staff?: Staff[];
   requestPayments?: (RequestPayment & { requestId: number })[];
@@ -346,6 +352,17 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   db.staff ??= [];
   db.requestPayments ??= [];
   db.collections ??= {};
+  db.businesses ??= [
+    {
+      id: 1,
+      name: "Atelier Kin",
+      legalName: "Atelier Kin SARL",
+      countryCode: "CD",
+      status: "ACTIVE",
+      kybStatus: "APPROVED",
+      defaultBusiness: true,
+    },
+  ];
 
   let result: unknown;
   if (route === "/business-tools/access" && method === "GET") {
@@ -743,21 +760,32 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       order.balanceDue = 0;
     }
     result = order;
-  } else if (route === "/businesses") {
-    result = paginate<Business>(
-      [
-        {
-          id: 1,
-          name: "Atelier Kin",
-          legalName: "Atelier Kin SARL",
-          countryCode: "CD",
-          status: "ACTIVE",
-          kybStatus: "APPROVED",
-          defaultBusiness: true,
-        },
-      ],
-      url.searchParams,
-    );
+  } else if (route === "/businesses" && method === "GET") {
+    result = paginate<Business>(db.businesses, url.searchParams);
+  } else if (/^\/businesses\/\d+$/.test(route) && ["GET", "PATCH"].includes(method)) {
+    const business = db.businesses.find((item) => item.id === Number(route.split("/")[2]));
+    if (!business) throw Object.assign(new Error("Business not found."), { status: 404 });
+    if (method === "PATCH") {
+      const keys = Object.keys(body);
+      const editable = ["name", "legalName", "countryCode", "registrationNumber"];
+      if (
+        !keys.length ||
+        keys.some((key) => !editable.includes(key)) ||
+        keys.some((key) => body[key] !== null && typeof body[key] !== "string") ||
+        ("name" in body && !body.name?.trim())
+      )
+        throw Object.assign(new Error("Invalid Business details."), { status: 400 });
+      const draft = {
+        ...businessDetailsDraft(business),
+        ...Object.fromEntries(keys.map((key) => [key, body[key] ?? ""])),
+      };
+      if (Object.keys(businessDetailsErrors(draft)).length)
+        throw Object.assign(new Error("Invalid Business details."), { status: 400 });
+      Object.assign(business, businessDetailsPatch(business, draft), {
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    result = business;
   } else if (/^\/businesses\/\d+\/api-catalog$/.test(route) && method === "GET") {
     if (route.split("/")[2] !== "1")
       throw Object.assign(new Error("Business not found."), { status: 404 });

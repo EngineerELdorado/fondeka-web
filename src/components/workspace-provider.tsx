@@ -16,7 +16,7 @@ import { accessToken, authConfigured, customerScope, demoMode } from "@/lib/auth
 import { clearBusinessToolsRecovery } from "@/lib/business-tools-client";
 import { clearSandboxFundingRecovery } from "@/lib/sandbox-funding";
 import { clearSandboxConversionRecovery } from "@/lib/sandbox-conversion";
-import { deviceHeaders, resetDeviceIdentityMemory } from "@/lib/device";
+import { deviceHeaders, ensureDeviceSession, resetDeviceIdentityMemory } from "@/lib/device";
 import { DeviceVerification } from "./device-verification";
 import { clearQueryCache, clearCollectionRecovery } from "@/lib/query-cache";
 import { clearFlowDrafts } from "@/lib/guided-flow";
@@ -53,6 +53,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (demoMode) return;
     const reset = () => {
+      resetDeviceIdentityMemory();
       clearQueryCache();
       clearCollectionRecovery();
       clearFlowDrafts();
@@ -113,8 +114,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           if (scopeRef.current !== scope) setApiScope(undefined);
           setAccountKey(scope);
           scopeRef.current = scope;
+          let verified = !!deviceHeaders(scope)["X-Device-Session"];
+          if (!verified) {
+            try {
+              verified = await ensureDeviceSession();
+            } catch {
+              /* The existing verification UI presents a recoverable error or approval state. */
+            }
+          }
+          if (!active) return;
+          setDeviceRequired(!verified);
           setReady(true);
-          if (!deviceHeaders()["X-Device-Session"]) setDeviceRequired(true);
         }
       } catch {
         router.replace("/login");
@@ -122,6 +132,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     void check();
     const expire = () => {
+      resetDeviceIdentityMemory();
       setApiScope(undefined);
       setReady(false);
       setAccountKey(null);

@@ -1,7 +1,15 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, BookOpen, KeyRound, WalletCards } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  Building2,
+  ChevronDown,
+  KeyRound,
+  Pencil,
+  WalletCards,
+} from "lucide-react";
 import { useUiText } from "@/lib/use-ui-text";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
@@ -20,6 +28,7 @@ import { IntegrationGuide } from "./integration-guide";
 import { DeveloperSectionLinks } from "./developer-section-links";
 import { Badge, Empty, ErrorState, Loading, PageHeading } from "./ui";
 import { useWorkspace } from "./workspace-provider";
+import { businessDisplayName } from "@/lib/business-profile";
 
 export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
   const uiText = useUiText();
@@ -111,12 +120,20 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
         <>
           {section === "credentials" && selected && (
             <details className="developer-business-details">
-              <summary>{uiText("Business details")}</summary>
+              <summary>
+                <span className="developer-business-icon" aria-hidden="true">
+                  <Building2 size={20} />
+                </span>
+                <span>{uiText("Business details")}</span>
+                <span className="developer-nav-chevron" aria-hidden="true">
+                  <ChevronDown size={16} strokeWidth={2.5} />
+                </span>
+              </summary>
               <dl className="detail-list">
                 <div>
                   <dt>{uiText("Business")}</dt>
                   <dd>
-                    {selected.legalName || selected.name} · #{selected.id}
+                    {businessDisplayName(selected) || "—"} · #{selected.id}
                   </dd>
                 </div>
                 <div>
@@ -136,6 +153,10 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
                   </dd>
                 </div>
               </dl>
+              <Link className="text-button developer-business-edit" href="/settings">
+                <Pencil size={14} />
+                {uiText("Edit Business details")}
+              </Link>
             </details>
           )}
           {businesses.loading ? (

@@ -180,11 +180,13 @@ function FieldDetail({
   field,
   note,
   example,
+  children,
 }: {
   spec: GuideSpec;
   field: Field;
   note?: string;
   example?: GuideExample;
+  children?: ReactNode;
 }) {
   const { t, language } = useI18n();
   const schema = field.schema;
@@ -214,6 +216,7 @@ function FieldDetail({
           {description.text}
         </p>
       )}
+      {children}
       <div className="guide-constraints">
         {schema.minimum !== undefined && <span>min {schema.minimum}</span>}
         {schema.maximum !== undefined && <span>max {schema.maximum}</span>}
@@ -510,6 +513,22 @@ function EndpointContent({
   const response = operation.responses[responseCode];
   const requestMedia = guideMedia(operation.requestBody?.content);
   const body = publishedExample(requestMedia, example.exampleName);
+  const preferredMethod =
+    body &&
+    typeof body === "object" &&
+    "paymentMethodName" in body &&
+    typeof body.paymentMethodName === "string"
+      ? body.paymentMethodName
+      : undefined;
+  const catalogProps =
+    setup && example.method === "POST" && example.paymentKind
+      ? {
+          setup,
+          kind: example.paymentKind,
+          payout: example.paymentAction === "BUSINESS_API_PAYOUT",
+          preferredMethod,
+        }
+      : undefined;
   const responseMedia = guideMedia(response?.content);
   const responseBody = publishedExample(responseMedia);
   const [responseView, setResponseView] = useState<"example" | "structure">(
@@ -613,9 +632,6 @@ function EndpointContent({
           <span>{example.incoming ? t("Incoming webhook", "Webhook entrant") : "v1"}</span>
         </div>
       )}
-      <div className="guide-example-provenance">
-        <span>{t("No payment is sent", "Aucun paiement envoyé")}</span>
-      </div>
       <div className="guide-http-grid">
         <GuideCodeCard
           title={t("Request", "Requête")}
@@ -648,12 +664,13 @@ function EndpointContent({
                 </button>
               )}
             </div>
-            {setup && example.method === "POST" && example.paymentKind && (
-              <ApiGuideCatalog
-                setup={setup}
-                kind={example.paymentKind}
-                payout={example.paymentAction === "BUSINESS_API_PAYOUT"}
-              />
+            {catalogProps && (
+              <div className="guide-catalog-actions">
+                <ApiGuideCatalog {...catalogProps} />
+                {catalogProps.kind === "CRYPTO" && (
+                  <ApiGuideCatalog {...catalogProps} target="networks" />
+                )}
+              </div>
             )}
           </div>
         </GuideCodeCard>
@@ -799,7 +816,18 @@ function EndpointContent({
               field={activeField}
               note={hint?.note[language === "fr" ? 1 : 0]}
               example={example}
-            />
+            >
+              {catalogProps &&
+                scope === "body" &&
+                ["paymentMethodName", "networkName"].includes(activeField.path) && (
+                  <div className="guide-field-catalog">
+                    <ApiGuideCatalog
+                      {...catalogProps}
+                      target={activeField.path === "networkName" ? "networks" : "methods"}
+                    />
+                  </div>
+                )}
+            </FieldDetail>
           )}
         </section>
         <section

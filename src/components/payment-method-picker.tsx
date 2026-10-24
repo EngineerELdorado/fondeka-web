@@ -1,23 +1,28 @@
 "use client";
 import { useId, useState } from "react";
-import { Wallet, Bitcoin, Smartphone, Landmark, ChevronDown } from "lucide-react";
+import { Wallet, Bitcoin, Smartphone, Landmark, ChevronDown, RefreshCw } from "lucide-react";
 import { isPositiveId, methodKey, type PaymentMethod } from "@/lib/business-tools";
 import { groupPaymentMethods, type PaymentGroupType } from "@/lib/payment-method-groups";
 import { paymentCopy, paymentMoney } from "@/lib/business-tools-ui";
 import { usePaymentLanguage } from "@/lib/use-payment-language";
+import { PaymentMethodIcon } from "./payment-method-icon";
 const icons = { BALANCE: Wallet, CRYPTO: Bitcoin, MOBILE_MONEY: Smartphone, BANK: Landmark };
 export function PaymentMethodPicker({
   methods,
   selectedKey,
   onSelect,
+  wallets,
 }: {
   methods: PaymentMethod[];
   selectedKey: string;
   onSelect: (key: string) => void;
+  wallets?: { checking: boolean; unavailable: boolean; retry: () => void };
 }) {
   const language = usePaymentLanguage();
   const t = paymentCopy(language);
   const groups = groupPaymentMethods(methods);
+  if (wallets && !groups.some((group) => group.type === "BALANCE"))
+    groups.unshift({ type: "BALANCE", methods: [] });
   const [open, setOpen] = useState<PaymentGroupType | null>("BALANCE");
   const expanded =
     open === null ? null : groups.find((group) => group.type === open)?.type || groups[0]?.type;
@@ -27,6 +32,12 @@ export function PaymentMethodPicker({
     CRYPTO: t.cryptos,
     MOBILE_MONEY: t.mobileMoney,
     BANK: language === "fr" ? "Banque" : "Bank",
+  };
+  const descriptions = {
+    BALANCE: language === "fr" ? "Depuis votre solde Fondeka" : "From your Fondeka balance",
+    CRYPTO: language === "fr" ? "Choisissez une crypto et un réseau" : "Choose a coin and network",
+    MOBILE_MONEY: language === "fr" ? "Confirmez sur votre téléphone" : "Confirm on your phone",
+    BANK: language === "fr" ? "Effectuez un virement" : "Use a bank transfer",
   };
   return (
     <div className="payment-method-groups">
@@ -39,6 +50,7 @@ export function PaymentMethodPicker({
           <section
             className={"payment-method-group" + (isOpen ? " expanded" : "")}
             key={group.type}
+            data-payment-group={group.type}
           >
             <h3>
               <button
@@ -52,13 +64,52 @@ export function PaymentMethodPicker({
                   onSelect("");
                 }}
               >
-                <Icon size={18} aria-hidden="true" />
-                <span>{labels[group.type]}</span>
-                <small>{group.methods.length}</small>
-                <ChevronDown size={17} aria-hidden="true" />
+                <span className="payment-group-icon">
+                  <Icon size={21} aria-hidden="true" />
+                </span>
+                <span className="payment-group-copy">
+                  <strong>{labels[group.type]}</strong>
+                  <small>{descriptions[group.type]}</small>
+                </span>
+                <small className="payment-group-count">
+                  {group.type === "BALANCE" && wallets?.checking ? "…" : group.methods.length}
+                </small>
+                <span className="payment-group-chevron" aria-hidden="true">
+                  <ChevronDown size={17} strokeWidth={2.6} />
+                </span>
               </button>
             </h3>
             <div id={panel} hidden={!isOpen} role="group" aria-labelledby={heading}>
+              {group.type === "BALANCE" &&
+                wallets &&
+                (wallets.checking || wallets.unavailable || !group.methods.length) && (
+                  <div className="payment-wallet-status" role="status">
+                    {wallets.checking ? (
+                      <>
+                        <span className="spinner" />
+                        {language === "fr"
+                          ? "Vérification des soldes et des frais…"
+                          : "Checking balances and fees…"}
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          {wallets.unavailable
+                            ? language === "fr"
+                              ? "Certains portefeuilles n’ont pas pu être vérifiés. Réessayez ou choisissez un autre moyen."
+                              : "Some wallets could not be checked. Retry or choose another method."
+                            : language === "fr"
+                              ? "Aucun portefeuille ne couvre le total avec les frais. Choisissez un autre moyen."
+                              : "No wallet covers the total including fees. Choose another method."}
+                        </p>
+                        <button type="button" className="text-button" onClick={wallets.retry}>
+                          <RefreshCw size={14} />
+                          {t.refresh}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               <div className="payment-method-grid" role="radiogroup" aria-labelledby={heading}>
                 {group.methods.map((method) => {
                   const key = methodKey(method);
@@ -83,7 +134,7 @@ export function PaymentMethodPicker({
                         onChange={() => onSelect(key)}
                       />
                       <span className="activation-method-icon">
-                        <Icon size={22} aria-hidden="true" />
+                        <PaymentMethodIcon method={method} />
                       </span>
                       <span className="activation-method-copy">
                         <strong>

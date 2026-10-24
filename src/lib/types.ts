@@ -104,11 +104,11 @@ export interface Quote {
 export interface Business {
   id: number;
   name: string;
-  legalName?: string;
+  legalName?: string | null;
   status: string;
   kybStatus: string;
   defaultBusiness?: boolean;
-  countryCode?: string;
+  countryCode?: string | null;
   registrationNumber?: string | null;
   createdAt?: string;
   updatedAt?: string;

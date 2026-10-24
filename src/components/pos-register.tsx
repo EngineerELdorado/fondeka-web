@@ -637,7 +637,7 @@ export function PosRegister({ store }: { store: Store }) {
         )}
       </div>
       <div className="cart-bottom">
-        <div className="cart-total">
+        <div className="cart-subtotal">
           <span>{t("Subtotal", "Sous-total")}</span>
           <strong>
             {estimate === undefined ? t("Calculate", "Calculer") : money(estimate, billing)}

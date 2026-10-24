@@ -2,7 +2,92 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { allowedProxyRoute } from "../src/lib/proxy-policy";
-import { GET, POST } from "../src/app/api/backend/[...path]/route";
+import { GET, POST, PATCH } from "../src/app/api/backend/[...path]/route";
+
+test("Business details allow only GET and PATCH of an exact customer Business resource", () => {
+  for (const method of ["GET", "PATCH"])
+    assert.equal(allowedProxyRoute("customer-api/businesses/42", method), true);
+  for (const method of ["POST", "PUT", "DELETE"])
+    assert.equal(allowedProxyRoute("customer-api/businesses/42", method), false);
+  for (const path of [
+    "customer-api/businesses",
+    "customer-api/businesses/42/",
+    "customer-api/businesses/42/extra",
+    "customer-api/businesses/42/../43",
+    "customer-api/businesses/name",
+    "admin-api/businesses/42",
+    "business-api/v1/businesses/42",
+  ])
+    assert.equal(allowedProxyRoute(path, "PATCH"), false);
+});
+
+test("Business PATCH preserves its exact partial body and customer/device context, with CSRF and no-store", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBase = process.env.FONDEKA_API_BASE_URL;
+  process.env.FONDEKA_API_BASE_URL = "https://backend.example";
+  const body = JSON.stringify({ name: "Atelier Kin", legalName: null });
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls++;
+    assert.equal(String(url), "https://backend.example/customer-api/businesses/42");
+    assert.equal(init?.method, "PATCH");
+    assert.equal(init?.body, body);
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("Authorization"), "Bearer customer.token.signature");
+    assert.equal(headers.get("X-Device-Id"), "browser-42");
+    assert.equal(headers.get("X-Device-Session"), "verified-device");
+    assert.equal(headers.get("X-Device-Platform"), "WEB");
+    assert.equal(headers.get("Accept-Language"), "fr");
+    assert.equal(headers.get("X-API-Key"), null);
+    assert.equal(init?.cache, "no-store");
+    return Response.json({ id: 42, name: "Atelier Kin", legalName: null });
+  };
+  const params = { params: Promise.resolve({ path: ["customer-api", "businesses", "42"] }) };
+  const url = "http://localhost:4200/api/backend/customer-api/businesses/42";
+  const headers = {
+    Authorization: "Bearer customer.token.signature",
+    "X-Device-Id": "browser-42",
+    "X-Device-Session": "verified-device",
+    "Accept-Language": "fr",
+    "X-API-Key": "must-not-forward",
+  };
+  try {
+    assert.equal(
+      (await PATCH(new NextRequest(url, { method: "PATCH", body }), params)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await PATCH(
+          new NextRequest(url, {
+            method: "PATCH",
+            body,
+            headers: { ...headers, Origin: "https://foreign.example" },
+          }),
+          params,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(calls, 0);
+    const response = await PATCH(
+      new NextRequest(url, {
+        method: "PATCH",
+        body,
+        headers: { ...headers, Origin: "http://localhost:4200" },
+      }),
+      params,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { id: 42, name: "Atelier Kin", legalName: null });
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBase === undefined) delete process.env.FONDEKA_API_BASE_URL;
+    else process.env.FONDEKA_API_BASE_URL = originalBase;
+  }
+});
 
 test("the portal gateway permits scoped credential management but rejects payment/admin mutations", () => {
   assert.equal(allowedProxyRoute("customer-api/businesses/42/api-keys", "GET"), true);

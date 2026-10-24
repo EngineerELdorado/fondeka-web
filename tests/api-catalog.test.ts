@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   apiCatalogPath,
+  catalogMethodsFor,
   catalogMethodSelectable,
   catalogNetworksFor,
   parseApiCatalog,
@@ -70,12 +71,24 @@ test("catalog parsing preserves exact identifiers, foreign countries, metadata a
     assert.throws(() => parseApiCatalog(invalid));
 });
 
-test("LIVE honors direction and global method flags while SANDBOX retains inactive configurations", () => {
+test("inactive methods are hidden and unselectable in both environments, preserving family and country context", () => {
+  const inactive = { ...catalog.paymentMethods[0], name: "AIRTEL_MONEY_DRC", active: false };
+  const mixed = { ...catalog, paymentMethods: [inactive, ...catalog.paymentMethods] };
+  assert.deepEqual(catalogMethodsFor(mixed, "MOBILE_MONEY"), [catalog.paymentMethods[0]]);
+  assert.deepEqual(catalogMethodsFor(mixed, "CRYPTO"), [catalog.paymentMethods[1]]);
+  assert.deepEqual(catalogMethodsFor({ ...mixed, paymentMethods: [inactive] }, "MOBILE_MONEY"), []);
+  for (const environment of ["LIVE", "SANDBOX"] as const)
+    for (const payout of [false, true])
+      assert.equal(catalogMethodSelectable(inactive, environment, payout), false);
+  assert.equal(mixed.paymentMethods.length, 3);
+});
+
+test("active methods retain LIVE direction flags and sandbox simulation rules", () => {
   const method = catalog.paymentMethods[0];
   assert.equal(catalogMethodSelectable(method, "LIVE", false), true);
   assert.equal(catalogMethodSelectable(method, "LIVE", true), false);
   assert.equal(catalogMethodSelectable({ ...method, active: false }, "LIVE", false), false);
-  assert.equal(catalogMethodSelectable({ ...method, active: false }, "SANDBOX", false), true);
+  assert.equal(catalogMethodSelectable({ ...method, active: false }, "SANDBOX", false), false);
   assert.equal(catalogMethodSelectable(method, "SANDBOX", true), true);
 });
 
@@ -85,8 +98,18 @@ test("crypto networks use only method associations in priority order with enviro
     catalogNetworksFor(catalog, method, environment, payout).map((network) => network.name);
   assert.deepEqual(names("LIVE", false), ["TRC20"]);
   assert.deepEqual(names("LIVE", true), ["TRC20", "ERC20"]);
-  assert.deepEqual(names("SANDBOX", false), ["TRC20", "ERC20", "BASE"]);
-  assert.deepEqual(names("SANDBOX", true), ["TRC20", "ERC20", "BASE"]);
+  assert.deepEqual(names("SANDBOX", false), ["TRC20", "ERC20"]);
+  assert.deepEqual(names("SANDBOX", true), ["TRC20", "ERC20"]);
+  for (const environment of ["LIVE", "SANDBOX"] as const) {
+    assert.deepEqual(
+      catalogNetworksFor(catalog, { ...method, active: false }, environment, true),
+      [],
+    );
+    assert.deepEqual(
+      catalogNetworksFor(catalog, { ...method, networkNames: ["BASE"] }, environment, true),
+      [],
+    );
+  }
   assert.deepEqual(catalogNetworksFor(catalog, catalog.paymentMethods[0], "LIVE", true), []);
   assert.deepEqual(
     catalogNetworksFor(catalog, { ...method, networkNames: [] }, "SANDBOX", false),

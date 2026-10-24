@@ -28,7 +28,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { MobileNavigation } from "./mobile-navigation";
 import { DeveloperSectionLinks } from "./developer-section-links";
 import { WorkspaceBusinessId } from "./workspace-business-id";
-import { developerHref, developerSections } from "@/lib/developer-navigation";
+import { developerSections } from "@/lib/developer-navigation";
 
 const navigation = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -85,32 +85,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navigation.map(({ href, label, icon: Icon }) =>
             href === "/developers" ? (
               <div key={href} className="developer-nav-group">
-                <div
-                  className={`developer-nav-parent ${activePath.startsWith(href) ? "active" : ""}`}
+                <button
+                  type="button"
+                  className={`nav-item developer-nav-parent ${activePath.startsWith(href) ? "active" : ""}`}
+                  aria-expanded={developersOpen}
+                  aria-controls="developer-submenu"
+                  onClick={() => setDeveloperExpansion({ path: pathname, open: !developersOpen })}
                 >
-                  <Link
-                    href={developerHref(
-                      "credentials",
-                      pathname.startsWith("/developers") ? values : new URLSearchParams(),
-                    )}
-                    className="nav-item"
-                    aria-current={pathname === href ? "page" : undefined}
-                    onClick={() => setOpen(false)}
-                  >
-                    <Icon size={19} />
-                    <span>{uiText(label)}</span>
-                  </Link>
-                  <button
-                    type="button"
-                    className="developer-nav-toggle"
-                    aria-expanded={developersOpen}
-                    aria-controls="developer-submenu"
-                    aria-label={uiText(developersOpen ? "Collapse API menu" : "Expand API menu")}
-                    onClick={() => setDeveloperExpansion({ path: pathname, open: !developersOpen })}
-                  >
-                    <ChevronDown size={16} />
-                  </button>
-                </div>
+                  <Icon size={19} aria-hidden="true" />
+                  <span className="developer-nav-label">{uiText(label)}</span>
+                  <span className="developer-nav-chevron" aria-hidden="true">
+                    <ChevronDown size={16} strokeWidth={2.5} />
+                  </span>
+                </button>
                 <div id="developer-submenu" hidden={!developersOpen}>
                   <DeveloperSectionLinks pathname={pathname} onNavigate={() => setOpen(false)} />
                 </div>

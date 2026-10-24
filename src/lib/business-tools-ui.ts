@@ -16,7 +16,7 @@ export function toolLinkDestination(href: string) {
   const destination = businessDestination(
     href === "/developers#integration-guide" ? "/developers?guide=1" : href,
   );
-  return destination && !["/overview", "/business"].includes(destination.split("?")[0])
+  return destination && !["/overview", "/business", "/settings"].includes(destination.split("?")[0])
     ? destination
     : undefined;
 }

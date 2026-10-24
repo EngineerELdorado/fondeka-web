@@ -326,7 +326,7 @@ function Experience({
 }
 export function OwnerArea({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (["/overview", "/business"].includes(pathname) || !businessDestination(pathname))
+  if (["/overview", "/business", "/settings"].includes(pathname) || !businessDestination(pathname))
     return children;
   return (
     <BusinessToolsGate key={pathname} destination={pathname}>

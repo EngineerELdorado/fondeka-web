@@ -36,6 +36,7 @@ export interface PaymentMethod {
   name: string;
   type: "BALANCE" | "MOBILE_MONEY" | "CRYPTO" | "BANK";
   typeLabel?: string;
+  logoUrl?: string | null;
   currency?: string | null;
   fiatWalletId?: number | null;
   balance?: number | null;
@@ -124,11 +125,12 @@ export function businessDestination(value: string): string | undefined {
   }
   if (
     url.origin !== "https://portal.invalid" ||
-    !/^\/(overview|business|developers(?:\/(?:wallets|transactions|guides))?|payment-requests|pos|stores(?:\/\d+(?:\/pos)?)?)$/.test(
+    !/^\/(overview|business|settings|developers(?:\/(?:wallets|transactions|guides))?|payment-requests|pos|stores(?:\/\d+(?:\/pos)?)?)$/.test(
       url.pathname,
     )
   )
     return;
+  if (url.pathname === "/settings") return "/settings";
   const query = new URLSearchParams();
   if (url.pathname === "/stores" && url.searchParams.get("mode") === "pos") {
     query.set("mode", "pos");

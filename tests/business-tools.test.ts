@@ -859,13 +859,16 @@ test("only known internal destinations and the specific owner-access denial ente
     "https://evil.example",
     "//evil.example",
     "/login",
-    "/settings",
     "/market",
     "/stores/42/../../login",
     "/checkout",
     "/p/invoice",
   ])
     assert.equal(businessDestination(value), undefined);
+  assert.equal(
+    businessDestination("/settings?returnTo=https://evil.example&flow=api-key"),
+    "/settings",
+  );
   assert.equal(businessDestination("/pos?store=42&returnTo=https://evil.example"), "/pos?store=42");
   assert.equal(
     needsBusinessToolsRecovery(

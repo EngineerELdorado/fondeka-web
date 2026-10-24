@@ -78,14 +78,17 @@ export function apiCatalogPath(businessId: number) {
     throw new Error("An owned Business ID is required.");
   return `/customer-api/businesses/${businessId}/api-catalog`;
 }
+export function catalogMethodsFor(catalog: ApiCatalog, kind: ApiPaymentKind) {
+  return catalog.paymentMethods.filter((method) => method.active && method.type === kind);
+}
 export function catalogMethodSelectable(
   method: ApiCatalogMethod,
   environment: ApiEnvironment,
   payout: boolean,
 ) {
   return (
-    environment === "SANDBOX" ||
-    (method.active && (payout ? method.allowingPayout : method.allowingCollection))
+    method.active &&
+    (environment === "SANDBOX" || (payout ? method.allowingPayout : method.allowingCollection))
   );
 }
 export function catalogNetworksFor(
@@ -94,13 +97,13 @@ export function catalogNetworksFor(
   environment: ApiEnvironment,
   payout: boolean,
 ) {
-  if (method.type !== "CRYPTO") return [];
+  if (!method.active || method.type !== "CRYPTO") return [];
   const networks = new Map(catalog.cryptoNetworks.map((network) => [network.name, network]));
   return method.networkNames
     .map((name) => networks.get(name))
     .filter((network): network is ApiCatalogNetwork => network !== undefined)
     .filter(
       (network) =>
-        environment === "SANDBOX" || (network.active && (payout || network.invoiceCreationEnabled)),
+        network.active && (environment === "SANDBOX" || payout || network.invoiceCreationEnabled),
     );
 }

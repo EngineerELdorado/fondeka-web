@@ -41,21 +41,29 @@ export function CurrencyIdentity({
       /* The currency code remains unambiguous. */
     }
   }
-  const region = currencyRegions[currency] || metadata?.countryCode;
-  const source = safeLink(metadata?.logoUrl);
   return (
     <span className="currency-identity">
-      <span className={`currency-flag ${region ? "" : "currency-flag-code"}`} aria-hidden="true">
-        <FlagImage
-          key={source}
-          source={source}
-          fallback={region ? countryFlag(region) : currency}
-        />
-      </span>
+      <CurrencyFlag currency={currency} metadata={metadata} />
       <span>
         <strong>{currency}</strong>
         <small>{name}</small>
       </span>
+    </span>
+  );
+}
+
+export function CurrencyFlag({
+  currency,
+  metadata,
+}: {
+  currency: string;
+  metadata?: CurrencyPresentation;
+}) {
+  const region = currencyRegions[currency] || metadata?.countryCode;
+  const source = safeLink(metadata?.logoUrl);
+  return (
+    <span className={`currency-flag ${region ? "" : "currency-flag-code"}`} aria-hidden="true">
+      <FlagImage key={source} source={source} fallback={region ? countryFlag(region) : currency} />
     </span>
   );
 }

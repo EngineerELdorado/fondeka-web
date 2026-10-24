@@ -7,33 +7,56 @@ import {
   Copy,
   FileText,
   Globe2,
-  Info,
   LockKeyhole,
   RefreshCw,
   ShieldCheck,
+  Pencil,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { mayMountOwnerData } from "@/lib/business-tools-client";
-import { businessDisplayName } from "@/lib/business-profile";
+import { businessDetailsPath, businessDisplayName, businessListPath } from "@/lib/business-profile";
 import { useQuery } from "@/lib/use-query";
 import type { Business, Page } from "@/lib/types";
 import { useBusinessTools, useToolNavigation } from "./business-tools-provider";
 import { Badge, Empty, ErrorState, Loading } from "./ui";
+import { useWorkspace } from "./workspace-provider";
+import { BusinessDetailsEditor } from "./business-details-editor";
 
 export function BusinessSettings() {
+  const { accountKey } = useWorkspace();
+  return <BusinessSettingsSession key={accountKey} />;
+}
+function BusinessSettingsSession() {
+  const { state } = useBusinessTools();
+  const { enabled } = useToolNavigation();
+  const [editing, setEditing] = useState<Business>();
+  const allowed = mayMountOwnerData(state, "/settings", enabled);
+  return (
+    <>
+      {editing && (
+        <div hidden={!allowed} inert={!allowed}>
+          <BusinessDetailsEditor business={editing} onClose={() => setEditing(undefined)} />
+        </div>
+      )}
+      {(!editing || !allowed) && <BusinessProfile onEdit={setEditing} />}
+    </>
+  );
+}
+function BusinessProfile({ onEdit }: { onEdit: (business: Business) => void }) {
   const { t, language } = useI18n();
   const { client, state } = useBusinessTools();
   const navigation = useToolNavigation();
-  const allowed = mayMountOwnerData(state, "/developers", navigation.enabled);
-  const businesses = useQuery<Page<Business>>(
-    allowed ? "/customer-api/businesses?page=0&size=20" : null,
-  );
+  const allowed = mayMountOwnerData(state, "/settings", navigation.enabled);
+  const businesses = useQuery<Page<Business>>(allowed ? businessListPath : null);
+  const selected = businesses.data?.content[0];
+  const details = useQuery<Business>(allowed && selected ? businessDetailsPath(selected.id) : null);
+  const [opening, setOpening] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
-  const business = businesses.data?.content[0];
+  const business = details.data;
   const name = businessDisplayName(business);
   const missing = t("Not provided", "Non renseigné");
-  const refresh = () => void businesses.refetch();
+  const refresh = () => void Promise.all([businesses.refetch(), details.refetch()]);
 
   async function copyId() {
     if (!business) return;
@@ -76,16 +99,17 @@ export function BusinessSettings() {
         <button
           type="button"
           className="button primary"
-          onClick={() => navigation.open("/developers")}
+          onClick={() => navigation.open("/settings")}
         >
           {t("Open Business Tools", "Ouvrir les outils Business")}
         </button>
       </Empty>
     );
   }
-  if (businesses.loading) return <Loading rows={4} />;
+  if (businesses.loading || details.loading) return <Loading rows={4} />;
   if (businesses.error) return <ErrorState message={businesses.error} retry={refresh} />;
-  if (!business)
+  if (details.error) return <ErrorState message={details.error} retry={refresh} />;
+  if (!selected)
     return (
       <Empty
         icon={Building2}
@@ -94,6 +118,16 @@ export function BusinessSettings() {
           "Your Business details will appear here once your profile is set up.",
           "Vos informations Business apparaîtront ici une fois votre profil créé.",
         )}
+      />
+    );
+  if (!business)
+    return (
+      <ErrorState
+        message={t(
+          "Couldn’t load Business details. Please refresh.",
+          "Impossible de charger les informations Business. Veuillez actualiser.",
+        )}
+        retry={refresh}
       />
     );
 
@@ -108,7 +142,7 @@ export function BusinessSettings() {
 
   return (
     <>
-      {businesses.refreshError && (
+      {(businesses.refreshError || details.refreshError) && (
         <div className="info-box" role="status">
           {t(
             "Couldn’t refresh your Business details. Showing the last loaded details.",
@@ -196,11 +230,20 @@ export function BusinessSettings() {
               </div>
             </dl>
             <p className="business-profile-note">
-              <Info size={17} aria-hidden="true" />
-              {t(
-                "Business profile updates are not available in the portal yet.",
-                "La modification du profil Business n’est pas encore disponible sur le portail.",
-              )}
+              <button
+                type="button"
+                className="button secondary"
+                disabled={opening}
+                onClick={async () => {
+                  setOpening(true);
+                  const current = await details.refetch();
+                  if (current) onEdit(current);
+                  setOpening(false);
+                }}
+              >
+                {opening ? <span className="spinner" /> : <Pencil size={16} />}
+                {t("Edit Business details", "Modifier les informations Business")}
+              </button>
             </p>
           </div>
         </section>
