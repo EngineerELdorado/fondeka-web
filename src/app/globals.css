@@ -3227,19 +3227,6 @@ textarea {
     animation: none;
   }
 }
-.login-story .welcome-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 1px;
-}
 .login-toolkit {
   position: relative;
   isolation: isolate;
@@ -7580,11 +7567,6 @@ button.detail-row:hover {
 @media (min-width: 761px) and (min-height: 641px) {
   .login-form-header {
     margin-bottom: clamp(16px, 3dvh, 28px);
-  }
-}
-@media (min-width: 761px) and (max-height: 900px), (min-width: 761px) and (max-width: 960px) {
-  .login-story .welcome-kicker {
-    display: none;
   }
 }
 @media (min-width: 761px) and (max-height: 800px), (min-width: 761px) and (max-width: 960px) {

@@ -130,10 +130,6 @@ export default function Login() {
       <section className="login-story">
         <Brand />
         <div className="login-story-content">
-          <span className="welcome-kicker">
-            <Sparkles size={13} aria-hidden="true" />
-            {t("MAKE YOUR NEXT MOVE", "PASSEZ À LA SUITE")}
-          </span>
           <h2>
             {t("Business tools", "Des outils Business")}
             <br />
