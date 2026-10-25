@@ -26,6 +26,7 @@ import type { ProcessingErrorCode } from "./api-error-catalog";
 import { sandboxFundingBody, walletCurrency } from "./api-wallets";
 import { conversionInput } from "./sandbox-conversion";
 import type { ApiCatalog } from "./api-catalog";
+import type { CatalogFeeSchedule } from "./api-catalog-fees";
 import {
   businessDetailsDraft,
   businessDetailsErrors,
@@ -836,7 +837,9 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
     if (route.split("/")[2] !== "1")
       throw Object.assign(new Error("Business not found."), { status: 404 });
     // Fictional configuration for demo mode only; never a fallback for a real catalog.
-    result = {
+    const currency = walletCurrency(url.searchParams.get("currency") ?? "USD");
+    const scale = ({ USD: 1, EUR: 0.9, CDF: 2800, KES: 130 } as Record<string, number>)[currency];
+    const catalog = {
       paymentMethods: [
         {
           name: "BTC",
@@ -887,6 +890,75 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         { name: "ERC20", displayName: "Ethereum", active: true, invoiceCreationEnabled: false },
         { name: "TRC20", displayName: "TRON", active: true, invoiceCreationEnabled: true },
       ],
+    } satisfies ApiCatalog;
+    result = {
+      ...catalog,
+      paymentMethods: catalog.paymentMethods.map((paymentMethod) => {
+        const schedule = (payout: boolean): CatalogFeeSchedule => {
+          const unavailableReason = !paymentMethod.active
+            ? "PAYMENT_METHOD_INACTIVE"
+            : !(payout ? paymentMethod.allowingPayout : paymentMethod.allowingCollection)
+              ? "OPERATION_DISABLED"
+              : !scale
+                ? "FX_UNAVAILABLE"
+                : null;
+          return {
+            status: unavailableReason
+              ? "UNAVAILABLE"
+              : !payout && paymentMethod.name === "USDT"
+                ? "PARTIAL"
+                : "AVAILABLE",
+            currency,
+            rangeAmountBasis: payout ? "REQUEST_AMOUNT" : "GROSS_AMOUNT",
+            feeAmountBasis: "REQUEST_AMOUNT",
+            quoteRequired: true,
+            unavailableReason,
+            ranges: unavailableReason
+              ? []
+              : payout
+                ? [
+                    {
+                      minAmount: 0,
+                      maxAmountExclusive: null,
+                      available: true,
+                      fee:
+                        paymentMethod.name === "USDT"
+                          ? { percentage: 0, flatFee: 0, minimum: null }
+                          : {
+                              percentage: 3,
+                              flatFee: 0,
+                              minimum: { percentage: 1, flatFee: Number((0.8 * scale).toFixed(2)) },
+                            },
+                    },
+                  ]
+                : [
+                    ...(paymentMethod.name === "USDT"
+                      ? [{ minAmount: 0, maxAmountExclusive: scale, available: false, fee: null }]
+                      : []),
+                    {
+                      minAmount: paymentMethod.name === "USDT" ? scale : 0,
+                      maxAmountExclusive: Number((100.01 * scale).toFixed(2)),
+                      available: true,
+                      fee: { percentage: 5, flatFee: 0, minimum: null },
+                    },
+                    {
+                      minAmount: Number((100.01 * scale).toFixed(2)),
+                      maxAmountExclusive: null,
+                      available: true,
+                      fee: {
+                        percentage: 4,
+                        flatFee: Number((0.5 * scale).toFixed(2)),
+                        minimum: null,
+                      },
+                    },
+                  ],
+          };
+        };
+        return {
+          ...paymentMethod,
+          fees: { environment: "LIVE", collection: schedule(false), payout: schedule(true) },
+        };
+      }),
     } satisfies ApiCatalog;
   } else if (/^\/businesses\/\d+\/api-wallets$/.test(route) && method === "GET") {
     const environment = apiEnvironment(url.searchParams.get("environment") ?? undefined);

@@ -43,6 +43,7 @@ import { ApiGuideEndpoint } from "./api-guide-endpoint";
 import { ApiGuideConfirmation } from "./api-guide-confirmation";
 import { ApiGuideQuickstart } from "./api-guide-quickstart";
 import { ApiGuideNavigation } from "./api-guide-navigation";
+import { ApiGuidePaymentMethods } from "./api-guide-catalog";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import { useWorkspace } from "./workspace-provider";
 import { Loading } from "./ui";
@@ -354,6 +355,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   });
   const completed = saved.account === accountKey ? saved.ids : [];
   const [notice, setNotice] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef(current);
   const storageKey = accountKey ? `fondeka:api-learning:v1:${accountKey}` : null;
@@ -416,6 +418,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           current={topic.id}
           completed={completed}
           onSelect={selectGuide}
+          onOpenCatalog={() => setCatalogOpen(true)}
           icons={icons}
         />
       </aside>
@@ -425,7 +428,8 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           <select
             value={topic.id}
             onChange={(event) => {
-              if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
+              if (event.target.value === "payment-methods") setCatalogOpen(true);
+              else if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
                 selectGuide(event.target.value);
             }}
           >
@@ -438,6 +442,10 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
               item.kind === "guide" ? (
                 <option key={item.id} value={item.id}>
                   {businessApiTopic(item.id)[language]}
+                </option>
+              ) : item.kind === "catalog" ? (
+                <option key={item.id} value={item.id}>
+                  {item.title[language === "fr" ? 1 : 0]}
                 </option>
               ) : (
                 <optgroup key={item.id} label={item.title[language === "fr" ? 1 : 0]}>
@@ -523,6 +531,9 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           setup={setup}
         />
       </div>
+      {catalogOpen && (
+        <ApiGuidePaymentMethods setup={setup} onClose={() => setCatalogOpen(false)} />
+      )}
     </div>
   );
 }

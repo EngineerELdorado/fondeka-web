@@ -45,6 +45,9 @@ const catalog: ApiCatalog = {
 
 test("catalog reads use a validated customer Business ID without an environment or merchant route", () => {
   assert.equal(apiCatalogPath(42), "/customer-api/businesses/42/api-catalog");
+  assert.equal(apiCatalogPath(42, "kes"), "/customer-api/businesses/42/api-catalog?currency=KES");
+  for (const invalid of ["USDT", "", "USD&environment=LIVE"])
+    assert.throws(() => apiCatalogPath(42, invalid));
   for (const id of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])
     assert.throws(() => apiCatalogPath(id));
 });
@@ -71,15 +74,20 @@ test("catalog parsing preserves exact identifiers, foreign countries, metadata a
     assert.throws(() => parseApiCatalog(invalid));
 });
 
-test("inactive methods are hidden and unselectable in both environments, preserving family and country context", () => {
+test("inactive identifiers stay available for sandbox testing but are hidden in LIVE", () => {
   const inactive = { ...catalog.paymentMethods[0], name: "AIRTEL_MONEY_DRC", active: false };
   const mixed = { ...catalog, paymentMethods: [inactive, ...catalog.paymentMethods] };
   assert.deepEqual(catalogMethodsFor(mixed, "MOBILE_MONEY"), [catalog.paymentMethods[0]]);
   assert.deepEqual(catalogMethodsFor(mixed, "CRYPTO"), [catalog.paymentMethods[1]]);
   assert.deepEqual(catalogMethodsFor({ ...mixed, paymentMethods: [inactive] }, "MOBILE_MONEY"), []);
-  for (const environment of ["LIVE", "SANDBOX"] as const)
-    for (const payout of [false, true])
-      assert.equal(catalogMethodSelectable(inactive, environment, payout), false);
+  assert.deepEqual(catalogMethodsFor(mixed, "MOBILE_MONEY", "SANDBOX"), [
+    inactive,
+    catalog.paymentMethods[0],
+  ]);
+  for (const payout of [false, true]) {
+    assert.equal(catalogMethodSelectable(inactive, "LIVE", payout), false);
+    assert.equal(catalogMethodSelectable(inactive, "SANDBOX", payout), true);
+  }
   assert.equal(mixed.paymentMethods.length, 3);
 });
 
@@ -88,7 +96,7 @@ test("active methods retain LIVE direction flags and sandbox simulation rules", 
   assert.equal(catalogMethodSelectable(method, "LIVE", false), true);
   assert.equal(catalogMethodSelectable(method, "LIVE", true), false);
   assert.equal(catalogMethodSelectable({ ...method, active: false }, "LIVE", false), false);
-  assert.equal(catalogMethodSelectable({ ...method, active: false }, "SANDBOX", false), false);
+  assert.equal(catalogMethodSelectable({ ...method, active: false }, "SANDBOX", false), true);
   assert.equal(catalogMethodSelectable(method, "SANDBOX", true), true);
 });
 
@@ -98,9 +106,9 @@ test("crypto networks use only method associations in priority order with enviro
     catalogNetworksFor(catalog, method, environment, payout).map((network) => network.name);
   assert.deepEqual(names("LIVE", false), ["TRC20"]);
   assert.deepEqual(names("LIVE", true), ["TRC20", "ERC20"]);
-  assert.deepEqual(names("SANDBOX", false), ["TRC20", "ERC20"]);
-  assert.deepEqual(names("SANDBOX", true), ["TRC20", "ERC20"]);
-  for (const environment of ["LIVE", "SANDBOX"] as const) {
+  assert.deepEqual(names("SANDBOX", false), ["TRC20", "ERC20", "BASE"]);
+  assert.deepEqual(names("SANDBOX", true), ["TRC20", "ERC20", "BASE"]);
+  for (const environment of ["LIVE"] as const) {
     assert.deepEqual(
       catalogNetworksFor(catalog, { ...method, active: false }, environment, true),
       [],
@@ -110,6 +118,12 @@ test("crypto networks use only method associations in priority order with enviro
       [],
     );
   }
+  assert.deepEqual(
+    catalogNetworksFor(catalog, { ...method, active: false }, "SANDBOX", true).map(
+      (network) => network.name,
+    ),
+    ["TRC20", "ERC20", "BASE"],
+  );
   assert.deepEqual(catalogNetworksFor(catalog, catalog.paymentMethods[0], "LIVE", true), []);
   assert.deepEqual(
     catalogNetworksFor(catalog, { ...method, networkNames: [] }, "SANDBOX", false),
@@ -121,6 +135,18 @@ test("demo catalog is read-only, owned-Business scoped and includes non-owner co
   resetDemo();
   const before = await demoRequest("/customer-api/businesses/1/api-wallets?environment=SANDBOX");
   const parsed = parseApiCatalog(await demoRequest(apiCatalogPath(1)));
+  assert.equal(parsed.paymentMethods[0].fees?.environment, "LIVE");
+  const converted = parseApiCatalog(await demoRequest(apiCatalogPath(1, "CDF")), "CDF");
+  const kenya = converted.paymentMethods.find((method) => method.name === "MPESA_KENYA")!;
+  assert.equal(kenya.paymentCurrency, "KES");
+  assert.equal(kenya.fees?.collection.currency, "CDF");
+  assert.equal(kenya.fees?.collection.ranges[1].fee?.flatFee, 1400);
+  const unsupported = parseApiCatalog(await demoRequest(apiCatalogPath(1, "GBP")), "GBP");
+  assert.equal(
+    unsupported.paymentMethods.find((method) => method.name === "USDT")?.fees?.collection
+      .unavailableReason,
+    "FX_UNAVAILABLE",
+  );
   assert.ok(parsed.paymentMethods.some((method) => method.countryCode === "KE"));
   assert.ok(parsed.paymentMethods.some((method) => !method.active));
   assert.deepEqual(

@@ -972,6 +972,11 @@ export const apiGuideTracks: GuideTrack[] = [
   },
 ];
 type GuideMenuLink = { kind: "guide"; id: BusinessApiTopic["id"] };
+type GuideCatalogLink = {
+  kind: "catalog";
+  id: "payment-methods";
+  title: GuideCopy;
+};
 type UpcomingGuide = {
   kind: "upcoming";
   id: "electricity" | "tv";
@@ -986,7 +991,7 @@ export type GuideMenuGroup = {
   tone: GuideTrack["tone"];
   children: (GuideMenuLink | UpcomingGuide)[];
 };
-export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup)[] = [
+export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLink)[] = [
   { kind: "guide", id: "overview" },
   { kind: "guide", id: "quickstart" },
   {
@@ -1024,10 +1029,15 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup)[] = [
     ],
   },
   { kind: "guide", id: "webhooks" },
+  {
+    kind: "catalog",
+    id: "payment-methods",
+    title: ["Available payment methods", "Moyens de paiement disponibles"],
+  },
   { kind: "guide", id: "go-live" },
 ];
 export const apiGuideMenuTracks = apiGuideMenuItems
-  .flatMap((item) => (item.kind === "group" ? item.children : [item]))
+  .flatMap((item) => (item.kind === "group" ? item.children : item.kind === "guide" ? [item] : []))
   .filter((item) => item.kind === "guide")
   .map((item) => guideTrack(item.id));
 export function guideTrack(id: string) {

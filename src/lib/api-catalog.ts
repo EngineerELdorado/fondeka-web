@@ -1,4 +1,6 @@
 import type { ApiEnvironment } from "./types";
+import { validCatalogFees, type CatalogFees } from "./api-catalog-fees";
+import { walletCurrency } from "./api-wallets";
 
 export type ApiPaymentKind = "MOBILE_MONEY" | "CRYPTO";
 export type ApiCatalogMethod = {
@@ -11,6 +13,7 @@ export type ApiCatalogMethod = {
   allowingCollection: boolean;
   allowingPayout: boolean;
   networkNames: string[];
+  fees?: CatalogFees;
 };
 export type ApiCatalogNetwork = {
   name: string;
@@ -33,7 +36,7 @@ function identifier(value: unknown): value is string {
   return typeof value === "string" && /^[A-Z][A-Z0-9_]*$/.test(value);
 }
 /** Reject an invalid contract instead of silently inventing usable configuration. */
-export function parseApiCatalog(value: unknown): ApiCatalog {
+export function parseApiCatalog(value: unknown, currency?: string): ApiCatalog {
   if (
     !record(value) ||
     !Array.isArray(value.paymentMethods) ||
@@ -50,7 +53,8 @@ export function parseApiCatalog(value: unknown): ApiCatalog {
         typeof method.allowingCollection === "boolean" &&
         typeof method.allowingPayout === "boolean" &&
         Array.isArray(method.networkNames) &&
-        method.networkNames.every(identifier),
+        method.networkNames.every(identifier) &&
+        validCatalogFees(method.fees, currency),
     ) ||
     !value.cryptoNetworks.every(
       (network) =>
@@ -73,13 +77,19 @@ export function parseApiCatalog(value: unknown): ApiCatalog {
   return catalog;
 }
 
-export function apiCatalogPath(businessId: number) {
+export function apiCatalogPath(businessId: number, currency?: string) {
   if (!Number.isSafeInteger(businessId) || businessId <= 0)
     throw new Error("An owned Business ID is required.");
-  return `/customer-api/businesses/${businessId}/api-catalog`;
+  return `/customer-api/businesses/${businessId}/api-catalog${currency === undefined ? "" : `?${new URLSearchParams({ currency: walletCurrency(currency) })}`}`;
 }
-export function catalogMethodsFor(catalog: ApiCatalog, kind: ApiPaymentKind) {
-  return catalog.paymentMethods.filter((method) => method.active && method.type === kind);
+export function catalogMethodsFor(
+  catalog: ApiCatalog,
+  kind: ApiPaymentKind,
+  environment: ApiEnvironment = "LIVE",
+) {
+  return catalog.paymentMethods.filter(
+    (method) => (environment === "SANDBOX" || method.active) && method.type === kind,
+  );
 }
 export function catalogMethodSelectable(
   method: ApiCatalogMethod,
@@ -87,8 +97,8 @@ export function catalogMethodSelectable(
   payout: boolean,
 ) {
   return (
-    method.active &&
-    (environment === "SANDBOX" || (payout ? method.allowingPayout : method.allowingCollection))
+    environment === "SANDBOX" ||
+    (method.active && (payout ? method.allowingPayout : method.allowingCollection))
   );
 }
 export function catalogNetworksFor(
@@ -97,13 +107,13 @@ export function catalogNetworksFor(
   environment: ApiEnvironment,
   payout: boolean,
 ) {
-  if (!method.active || method.type !== "CRYPTO") return [];
+  if ((environment === "LIVE" && !method.active) || method.type !== "CRYPTO") return [];
   const networks = new Map(catalog.cryptoNetworks.map((network) => [network.name, network]));
   return method.networkNames
     .map((name) => networks.get(name))
     .filter((network): network is ApiCatalogNetwork => network !== undefined)
     .filter(
       (network) =>
-        network.active && (environment === "SANDBOX" || payout || network.invoiceCreationEnabled),
+        environment === "SANDBOX" || (network.active && (payout || network.invoiceCreationEnabled)),
     );
 }

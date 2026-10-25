@@ -134,7 +134,10 @@ test("catalog forwards customer identity, device proof and locale with no-store 
   let calls = 0;
   globalThis.fetch = async (url, init) => {
     calls++;
-    assert.equal(String(url), "https://backend.example/customer-api/businesses/42/api-catalog");
+    assert.equal(
+      String(url),
+      "https://backend.example/customer-api/businesses/42/api-catalog?currency=KES",
+    );
     const headers = new Headers(init?.headers);
     assert.equal(headers.get("Authorization"), "Bearer customer.token.signature");
     assert.equal(headers.get("X-Device-Id"), "browser-42");
@@ -147,7 +150,8 @@ test("catalog forwards customer identity, device proof and locale with no-store 
   const params = {
     params: Promise.resolve({ path: ["customer-api", "businesses", "42", "api-catalog"] }),
   };
-  const url = "http://localhost:4200/api/backend/customer-api/businesses/42/api-catalog";
+  const url =
+    "http://localhost:4200/api/backend/customer-api/businesses/42/api-catalog?currency=KES";
   try {
     const unauthorized = await GET(new NextRequest(url), params);
     assert.equal(unauthorized.status, 401);

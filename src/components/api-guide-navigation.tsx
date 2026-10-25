@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Check,
   ChevronDown,
+  ListFilter,
   ReceiptText,
   Tv,
   WalletCards,
@@ -77,11 +78,13 @@ export function ApiGuideNavigation({
   current,
   completed,
   onSelect,
+  onOpenCatalog,
   icons,
 }: {
   current: string;
   completed: string[];
   onSelect: (id: string) => void;
+  onOpenCatalog: () => void;
   icons: Record<GuideTrack["icon"], LucideIcon>;
 }) {
   const { language, t } = useI18n();
@@ -117,6 +120,19 @@ export function ApiGuideNavigation({
       {apiGuideMenuItems.map((item) =>
         item.kind === "guide" ? (
           renderGuide(item.id)
+        ) : item.kind === "catalog" ? (
+          <button
+            key={item.id}
+            type="button"
+            data-guide-tone="teal"
+            aria-haspopup="dialog"
+            onClick={onOpenCatalog}
+          >
+            <span className="guide-nav-icon">
+              <ListFilter size={16} aria-hidden="true" />
+            </span>
+            <span>{item.title[language === "fr" ? 1 : 0]}</span>
+          </button>
         ) : (
           <GuideMenuSection
             key={item.id}

@@ -10787,6 +10787,26 @@ button.detail-row:hover {
   --catalog-color: var(--violet);
   --catalog-soft: var(--violet-soft);
 }
+.api-catalog-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.api-catalog-filters > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--text-control);
+}
+.api-catalog-filters select {
+  min-height: 44px;
+}
+@media (max-width: 520px) {
+  .api-catalog-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .api-catalog-context {
   display: flex;
   align-items: center;
@@ -10806,9 +10826,123 @@ button.detail-row:hover {
 .api-catalog-context > button {
   margin-left: auto;
 }
+.api-catalog-fee-currency {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: var(--text-sm);
+  color: var(--secondary);
+}
+.api-catalog-context .api-catalog-fee-currency {
+  margin: 0 0 0 auto;
+}
+.api-catalog-fee-currency select {
+  width: auto;
+  min-height: 36px;
+  max-width: 110px;
+  padding-block: 5px;
+}
+.api-catalog-fees {
+  margin: 18px 0;
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+}
+.api-catalog-fees-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.api-catalog-fees h4 {
+  margin: 0;
+  font-size: var(--text-control);
+  font-weight: 600;
+}
+.api-catalog-fees-heading > span:last-child {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--secondary);
+}
+.api-catalog-fees table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  white-space: normal;
+}
+.api-catalog-fees caption {
+  text-align: left;
+  padding-bottom: 10px;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--secondary);
+}
+.api-catalog-fees th,
+.api-catalog-fees td {
+  padding: 10px 6px 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.api-catalog-fees th {
+  color: var(--secondary);
+  font-size: var(--text-xs);
+  font-weight: 550;
+}
+.api-catalog-fees td:last-child,
+.api-catalog-fees th:last-child {
+  width: 44%;
+  padding-left: 10px;
+  padding-right: 0;
+}
+.api-catalog-fees td strong {
+  font-weight: 600;
+}
+.api-catalog-fees .api-catalog-fees-partial,
+.api-catalog-fees .api-catalog-demo-prices {
+  margin-bottom: 10px;
+  color: var(--amber);
+  font-size: var(--text-xs);
+}
+.api-catalog-fees-unavailable strong {
+  font-size: var(--text-sm);
+}
+.api-catalog-fee-minimum {
+  display: grid;
+  gap: 2px;
+}
+.api-catalog-fee-minimum small {
+  font-size: var(--text-xs);
+  color: var(--secondary);
+}
+.api-catalog-fee-details {
+  margin-top: 12px;
+  font-size: var(--text-xs);
+}
+.api-catalog-fee-details summary {
+  cursor: pointer;
+  color: var(--catalog-color);
+}
+.api-catalog-fees .api-catalog-fee-note,
+.api-catalog-fee-details p,
+.api-catalog-fees-sandbox p {
+  margin-top: 8px;
+  font-size: var(--text-xs);
+  line-height: 1.65;
+}
+.api-catalog-fees-sandbox h4 {
+  color: var(--amber);
+}
 .api-catalog-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }

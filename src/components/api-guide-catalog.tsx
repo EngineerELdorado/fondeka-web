@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, Globe2, ListFilter, Network, RefreshCw, Search } from "lucide-react";
+import { Check, Copy, Globe2, ListFilter, Network, Percent, RefreshCw, Search } from "lucide-react";
 import {
   apiCatalogPath,
   catalogMethodsFor,
@@ -14,10 +14,12 @@ import {
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import type { ApiEnvironment } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { useQuery } from "@/lib/use-query";
+import { request } from "@/lib/data";
+import { useCurrencies } from "@/lib/use-currencies";
 import { countryFlag, normalizeCountry } from "@/lib/payment-country";
 import { Empty, ErrorState, Loading, Modal } from "./ui";
 import { useWorkspace } from "./workspace-provider";
+import { ApiCatalogFees } from "./api-catalog-fees";
 
 function CopyIdentifier({
   name,
@@ -71,49 +73,76 @@ function CatalogContent({
   payout,
   environment,
   preferredMethod,
+  currency,
+  currencyControl,
 }: {
   businessId: number;
   kind: ApiPaymentKind;
   payout: boolean;
   environment: ApiEnvironment;
   preferredMethod?: string;
+  currency: string;
+  currencyControl: React.ReactNode;
 }) {
-  const { t } = useI18n();
-  const query = useQuery<unknown>(apiCatalogPath(businessId));
-  const { refetch } = query;
-  const [checking, setChecking] = useState(true);
+  const { t, language } = useI18n();
+  const path = apiCatalogPath(businessId, currency);
+  const [revision, setRevision] = useState(0);
+  const [query, setQuery] = useState<{
+    path: string;
+    data?: unknown;
+    error?: string;
+    loading: boolean;
+  }>({ path: "", loading: true });
+  const checking = query.path !== path || query.loading;
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
   const [search, setSearch] = useState("");
   const [selection, setSelection] = useState<{ method: string; network?: string }>();
-  // This reference panel revalidates on every opening. The shared account cache coalesces GETs.
+  // Private account tariffs live only in this scoped panel, never in a persistent/shared cache.
   useEffect(() => {
     let active = true;
-    const finish = () => {
-      if (active) setChecking(false);
+    const controller = new AbortController();
+    setQuery({ path, loading: true });
+    void request<unknown>(path, { signal: controller.signal }).then(
+      (data) => {
+        if (active) setQuery({ path, data, loading: false });
+      },
+      (error) => {
+        if (active)
+          setQuery({
+            path,
+            error:
+              error instanceof Error
+                ? error.message
+                : t(
+                    "Couldn’t load payment methods.",
+                    "Impossible de charger les moyens de paiement.",
+                  ),
+            loading: false,
+          });
+      },
+    );
+    return () => {
+      active = false;
+      controller.abort();
     };
-    void refetch().finally(finish);
+  }, [path, revision, language, t]);
+  useEffect(() => {
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      setChecking(true);
-      void refetch().finally(finish);
+      refresh();
     };
     window.addEventListener("focus", resume);
     document.addEventListener("visibilitychange", resume);
     return () => {
-      active = false;
       window.removeEventListener("focus", resume);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [refetch]);
-  const refresh = async () => {
-    setChecking(true);
-    await query.refetch();
-    setChecking(false);
-  };
+  }, [refresh]);
   let catalog;
   let parseError;
-  if (query.data !== undefined) {
+  if (!checking && query.data !== undefined) {
     try {
-      catalog = parseApiCatalog(query.data);
+      catalog = parseApiCatalog(query.data, currency);
     } catch {
       parseError = t(
         "The catalog response could not be read. Refresh to try again.",
@@ -121,60 +150,72 @@ function CatalogContent({
       );
     }
   }
-  const error = query.error || query.refreshError || parseError;
+  const error = query.error || parseError;
+  const context = (
+    <div className="api-catalog-context">
+      <span>
+        {kind === "CRYPTO" ? <Network size={15} /> : <Globe2 size={15} />}
+        {kind === "CRYPTO"
+          ? t("Cryptos & compatible networks", "Cryptos et réseaux compatibles")
+          : t("All configured countries", "Tous les pays configurés")}
+      </span>
+      <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>
+      {currencyControl}
+      <button
+        type="button"
+        className="text-button"
+        disabled={checking}
+        onClick={() => void refresh()}
+      >
+        <RefreshCw size={14} className={checking ? "spin" : undefined} />
+        {checking ? t("Refreshing…", "Actualisation…") : t("Refresh", "Actualiser")}
+      </button>
+    </div>
+  );
   if (!catalog) {
-    if (query.loading || checking) return <Loading rows={4} />;
+    if (query.loading || checking)
+      return (
+        <>
+          {context}
+          <Loading rows={4} />
+        </>
+      );
     return (
-      <ErrorState
-        message={
-          error ||
-          t("Couldn’t load payment methods.", "Impossible de charger les moyens de paiement.")
-        }
-        retry={() => void refresh()}
-      />
+      <>
+        {context}
+        <ErrorState
+          message={
+            error ||
+            t("Couldn’t load payment methods.", "Impossible de charger les moyens de paiement.")
+          }
+          retry={() => void refresh()}
+        />
+      </>
     );
   }
-  const methods = catalogMethodsFor(catalog, kind);
+  const methods = catalogMethodsFor(catalog, kind, environment);
   const visible = methods.filter((method) =>
     `${method.name} ${method.displayName || ""} ${kind === "MOBILE_MONEY" ? method.countryCode || "" : ""}`
       .toLocaleLowerCase()
       .includes(search.trim().toLocaleLowerCase()),
   );
-  const method = methods.find(
-    (item) =>
-      item.name === (selection?.method ?? preferredMethod) &&
-      catalogMethodSelectable(item, environment, payout),
-  );
+  const method =
+    methods.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
+    methods.find((item) => catalogMethodSelectable(item, environment, payout)) ||
+    methods[0];
   const networks = method ? catalogNetworksFor(catalog, method, environment, payout) : [];
   const network = networks.find((item) => item.name === selection?.network) || networks[0];
   return (
     <>
-      <div className="api-catalog-context">
-        <span>
-          {kind === "CRYPTO" ? <Network size={15} /> : <Globe2 size={15} />}
-          {kind === "CRYPTO"
-            ? t("Active cryptos & networks", "Cryptos et réseaux actifs")
-            : t("All configured countries", "Tous les pays configurés")}
-        </span>
-        <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>
-        <button
-          type="button"
-          className="text-button"
-          disabled={checking}
-          onClick={() => void refresh()}
-        >
-          <RefreshCw size={14} className={checking ? "spin" : undefined} />
-          {checking ? t("Refreshing…", "Actualisation…") : t("Refresh", "Actualiser")}
-        </button>
-      </div>
+      {context}
       {error && <ErrorState message={error} retry={() => void refresh()} />}
       {!methods.length ? (
         <Empty
           icon={ListFilter}
-          title={t("No active methods", "Aucun moyen actif")}
+          title={t("No methods available", "Aucun moyen disponible")}
           description={t(
-            "No active methods are available for this payment type. Refresh after backend configuration changes.",
-            "Aucun moyen actif n’est disponible pour ce type de paiement. Actualisez après une modification de la configuration.",
+            "No methods are configured for this payment type in this environment. Refresh after configuration changes.",
+            "Aucun moyen n’est configuré pour ce type de paiement dans cet environnement. Actualisez après une modification de la configuration.",
           )}
         />
       ) : (
@@ -212,7 +253,7 @@ function CatalogContent({
                     type="button"
                     className="api-catalog-method"
                     key={item.name}
-                    disabled={!selectable || checking || !!error}
+                    disabled={checking || !!error}
                     aria-pressed={method?.name === item.name}
                     onClick={() => {
                       setSelection({
@@ -236,7 +277,8 @@ function CatalogContent({
                           : t("Collections disabled in LIVE", "Encaissements désactivés en LIVE")}
                       </small>
                     ) : environment === "SANDBOX" &&
-                      !(payout ? item.allowingPayout : item.allowingCollection) ? (
+                      (!item.active ||
+                        !(payout ? item.allowingPayout : item.allowingCollection)) ? (
                       <small>{t("Sandbox testing only", "Tests sandbox uniquement")}</small>
                     ) : (
                       <small>{item.countryCode || t("Universal", "Universel")}</small>
@@ -255,33 +297,41 @@ function CatalogContent({
           </section>
           <aside
             className="api-catalog-selection"
-            aria-label={t("Payload identifiers", "Identifiants du payload")}
+            aria-label={t("Fees and payload identifiers", "Frais et identifiants du payload")}
           >
             <span className="api-catalog-selection-icon">
-              <Copy size={20} />
+              <Percent size={20} />
             </span>
             <h3>
-              {kind === "CRYPTO"
-                ? t("Crypto & networks", "Crypto et réseaux")
-                : t("Names for your payload", "Les noms de votre payload")}
+              {method?.displayName ||
+                method?.name ||
+                t("Fees & identifiers", "Frais et identifiants")}
             </h3>
             <p>
               {t(
                 kind === "CRYPTO"
-                  ? "Choose a crypto to see its active networks. Copy the exact names for your payload."
-                  : "Select a method, then copy its exact identifier.",
+                  ? "Explore fees and compatible networks. Copy the exact names for your payload."
+                  : "Explore fees, then copy the exact name for your payload.",
                 kind === "CRYPTO"
-                  ? "Choisissez une crypto pour voir ses réseaux actifs. Copiez les noms exacts pour votre payload."
-                  : "Sélectionnez un moyen, puis copiez son identifiant exact.",
+                  ? "Consultez les frais et les réseaux compatibles. Copiez les noms exacts pour votre payload."
+                  : "Consultez les frais, puis copiez le nom exact pour votre payload.",
               )}
             </p>
             {method && (
               <>
+                <ApiCatalogFees
+                  method={method}
+                  payout={payout}
+                  currency={currency}
+                  environment={environment}
+                />
                 <CopyIdentifier
                   key={method.name}
                   name="paymentMethodName"
                   value={method.name}
-                  disabled={checking || !!error}
+                  disabled={
+                    checking || !!error || !catalogMethodSelectable(method, environment, payout)
+                  }
                 />
                 {kind === "CRYPTO" && (
                   <>
@@ -345,8 +395,8 @@ function CatalogContent({
       <p className="api-catalog-footnote">
         {environment === "SANDBOX"
           ? t(
-              "Only active methods and networks are shown. Sandbox uses simulated payments with the same configured names as LIVE.",
-              "Seuls les moyens et réseaux actifs sont affichés. Le sandbox simule les paiements avec les mêmes noms configurés qu’en LIVE.",
+              "Sandbox uses simulated payments. Inactive identifiers remain available for testing; LIVE tariffs are not sandbox fees.",
+              "Le sandbox simule les paiements. Les identifiants inactifs restent disponibles pour les tests ; les tarifs LIVE ne sont pas les frais sandbox.",
             )
           : t(
               "Configuration flags are a guide. Routing, currencies, fees and account restrictions are still validated by the backend.",
@@ -357,23 +407,123 @@ function CatalogContent({
   );
 }
 
+type CatalogBrowserProps = {
+  setup: ApiGuideSetup;
+  kind: ApiPaymentKind;
+  payout: boolean;
+  preferredMethod?: string;
+};
+
+function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowserProps) {
+  const { t } = useI18n();
+  const { accountKey, apiEnvironment } = useWorkspace();
+  const environment = setup.environment || apiEnvironment;
+  const scope = `${accountKey}:${setup.business?.id}`;
+  const [currencySelection, setCurrencySelection] = useState<{ scope: string; value: string }>();
+  const currency = currencySelection?.scope === scope ? currencySelection.value : "USD";
+  const products = useCurrencies(["USD", currency]);
+  const currencyControl = (
+    <label className="api-catalog-fee-currency">
+      <span>{t("Fiat fee currency", "Devise fiat des frais")}</span>
+      <select
+        value={currency}
+        onChange={(event) => setCurrencySelection({ scope, value: event.target.value })}
+      >
+        {products.currencies.map((code) => (
+          <option key={code} value={code}>
+            {code}
+          </option>
+        ))}
+      </select>
+      {products.error && (
+        <button type="button" className="text-button" onClick={() => void products.refetch()}>
+          {t("Reload currencies", "Recharger les devises")}
+        </button>
+      )}
+    </label>
+  );
+  if (setup.loading) return <Loading rows={3} />;
+  if (setup.error) return <ErrorState message={setup.error} retry={setup.refresh} />;
+  if (!setup.business)
+    return (
+      <Empty
+        title={t("No Business available", "Aucun Business disponible")}
+        description={t(
+          "An owned Business is required to read its payment catalog. No API key is needed.",
+          "Un Business dont vous êtes propriétaire est requis pour lire son catalogue. Aucune clé API n’est nécessaire.",
+        )}
+      />
+    );
+  return (
+    <CatalogContent
+      key={`${accountKey}:${setup.business.id}:${environment}:${kind}:${payout}`}
+      businessId={setup.business.id}
+      kind={kind}
+      payout={payout}
+      environment={environment}
+      preferredMethod={preferredMethod}
+      currency={currency}
+      currencyControl={currencyControl}
+    />
+  );
+}
+
+export function ApiGuidePaymentMethods({
+  setup,
+  onClose,
+}: {
+  setup: ApiGuideSetup;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [kind, setKind] = useState<ApiPaymentKind>("MOBILE_MONEY");
+  const [payout, setPayout] = useState(false);
+  return createPortal(
+    <Modal
+      title={t("Available payment methods", "Moyens de paiement disponibles")}
+      description={t(
+        "Browse payment methods, compatible networks and your account’s fees. No API key is needed.",
+        "Explorez les moyens de paiement, les réseaux compatibles et les frais de votre compte. Aucune clé API n’est nécessaire.",
+      )}
+      className={`api-catalog-modal ${kind === "CRYPTO" ? "api-catalog-crypto" : ""}`}
+      onClose={onClose}
+    >
+      <div className="api-catalog-filters">
+        <label>
+          <span>{t("Payment type", "Type de paiement")}</span>
+          <select value={kind} onChange={(event) => setKind(event.target.value as ApiPaymentKind)}>
+            <option value="MOBILE_MONEY">{t("Mobile money", "Mobile money")}</option>
+            <option value="CRYPTO">Cryptos</option>
+          </select>
+        </label>
+        <label>
+          <span>{t("Operation", "Opération")}</span>
+          <select
+            value={payout ? "payout" : "collection"}
+            onChange={(event) => setPayout(event.target.value === "payout")}
+          >
+            <option value="collection">{t("Collections", "Encaissements")}</option>
+            <option value="payout">{t("Payouts", "Décaissements")}</option>
+          </select>
+        </label>
+      </div>
+      <CatalogBrowser setup={setup} kind={kind} payout={payout} />
+    </Modal>,
+    document.body,
+  );
+}
+
 export function ApiGuideCatalog({
   setup,
   kind,
   payout,
   target = "methods",
   preferredMethod,
-}: {
-  setup: ApiGuideSetup;
-  kind: ApiPaymentKind;
-  payout: boolean;
+}: CatalogBrowserProps & {
   target?: "methods" | "networks";
-  preferredMethod?: string;
 }) {
   const { t } = useI18n();
-  const { accountKey, apiEnvironment } = useWorkspace();
   const [open, setOpen] = useState(false);
-  const environment = setup.environment || apiEnvironment;
   return (
     <>
       <button
@@ -411,28 +561,12 @@ export function ApiGuideCatalog({
             className={`api-catalog-modal ${kind === "CRYPTO" ? "api-catalog-crypto" : ""}`}
             onClose={() => setOpen(false)}
           >
-            {setup.loading ? (
-              <Loading rows={3} />
-            ) : setup.error ? (
-              <ErrorState message={setup.error} retry={setup.refresh} />
-            ) : !setup.business ? (
-              <Empty
-                title={t("No Business available", "Aucun Business disponible")}
-                description={t(
-                  "An owned Business is required to read its payment catalog. No API key is needed.",
-                  "Un Business dont vous êtes propriétaire est requis pour lire son catalogue. Aucune clé API n’est nécessaire.",
-                )}
-              />
-            ) : (
-              <CatalogContent
-                key={`${accountKey}:${setup.business.id}:${environment}`}
-                businessId={setup.business.id}
-                kind={kind}
-                payout={payout}
-                environment={environment}
-                preferredMethod={preferredMethod}
-              />
-            )}
+            <CatalogBrowser
+              setup={setup}
+              kind={kind}
+              payout={payout}
+              preferredMethod={preferredMethod}
+            />
           </Modal>,
           document.body,
         )}

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   apiGuideTracks,
+  apiGuideMenuItems,
+  apiGuideMenuTracks,
   guideLesson,
   guideTrack,
   parseGuideProgress,
@@ -29,6 +31,18 @@ const examples = apiGuideTracks.flatMap((track) =>
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
+test("the payment catalog is discoverable before Go live without becoming a lesson or published guide", () => {
+  const index = apiGuideMenuItems.findIndex((item) => item.kind === "catalog");
+  assert.ok(index >= 0);
+  const catalog = apiGuideMenuItems[index];
+  assert.equal(catalog.kind, "catalog");
+  assert.equal(catalog.id, "payment-methods");
+  assert.deepEqual(catalog.title, ["Available payment methods", "Moyens de paiement disponibles"]);
+  assert.equal(apiGuideMenuItems[index + 1]?.id, "go-live");
+  assert.equal(apiGuideMenuItems.filter((item) => item.kind === "catalog").length, 1);
+  assert.ok(apiGuideMenuTracks.every((track) => track.id !== String(catalog.id)));
+  assert.ok(businessApiTopics.every((topic) => topic.id !== String(catalog.id)));
+});
 test("guide payloads and explanations use the payment reference and omit internal IDs", () => {
   assert.doesNotMatch(JSON.stringify(examples), /transactionId/);
   const example = guideTrack("mobile-money-collection").lessons.find(
