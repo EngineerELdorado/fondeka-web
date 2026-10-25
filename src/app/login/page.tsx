@@ -138,8 +138,8 @@ export default function Login() {
           <div className="login-story-message">
             <p>
               {t(
-                "Built for students, startups that don't yet have documents, or anyone with an idea to build and launch fast.",
-                "Conçus pour les étudiants, les startups encore sans documents, ou toute personne souhaitant concrétiser une idée et se lancer vite.",
+                "Built for small businesses, students, startups that don't yet have documents, or anyone with an idea to build and launch fast.",
+                "Conçus pour les petites entreprises, les étudiants, les startups encore sans documents, ou toute personne souhaitant concrétiser une idée et se lancer vite.",
               )}
             </p>
             <span className="login-message-sparkles" aria-hidden="true">
