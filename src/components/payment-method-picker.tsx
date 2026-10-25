@@ -6,6 +6,7 @@ import { groupPaymentMethods, type PaymentGroupType } from "@/lib/payment-method
 import { paymentCopy, paymentMoney } from "@/lib/business-tools-ui";
 import { usePaymentLanguage } from "@/lib/use-payment-language";
 import { PaymentMethodIcon } from "./payment-method-icon";
+import { CurrencyBadge } from "./currency-identity";
 const icons = { BALANCE: Wallet, CRYPTO: Bitcoin, MOBILE_MONEY: Smartphone, BANK: Landmark };
 export function PaymentMethodPicker({
   methods,
@@ -110,7 +111,16 @@ export function PaymentMethodPicker({
                     )}
                   </div>
                 )}
-              <div className="payment-method-grid" role="radiogroup" aria-labelledby={heading}>
+              <div
+                className={
+                  "payment-method-grid" +
+                  (group.type === "MOBILE_MONEY" && group.methods.length > 2
+                    ? " payment-method-grid-adaptive"
+                    : "")
+                }
+                role="radiogroup"
+                aria-labelledby={heading}
+              >
                 {group.methods.map((method) => {
                   const key = methodKey(method);
                   const disabled =
@@ -144,6 +154,8 @@ export function PaymentMethodPicker({
                           <small>
                             {paymentMoney(method.balance, method.currency, language)} {t.available}
                           </small>
+                        ) : method.type === "MOBILE_MONEY" && method.currency ? (
+                          <CurrencyBadge currency={method.currency} />
                         ) : method.currency ? (
                           <small>{method.currency}</small>
                         ) : null}

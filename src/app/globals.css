@@ -7790,6 +7790,7 @@ button.detail-row:hover {
   gap: 11px;
 }
 .payment-method-group {
+  container-type: inline-size;
   --payment-color: var(--accent);
   --payment-soft: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--payment-color) 22%, var(--line));
@@ -7905,6 +7906,41 @@ button.detail-row:hover {
 }
 .payment-method-grid:empty {
   display: none;
+}
+.payment-method-grid.payment-method-grid-adaptive {
+  max-height: 336px;
+}
+@container (min-width: 25rem) {
+  .payment-method-grid-adaptive {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .payment-method-grid-adaptive .payment-method-tile.activation-method {
+    padding: 12px 8px;
+  }
+  .payment-method-grid-adaptive .activation-method-copy strong {
+    line-height: 1.35;
+  }
+}
+.currency-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border: 1px solid hsl(var(--currency-hue) 45% 78%);
+  border-radius: 999px;
+  background: hsl(var(--currency-hue) 65% 95%);
+  color: hsl(var(--currency-hue) 60% 28%);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+:root[data-theme="dark"] .currency-badge {
+  border-color: hsl(var(--currency-hue) 30% 36%);
+  background: hsl(var(--currency-hue) 35% 21%);
+  color: hsl(var(--currency-hue) 65% 80%);
 }
 .payment-method-tile.activation-method {
   display: flex;

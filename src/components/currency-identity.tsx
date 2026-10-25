@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { countryFlag } from "@/lib/payment-country";
 import { safeLink } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -24,6 +24,23 @@ const currencyRegions: Record<string, string> = {
   CHF: "CH",
   CNY: "CN",
 };
+
+export function CurrencyBadge({ currency }: { currency: string }) {
+  const code = currency.trim().toUpperCase();
+  const hues: Record<string, number> = { USD: 150, CDF: 270, EUR: 215 };
+  const hue =
+    hues[code] ??
+    [...code].reduce((value, character) => value * 31 + character.charCodeAt(0), 0) % 360;
+  return (
+    <span
+      className="currency-badge"
+      data-currency={code}
+      style={{ "--currency-hue": hue } as CSSProperties}
+    >
+      {code}
+    </span>
+  );
+}
 
 export function CurrencyIdentity({
   currency,
