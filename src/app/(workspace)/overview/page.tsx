@@ -55,7 +55,7 @@ export default function Overview() {
               <ArrowRight size={16} />
             </Link>
             <Link href="/developers/guides" className="welcome-secondary">
-              {t("Explore the API", "Découvrir l’API")}
+              {t("Explore Payments API", "Découvrir l’API de paiement")}
               <ArrowUpRight size={15} />
             </Link>
           </div>

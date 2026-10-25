@@ -59,9 +59,9 @@ export const businessTools = [
     color: "peach",
   },
   {
-    title: "API",
+    title: "Payments API",
     description: "Integrate Fondeka payments into an application or website",
-    titleFr: "API",
+    titleFr: "API de paiement",
     descriptionFr: "Intégrez les paiements Fondeka dans une application ou un site web",
     href: "/developers",
     icon: Code2,

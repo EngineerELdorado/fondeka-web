@@ -27,7 +27,7 @@ export function LoginToolkit() {
     {
       icon: Code2,
       tone: "teal",
-      title: "API",
+      title: t("Payments API", "API de paiement"),
       description: t("Build your integration", "Créez votre intégration"),
     },
   ];

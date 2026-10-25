@@ -3166,10 +3166,66 @@ textarea {
 }
 .login-story p {
   margin: 0;
-  max-width: 35ch;
-  color: var(--muted);
-  font-size: var(--text-base);
+  max-width: 100%;
+  color: color-mix(in srgb, var(--ink) 90%, var(--accent));
+  font-size: clamp(1rem, 1.25vw, 1.125rem);
+  font-weight: 550;
   line-height: 1.6;
+}
+.login-story-message {
+  position: relative;
+}
+.login-message-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--accent);
+}
+.login-message-sparkle {
+  position: absolute;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 5px #67dda640);
+  animation: login-message-twinkle 5s ease-in-out infinite;
+}
+.login-message-sparkle.sparkle-lead {
+  left: -22px;
+  top: 3px;
+}
+.login-message-sparkle.sparkle-top,
+.login-message-sparkle.sparkle-bottom {
+  width: 11px;
+  height: 11px;
+  background: currentColor;
+  clip-path: polygon(50% 0, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0 50%, 37% 37%);
+}
+.login-message-sparkle.sparkle-top {
+  right: -14px;
+  top: -6px;
+  color: var(--amber);
+  animation-delay: -1.7s;
+}
+.login-message-sparkle.sparkle-bottom {
+  right: 10%;
+  bottom: -11px;
+  width: 8px;
+  height: 8px;
+  animation-delay: -3.4s;
+}
+@keyframes login-message-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85) rotate(-8deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05) rotate(8deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-message-sparkle {
+    animation: none;
+  }
 }
 .login-story .welcome-kicker {
   display: inline-flex;
@@ -7548,8 +7604,8 @@ button.detail-row:hover {
 @media (min-width: 761px) and (min-height: 641px) and (max-height: 720px),
   (min-width: 761px) and (max-width: 960px) and (min-height: 641px) {
   .login-story {
-    gap: 16px;
-    padding-block: 24px;
+    gap: 12px;
+    padding: 24px clamp(24px, 3vw, 48px);
   }
   .login-toolkit li {
     grid-template-columns: 42px minmax(0, 1fr);
@@ -7570,6 +7626,17 @@ button.detail-row:hover {
   }
   .login-toolkit small {
     line-height: 1.4;
+  }
+}
+@media (min-width: 761px) and (max-width: 960px) and (min-height: 641px) and (max-height: 720px) {
+  .login-toolkit li {
+    min-height: 88px;
+  }
+  .login-toolkit-icon {
+    grid-row: auto;
+  }
+  .login-toolkit small {
+    display: none;
   }
 }
 @media (min-width: 761px) and (max-height: 640px) {
@@ -7701,6 +7768,9 @@ button.detail-row:hover {
   }
 }
 @media (min-width: 761px) and (max-height: 540px) {
+  .login-story {
+    padding-block: 16px;
+  }
   .login-story h2 {
     margin: 8px 0 10px;
   }
@@ -7733,6 +7803,26 @@ button.detail-row:hover {
   .login-toolkit-icon {
     width: 40px;
     height: 40px;
+  }
+}
+@media (max-width: 360px) and (max-height: 640px) {
+  .login-form-wrap .login-register p,
+  .login-form-wrap .login-register .text-button {
+    font-size: var(--text-sm);
+  }
+  .login-register {
+    margin-top: 12px;
+    padding-top: 8px;
+  }
+  .login-register p {
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .login-register .text-button {
+    flex-shrink: 0;
+  }
+  .login-register small {
+    display: none;
   }
 }
 .registration-dialog {

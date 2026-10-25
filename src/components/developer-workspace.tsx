@@ -68,7 +68,7 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
     businesses.data?.content[0];
   const title =
     section === "credentials"
-      ? "API"
+      ? "Payments API"
       : section === "guides"
         ? "API guides"
         : section === "wallets"

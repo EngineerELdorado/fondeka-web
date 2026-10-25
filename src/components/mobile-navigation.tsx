@@ -88,7 +88,7 @@ export function MobileNavigation({
                 <Code2 size={22} />
               </span>
               <span>
-                <strong>{uiText("API")}</strong>
+                <strong>{uiText("Payments API")}</strong>
                 <small>{uiText("API keys and integrations")}</small>
               </span>
               <span className="developer-nav-chevron" aria-hidden="true">

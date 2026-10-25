@@ -135,16 +135,23 @@ export default function Login() {
             {t("MAKE YOUR NEXT MOVE", "PASSEZ À LA SUITE")}
           </span>
           <h2>
-            {t("Your business,", "Votre activité,")}
+            {t("Business tools", "Des outils Business")}
             <br />
-            <span>{t("all connected.", "tout est connecté.")}</span>
+            <span>{t("for everyone", "pour tous")}</span>
           </h2>
-          <p>
-            {t(
-              "Collect, sell and build from one familiar workspace.",
-              "Encaissez, vendez et créez depuis un espace familier.",
-            )}
-          </p>
+          <div className="login-story-message">
+            <p>
+              {t(
+                "Built for students, startups that don't yet have documents, or anyone with an idea to build and launch fast.",
+                "Conçus pour les étudiants, les startups encore sans documents, ou toute personne souhaitant concrétiser une idée et se lancer vite.",
+              )}
+            </p>
+            <span className="login-message-sparkles" aria-hidden="true">
+              <Sparkles className="login-message-sparkle sparkle-lead" size={18} />
+              <span className="login-message-sparkle sparkle-top" />
+              <span className="login-message-sparkle sparkle-bottom" />
+            </span>
+          </div>
           <LoginToolkit />
         </div>
         <small>
