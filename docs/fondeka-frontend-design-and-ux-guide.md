@@ -122,7 +122,7 @@ Fields should feel deliberate and comfortable to use:
 | Error           | Message beside its field, associated programmatically; preserve the entered value          |
 | Disabled state  | Explain the blocking reason when it is not obvious                                         |
 
-Use approximately **48px** control height in guided tasks, with **12–14px** corners and **14–16px** input text. Keep small utility controls compact where appropriate. On mobile, use input text of at least 16px to avoid unwanted browser zoom.
+Use approximately **48px** control height in guided tasks, with **12–14px** corners and **16px** input text. Keep small utility controls compact where appropriate. Preserve the same readable input text size on mobile.
 
 Icons inside fields should identify a useful concept. Keep the text and label primary. A small amount of depth can come from a fine border, a soft inset highlight and a focused ring; controls do not need heavy gradients or glowing outlines.
 
@@ -216,20 +216,22 @@ Keep section identity distinct from status. A purple section is not a payment ou
 
 The portal uses Geist Sans for interface text and Geist Mono for code. Equivalent readable families are acceptable in another project; preserve the hierarchy and avoid unnecessary font downloads.
 
-| Element                   | Suggested starting point                      |
-| ------------------------- | --------------------------------------------- |
-| Page title                | 28–32px, medium/semibold, compact line height |
-| Guided step title         | 22–26px, semibold                             |
-| Section title             | 16–18px, medium/semibold                      |
-| Body and helper text      | 14–16px, comfortable line height              |
-| Secondary metadata        | 12–13px where readable                        |
-| Important amount          | 28–36px, semibold, stable number alignment    |
-| Spacing scale             | 4, 8, 12, 16, 24, 32, 48px                    |
-| Standard card corners     | 13–18px                                       |
-| Focused task card corners | 20–24px                                       |
-| Standard card padding     | 20–28px; around 32px for desktop guided cards |
+| Element                   | Suggested starting point                            |
+| ------------------------- | --------------------------------------------------- |
+| Page title                | 28–32px, medium/semibold, compact line height       |
+| Guided step title         | 22–26px, semibold                                   |
+| Section title             | 18–20px, medium/semibold                            |
+| Body and helper text      | 16px body, 14–16px helpers, comfortable line height |
+| Secondary metadata        | 13–14px                                             |
+| Important amount          | 28–36px, semibold, stable number alignment          |
+| Spacing scale             | 4, 8, 12, 16, 24, 32, 48px                          |
+| Standard card corners     | 13–18px                                             |
+| Focused task card corners | 20–24px                                             |
+| Standard card padding     | 20–28px; around 32px for desktop guided cards       |
 
 These are adoption defaults, not an instruction to replace every existing measurement. Keep dense tools readable and accommodate translated text without shrinking it excessively.
+
+Design for comfortable reading at **100% browser zoom**. Use relative font tokens based on the browser’s default text size: 16px body and input text, 15–16px primary controls, and 13–14px secondary metadata. Reserve smaller text for decorative artwork. Reflow columns, wrap actions and enlarge controls when space is tight. Verify that the page also remains usable at 200% zoom; avoid using CSS zoom or transforms to compensate for an undersized type scale.
 
 ### Surfaces and depth
 

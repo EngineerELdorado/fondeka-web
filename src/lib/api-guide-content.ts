@@ -144,12 +144,6 @@ const lookup: GuideExample = {
       "ACCEPTED est en file d’attente ; PROCESSING signifie que l’exécution a commencé ou que le résultat reste indéterminé. Poursuivez le suivi dans ces deux états. Seul COMPLETED confirmé permet la livraison après rapprochement.",
       "response",
     ),
-    field(
-      "transactionId",
-      "SANDBOX has no real financial transaction ID. Always use reference in the merchant API.",
-      "SANDBOX n’a pas d’identifiant de transaction financière réelle. Utilisez reference dans l’API marchande.",
-      "response",
-    ),
   ],
 };
 const collectionEvent: GuideExample = {
@@ -772,8 +766,8 @@ export const apiGuideTracks: GuideTrack[] = [
           fields: [
             field(
               "amount",
-              "From 0.01 to 1,000,000 units per top-up. Maximum 100 new top-ups per account per UTC day; identical replay uses no extra quota slot.",
-              "De 0,01 à 1 000 000 d’unités par apport. Maximum 100 nouveaux apports par compte et jour UTC ; une relance identique ne consomme pas de quota.",
+              "From 0.01 to 1,000,000 units per top-up. Maximum 100 new top-ups per account/currency wallet per UTC day; identical replay uses no extra quota slot.",
+              "De 0,01 à 1 000 000 d’unités par apport. Maximum 100 nouveaux apports par portefeuille de compte et de devise, par jour UTC ; une relance identique ne consomme pas de quota.",
             ),
             currency,
             intent,

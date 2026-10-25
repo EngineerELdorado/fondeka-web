@@ -11,11 +11,46 @@ import {
 } from "../src/lib/business-api-docs";
 import { businessDestination } from "../src/lib/business-tools";
 import { allowedProxyRoute } from "../src/lib/proxy-policy";
+import { portalBusinessApiContract } from "../scripts/lib/business-api-publication";
 
 const root = resolve("public/docs/business-api");
 const read = (file: string) => readFileSync(resolve(root, file), "utf8");
 const spec = JSON.parse(read("openapi.v1.json"));
 const release = JSON.parse(read("release.json"));
+
+test("portal publication omits internal IDs from schemas and nested payment examples", () => {
+  for (const payment of [
+    '{"transactionId":123,"reference":"TX001","refunded":false}',
+    '{"reference":"TX001","transactionId":null,"refunded":false}',
+    '{"reference":"TX001","refunded":false,"transactionId":null}',
+  ]) {
+    const source = JSON.stringify(
+      {
+        properties: {
+          reference: { type: "string" },
+          transactionId: { type: "integer", nullable: true },
+        },
+        examples: [JSON.parse(payment), { data: JSON.parse(payment) }],
+      },
+      null,
+      2,
+    );
+    assert.deepEqual(JSON.parse(portalBusinessApiContract(source)), {
+      properties: { reference: { type: "string" } },
+      examples: [
+        { reference: "TX001", refunded: false },
+        { data: { reference: "TX001", refunded: false } },
+      ],
+    });
+    assert.deepEqual(JSON.parse(portalBusinessApiContract(payment)), {
+      reference: "TX001",
+      refunded: false,
+    });
+  }
+  const unchanged = '{ "reference" : "TX001", "id" : 42, "clientReference" : "order-001" }\n';
+  assert.equal(portalBusinessApiContract(unchanged), unchanged);
+  for (const file of businessApiFiles) assert.doesNotMatch(read(file), /transactionId/, file);
+});
 
 test("published downloads are a complete reviewed release with no extra private files", () => {
   assert.equal(release.version, spec.info.version);

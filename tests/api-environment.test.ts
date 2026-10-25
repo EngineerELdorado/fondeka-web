@@ -109,7 +109,7 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
     sandbox.content.every(
       (row) =>
         row.transaction.environment === "SANDBOX" &&
-        row.transaction.transactionId === null &&
+        !Object.hasOwn(row.transaction, "transactionId") &&
         row.transaction.allFees === 0,
     ),
   );
@@ -123,10 +123,11 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
   assert.match(crypto!.address!, /^SANDBOX_NOT_PAYABLE_/);
   assert.equal(crypto?.invoiceUrl, undefined);
   assert.equal(crypto?.exchangeRate, 1);
+  assert.equal(crypto?.exchangeRateCurrency, "USD");
   const detail = await demoRequest<ApiTransaction>(
     apiTransactionPath(1, sandbox.content[0].transaction.reference, "SANDBOX"),
   );
-  assert.equal(detail.transaction.transactionId, null);
+  assert.equal(Object.hasOwn(detail.transaction, "transactionId"), false);
   await assert.rejects(
     demoRequest(apiTransactionPath(1, detail.transaction.reference, "LIVE")),
     /not found/,

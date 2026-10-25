@@ -84,7 +84,7 @@ test("crypto response structure retains the entire transaction around the expand
     assert.equal(structure.amount, "number");
     assert.equal(structure.currency, "string");
     assert.equal(structure.refunded, "boolean");
-    assert.equal(structure.transactionId, "integer | null");
+    assert.equal(Object.hasOwn(structure, "transactionId"), false);
     const crypto = structure.cryptoDetails as Record<string, unknown>;
     assert.deepEqual(
       Object.keys(crypto),
@@ -160,12 +160,12 @@ test("mobile-money responses explain the null cryptoDetails field without unrela
   ]) {
     const example = guideTrack(id).lessons[0].example!;
     const scoped = guidePageFields(fields("BusinessApiTransactionResource"), example);
-    assert.equal(scoped.length, id.startsWith("crypto") ? 28 : 20, id);
+    assert.equal(scoped.length, id.startsWith("crypto") ? 27 : 19, id);
     const confirmation = guideTrack(id).lessons.find(
       (lesson) => lesson.confirmation,
     )!.confirmation!;
     const webhook = guidePageFields(fields("BusinessApiWebhookEvent"), confirmation.webhook);
-    assert.equal(webhook.length, id.startsWith("crypto") ? 33 : 25, id);
+    assert.equal(webhook.length, id.startsWith("crypto") ? 32 : 24, id);
     if (id.startsWith("mobile-money")) {
       assert.ok(!scoped.some((field) => field.path.startsWith("cryptoDetails.")));
       assert.match(
@@ -207,9 +207,9 @@ test("responses enumerate nullable crypto details, nested wallet objects and eve
       payment.some((field) => field.path === `cryptoDetails.${name}`),
       name,
     );
-  assert.equal(payment.length, 28);
+  assert.equal(payment.length, 27);
   const event = fields("BusinessApiWebhookEvent");
-  assert.equal(event.length, 33);
+  assert.equal(event.length, 32);
   assert.ok(event.some((field) => field.path === "data.cryptoDetails.exchangeRateCurrency"));
   assert.equal(event.find((field) => field.path === "data.status")?.required, true);
   const conversion = fields("Conversion");

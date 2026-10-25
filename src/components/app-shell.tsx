@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span />
           </span>
           <span className="workspace-identity">
-            <strong>{uiText("Business workspace")}</strong>
+            <strong>{uiText("My workspace")}</strong>
             <WorkspaceBusinessId />
           </span>
           <ChevronDown size={15} />

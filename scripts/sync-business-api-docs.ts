@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { portalBusinessApiContract } from "./lib/business-api-publication";
 import {
   businessApiFiles,
   businessApiTopics,
@@ -18,6 +19,8 @@ const sha256 = (value: Buffer) => createHash("sha256").update(value).digest("hex
 async function publicationFile(directory: string, file: string, portalCopy = false) {
   const bytes = await readFile(resolve(directory, file));
   if (!portalCopy) return bytes;
+  if (file === "openapi.v1.json")
+    return Buffer.from(portalBusinessApiContract(bytes.toString("utf8")));
   // Keep the portal introduction short and omit a link to the backend-only implementation handoff.
   return Buffer.from(
     bytes

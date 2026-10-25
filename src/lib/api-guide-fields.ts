@@ -206,8 +206,6 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     settlementNet: "Montant fiat net réellement crédité pour un encaissement confirmé.",
     status:
       "ACCEPTED : en file d’attente d’exécution. PROCESSING : exécution commencée ou résultat fournisseur/rapprochement indéterminé. COMPLETED : succès confirmé. FAILED : échec confirmé, y compris annulation ou expiration. Poursuivez le suivi de la même référence pour ACCEPTED et PROCESSING.",
-    transactionId:
-      "Identifiant de la transaction financière interne en LIVE ; null en SANDBOX. Utilisez reference dans cette API.",
   },
   BusinessApiWebhookEvent: {
     createdAt:

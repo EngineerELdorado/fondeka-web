@@ -29,6 +29,14 @@ const examples = apiGuideTracks.flatMap((track) =>
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
+test("guide payloads and explanations use the payment reference and omit internal IDs", () => {
+  assert.doesNotMatch(JSON.stringify(examples), /transactionId/);
+  const example = guideTrack("mobile-money-collection").lessons.find(
+    (lesson) => lesson.confirmation,
+  )!.confirmation!.lookup;
+  assert.match(example.path, /\/transactions\/\{reference\}$/);
+  assert.ok(example.fields.some((field) => field.key === "reference"));
+});
 test("visual guides cover every published merchant endpoint without introducing guessed routes", () => {
   assert.deepEqual(
     apiGuideTracks.map((track) => track.id),

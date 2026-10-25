@@ -1124,7 +1124,6 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
         updatedAt: day(i / 4),
         transaction: {
           businessId: 1,
-          transactionId: null,
           environment: "SANDBOX",
           reference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
           clientReference: `sandbox-order-${i + 1}`,
@@ -1153,6 +1152,7 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
                   network: "TRC20",
                   amountInCrypto: amount,
                   exchangeRate: 1,
+                  exchangeRateCurrency: "USD",
                 }
               : null,
         },
@@ -1165,7 +1165,6 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
     updatedAt: day(i / 4),
     transaction: {
       businessId: 1,
-      transactionId: 8000 + i,
       environment: "LIVE",
       reference: `TXDEMO${8421 - i}`,
       clientReference: `order-${i + 1}`,
