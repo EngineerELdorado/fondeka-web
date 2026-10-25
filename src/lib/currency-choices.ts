@@ -8,6 +8,16 @@ function currencyRows(payload: unknown): unknown[] {
 }
 
 export type CurrencyPresentation = { logoUrl?: string; displayName?: string; countryCode?: string };
+/** Currency is an identity label. Keep its palette away from red/pink error and disabled cues. */
+export function currencyBadgeHue(currency: string) {
+  const code = currency.trim().toUpperCase();
+  const fixed: Record<string, number> = { USD: 150, CDF: 270, EUR: 215, XOF: 185, XAF: 240 };
+  const hash = [...code].reduce(
+    (value, character) => (value * 31 + character.charCodeAt(0)) % 161,
+    0,
+  );
+  return fixed[code] ?? 120 + hash;
+}
 /** Reuse the same currency-product media as the mobile wallet selector. */
 export function currencyPresentations(payload: unknown) {
   const result = new Map<string, CurrencyPresentation>();

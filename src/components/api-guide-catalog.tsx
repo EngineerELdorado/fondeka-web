@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, Globe2, ListFilter, Network, Percent, RefreshCw, Search } from "lucide-react";
 import {
@@ -16,10 +16,11 @@ import type { ApiEnvironment } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { request } from "@/lib/data";
 import { useCurrencies } from "@/lib/use-currencies";
-import { countryFlag, normalizeCountry } from "@/lib/payment-country";
+import { filterCatalogGroups, groupCatalogMethods } from "@/lib/api-catalog-groups";
 import { Empty, ErrorState, Loading, Modal } from "./ui";
 import { useWorkspace } from "./workspace-provider";
 import { ApiCatalogFees } from "./api-catalog-fees";
+import { CurrencyBadge } from "./currency-identity";
 
 function CopyIdentifier({
   name,
@@ -96,6 +97,8 @@ function CatalogContent({
   const checking = query.path !== path || query.loading;
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
   const [search, setSearch] = useState("");
+  const [country, setCountry] = useState("");
+  const groupId = useId();
   const [selection, setSelection] = useState<{ method: string; network?: string }>();
   // Private account tariffs live only in this scoped panel, never in a persistent/shared cache.
   useEffect(() => {
@@ -194,17 +197,19 @@ function CatalogContent({
     );
   }
   const methods = catalogMethodsFor(catalog, kind, environment);
-  const visible = methods.filter((method) =>
-    `${method.name} ${method.displayName || ""} ${kind === "MOBILE_MONEY" ? method.countryCode || "" : ""}`
-      .toLocaleLowerCase()
-      .includes(search.trim().toLocaleLowerCase()),
-  );
+  const groups = groupCatalogMethods(methods, language);
+  const selectedCountry = groups.some((group) => group.code === country) ? country : "";
+  const visibleGroups = filterCatalogGroups(groups, selectedCountry, search);
+  const visible = visibleGroups.flatMap((group) => group.methods);
   const method =
-    methods.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
-    methods.find((item) => catalogMethodSelectable(item, environment, payout)) ||
-    methods[0];
+    visible.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
+    visible.find((item) => catalogMethodSelectable(item, environment, payout)) ||
+    visible[0];
   const networks = method ? catalogNetworksFor(catalog, method, environment, payout) : [];
-  const network = networks.find((item) => item.name === selection?.network) || networks[0];
+  const network =
+    networks.find(
+      (item) => method?.name === selection?.method && item.name === selection?.network,
+    ) || networks[0];
   return (
     <>
       {context}
@@ -224,76 +229,149 @@ function CatalogContent({
             className="api-catalog-methods"
             aria-label={kind === "CRYPTO" ? "Cryptos" : t("Payment methods", "Moyens de paiement")}
           >
-            <label className="api-catalog-search">
-              <span>
-                {kind === "CRYPTO"
-                  ? t("Find a crypto", "Rechercher une crypto")
-                  : t("Find a method", "Rechercher un moyen")}
-              </span>
-              <div>
-                <Search size={16} />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={
-                    kind === "CRYPTO"
-                      ? t("Name or symbol (e.g. USDT)", "Nom ou symbole (ex. USDT)")
-                      : t("Name or country code", "Nom ou code pays")
-                  }
-                />
-              </div>
-            </label>
-            <div className="api-catalog-grid">
-              {visible.map((item) => {
-                const selectable = catalogMethodSelectable(item, environment, payout);
-                const country = normalizeCountry(item.countryCode);
-                return (
-                  <button
-                    type="button"
-                    className="api-catalog-method"
-                    key={item.name}
-                    disabled={checking || !!error}
-                    aria-pressed={method?.name === item.name}
-                    onClick={() => {
-                      setSelection({
-                        method: item.name,
-                        network: catalogNetworksFor(catalog, item, environment, payout)[0]?.name,
-                      });
+            <div
+              className={`api-catalog-discovery ${kind === "CRYPTO" && !groups.some((group) => group.countryCode) ? "api-catalog-discovery-global" : ""}`}
+            >
+              <label className="api-catalog-search">
+                <span>
+                  {kind === "CRYPTO"
+                    ? t("Find a crypto", "Rechercher une crypto")
+                    : t("Find a method", "Rechercher un moyen")}
+                </span>
+                <div>
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder={
+                      kind === "CRYPTO"
+                        ? t("Name or symbol (e.g. USDT)", "Nom ou symbole (ex. USDT)")
+                        : t("Name, code or currency", "Nom, code ou devise")
+                    }
+                  />
+                </div>
+              </label>
+              {(kind === "MOBILE_MONEY" || groups.some((group) => group.countryCode)) && (
+                <label className="api-catalog-country-filter">
+                  <span>{t("Country", "Pays")}</span>
+                  <select
+                    value={selectedCountry}
+                    onChange={(event) => {
+                      setCountry(event.target.value);
+                      setSelection(undefined);
                     }}
                   >
-                    <span className="api-catalog-method-top">
-                      <span aria-hidden="true">
-                        {country ? countryFlag(country) : <Network size={20} />}
-                      </span>
-                      {method?.name === item.name && <Check size={16} />}
-                    </span>
-                    <strong>{item.displayName || item.name}</strong>
-                    <code>{item.name}</code>
-                    {!selectable ? (
-                      <small>
-                        {payout
-                          ? t("Payouts disabled in LIVE", "Envois désactivés en LIVE")
-                          : t("Collections disabled in LIVE", "Encaissements désactivés en LIVE")}
-                      </small>
-                    ) : environment === "SANDBOX" &&
-                      (!item.active ||
-                        !(payout ? item.allowingPayout : item.allowingCollection)) ? (
-                      <small>{t("Sandbox testing only", "Tests sandbox uniquement")}</small>
-                    ) : (
-                      <small>{item.countryCode || t("Universal", "Universel")}</small>
-                    )}
-                  </button>
-                );
-              })}
+                    <option value="">{t("All countries", "Tous les pays")}</option>
+                    {groups.map((group) => (
+                      <option key={group.code} value={group.code}>
+                        {group.flag ? `${group.flag} ` : ""}
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
-            {!visible.length && (
-              <p className="muted" role="status">
-                {kind === "CRYPTO"
-                  ? t("No matching cryptos.", "Aucune crypto correspondante.")
-                  : t("No matching methods.", "Aucun moyen correspondant.")}
-              </p>
-            )}
+            <div
+              className="api-catalog-country-groups"
+              role="region"
+              tabIndex={0}
+              aria-label={t("Payment methods by country", "Moyens de paiement par pays")}
+            >
+              {visibleGroups.map((group) => (
+                <section
+                  className="api-catalog-country-group"
+                  key={group.code}
+                  aria-labelledby={`${groupId}-${group.code}`}
+                >
+                  <h4 id={`${groupId}-${group.code}`}>
+                    {group.flag ? (
+                      <span aria-hidden="true">{group.flag}</span>
+                    ) : (
+                      <Globe2 size={17} aria-hidden="true" />
+                    )}
+                    <strong>{group.name}</strong>
+                    {group.countryCode && <code>{group.countryCode}</code>}
+                    <span
+                      className="api-catalog-country-count"
+                      aria-label={`${group.methods.length} ${t("methods", "moyens")}`}
+                    >
+                      {group.methods.length}
+                    </span>
+                  </h4>
+                  <div className="api-catalog-grid">
+                    {group.methods.map((item) => {
+                      const selectable = catalogMethodSelectable(item, environment, payout);
+                      return (
+                        <button
+                          type="button"
+                          className="api-catalog-method"
+                          key={item.name}
+                          disabled={checking || !!error}
+                          aria-pressed={method?.name === item.name}
+                          onClick={() => {
+                            setSelection({
+                              method: item.name,
+                              network: catalogNetworksFor(catalog, item, environment, payout)[0]
+                                ?.name,
+                            });
+                          }}
+                        >
+                          <span className="api-catalog-method-top">
+                            {item.paymentCurrency?.trim() ? (
+                              <span title={t("Method currency", "Devise du moyen de paiement")}>
+                                <CurrencyBadge currency={item.paymentCurrency} />
+                              </span>
+                            ) : (
+                              <span />
+                            )}
+                            {method?.name === item.name && <Check size={16} />}
+                          </span>
+                          <strong>{item.displayName || item.name}</strong>
+                          <code>{item.name}</code>
+                          {!selectable ? (
+                            <small>
+                              {payout
+                                ? t("Payouts disabled in LIVE", "Envois désactivés en LIVE")
+                                : t(
+                                    "Collections disabled in LIVE",
+                                    "Encaissements désactivés en LIVE",
+                                  )}
+                            </small>
+                          ) : environment === "SANDBOX" &&
+                            (!item.active ||
+                              !(payout ? item.allowingPayout : item.allowingCollection)) ? (
+                            <small>{t("Sandbox testing only", "Tests sandbox uniquement")}</small>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+              {!visible.length && (
+                <div className="api-catalog-no-matches" role="status">
+                  <p>
+                    {t(
+                      "No methods match these filters.",
+                      "Aucun moyen ne correspond à ces filtres.",
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => {
+                      setSearch("");
+                      setCountry("");
+                      setSelection(undefined);
+                    }}
+                  >
+                    {t("Clear filters", "Effacer les filtres")}
+                  </button>
+                </div>
+              )}
+            </div>
           </section>
           <aside
             className="api-catalog-selection"

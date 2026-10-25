@@ -10946,6 +10946,31 @@ button.detail-row:hover {
   gap: 20px;
   align-items: start;
 }
+.api-catalog-methods {
+  min-width: 0;
+  container-type: inline-size;
+}
+.api-catalog-discovery {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.api-catalog-discovery > label {
+  min-width: 0;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--text-control);
+  font-weight: 550;
+}
+.api-catalog-country-filter select {
+  min-height: 44px;
+  text-overflow: ellipsis;
+}
+@container (min-width: 360px) {
+  .api-catalog-discovery:not(.api-catalog-discovery-global) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .api-catalog-search {
   display: grid;
   gap: 8px;
@@ -10972,9 +10997,59 @@ button.detail-row:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.api-catalog-country-groups {
+  display: grid;
+  gap: 20px;
   max-height: 430px;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 3px;
+}
+.api-catalog-country-group {
+  min-width: 0;
+}
+.api-catalog-country-group h4 {
+  position: sticky;
+  top: -3px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--text-control);
+  color: var(--secondary);
+}
+.api-catalog-country-group h4 strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--text-control);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.api-catalog-country-group h4 code {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.api-catalog-country-count {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.api-catalog-no-matches {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 16px 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
 }
 .api-catalog-method {
   display: flex;
@@ -11001,7 +11076,7 @@ button.detail-row:hover {
   width: 100%;
   min-height: 25px;
   color: var(--catalog-color);
-  font-size: 1.5rem;
+  font-size: var(--text-sm);
 }
 .api-catalog-method strong {
   font-size: var(--text-control);
@@ -11153,7 +11228,7 @@ button.detail-row:hover {
   .api-catalog-modal .modal-inner {
     padding: 20px;
   }
-  .api-catalog-grid {
+  .api-catalog-country-groups {
     max-height: 300px;
   }
 }

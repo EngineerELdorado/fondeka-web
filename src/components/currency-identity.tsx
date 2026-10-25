@@ -3,7 +3,7 @@ import { useState, type CSSProperties } from "react";
 import { countryFlag } from "@/lib/payment-country";
 import { safeLink } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import type { CurrencyPresentation } from "@/lib/currency-choices";
+import { currencyBadgeHue, type CurrencyPresentation } from "@/lib/currency-choices";
 
 const currencyRegions: Record<string, string> = {
   USD: "US",
@@ -27,15 +27,11 @@ const currencyRegions: Record<string, string> = {
 
 export function CurrencyBadge({ currency }: { currency: string }) {
   const code = currency.trim().toUpperCase();
-  const hues: Record<string, number> = { USD: 150, CDF: 270, EUR: 215 };
-  const hue =
-    hues[code] ??
-    [...code].reduce((value, character) => value * 31 + character.charCodeAt(0), 0) % 360;
   return (
     <span
       className="currency-badge"
       data-currency={code}
-      style={{ "--currency-hue": hue } as CSSProperties}
+      style={{ "--currency-hue": currencyBadgeHue(code) } as CSSProperties}
     >
       {code}
     </span>
