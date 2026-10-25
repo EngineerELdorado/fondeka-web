@@ -16,6 +16,7 @@ import { date } from "@/lib/format";
 import { Badge, Empty, ErrorState, Loading, Modal } from "./ui";
 
 import { CredentialCreateFlow } from "./credential-create-flow";
+import { CredentialEnvironmentNotice } from "./credential-environment-notice";
 import { useUrlState } from "@/lib/use-url-state";
 import { CredentialWebhookEditor } from "./credential-webhook-editor";
 import { invalidateQueryPaths } from "@/lib/query-cache";
@@ -369,6 +370,7 @@ export function ApiCredentials({
         >
           {issued ? (
             <div>
+              <CredentialEnvironmentNotice environment={environment} />
               <p className="panel-note">
                 <ShieldAlert size={18} />
                 {uiText(

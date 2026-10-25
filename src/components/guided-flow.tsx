@@ -102,6 +102,7 @@ export function useFlowDraft<T extends object>(
 export function GuidedFlow<T extends object>({
   id,
   title,
+  context,
   steps,
   value,
   set,
@@ -120,6 +121,7 @@ export function GuidedFlow<T extends object>({
 }: {
   id: string;
   title: string;
+  context?: ReactNode;
   steps: GuidedStep<T>[];
   value: T;
   set: (patch: Partial<T>) => void;
@@ -355,6 +357,7 @@ export function GuidedFlow<T extends object>({
         <button type="button" className="text-button" disabled={busy} onClick={close}>
           {t("Close", "Fermer")}
         </button>
+        {context && <div className="guided-context">{context}</div>}
         <progress max={steps.length} value={index + 1} aria-label={t("Progress", "Progression")} />
       </header>
       <nav className="guided-step-path" aria-label={t("Steps", "Étapes")}>

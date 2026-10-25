@@ -176,7 +176,7 @@ A product catalog may use a masonry-like grid when media proportions benefit fro
 
 Make the whole parent row clickable, including its label and icon. Give parent groups a stronger frame, solid icon tile or modest elevation; use lighter treatment for children. Rotate a well-styled chevron to communicate expansion and expose the actual expanded state to assistive technology.
 
-Keep one primary workspace hierarchy. Put shared language/environment controls in the shell rather than repeating switch panels on every page. Show switches only when the underlying product supports meaningful choices.
+Keep one primary workspace hierarchy. Put shared language/environment controls in the shell rather than repeating switch panels on every page. Show switches only when the underlying product supports meaningful choices. During API key creation, keep a compact environment notice visible on every step, matching the header colors: green LIVE identifies real payments; orange SANDBOX identifies test payments with virtual funds. Include the environment in the create action and retain the notice when showing the issued credentials.
 
 ## 5. Visual foundations
 

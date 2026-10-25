@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { credentialPayload } from "@/lib/credential-form";
 import { uiText } from "@/lib/ui-copy";
 import type { ApiEnvironment } from "@/lib/types";
+import { CredentialEnvironmentNotice } from "./credential-environment-notice";
 import { GuidedFlow, FlowField, FlowReview, useFlowDraft, type GuidedStep } from "./guided-flow";
 type CredentialDraft = { name: string; webhookUrl: string };
 export function CredentialCreateFlow({
@@ -85,7 +86,6 @@ export function CredentialCreateFlow({
       title: t("Review and security", "Vérification et sécurité"),
       render: ({ value, go }) => (
         <>
-          <span className={"environment-tag " + environment.toLowerCase()}>{environment}</span>
           <FlowReview title={t("Integration", "Intégration")} edit={() => go("name")}>
             <p>{value.name}</p>
           </FlowReview>
@@ -102,18 +102,9 @@ export function CredentialCreateFlow({
             )}
           </p>
           <p className="muted">
-            {environment === "SANDBOX"
-              ? t(
-                  "These test credentials use sandbox funds only.",
-                  "Ces identifiants de test utilisent uniquement des fonds sandbox.",
-                )
-              : t(
-                  "These credentials can authorize real payments.",
-                  "Ces identifiants peuvent autoriser des paiements réels.",
-                )}{" "}
             {t(
-              "The environment cannot be changed later.",
-              "L’environnement ne pourra pas être modifié.",
+              "The environment cannot be changed after creation.",
+              "L’environnement ne pourra pas être modifié après la création.",
             )}
           </p>
         </>
@@ -125,6 +116,7 @@ export function CredentialCreateFlow({
       compact
       id="api-key"
       title={t("Create API key", "Créer une clé API")}
+      context={<CredentialEnvironmentNotice environment={environment} />}
       steps={steps}
       value={draft.value}
       set={draft.set}
@@ -132,7 +124,7 @@ export function CredentialCreateFlow({
       onDiscard={draft.clear}
       onClose={onClose}
       closeRequest={closeRequest}
-      finalLabel={t("Create API key", "Créer la clé API")}
+      finalLabel={t(`Create ${environment} API key`, `Créer la clé API ${environment}`)}
       onFinish={async () => {
         await onCreate(draft.value.name, draft.value.webhookUrl);
         draft.clear();

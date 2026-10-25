@@ -1875,6 +1875,45 @@ tbody tr:hover {
   flex-wrap: wrap;
   gap: 8px;
 }
+.credential-environment-notice {
+  --credential-tone: var(--accent);
+  --credential-surface: var(--accent-soft);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--credential-tone) 30%, var(--line));
+  border-radius: 10px;
+  background: var(--credential-surface);
+  text-align: left;
+}
+.credential-environment-notice.sandbox {
+  --credential-tone: var(--amber);
+  --credential-surface: var(--amber-soft);
+}
+.credential-environment-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--credential-tone);
+}
+.credential-environment-heading svg {
+  flex-shrink: 0;
+}
+.credential-environment-heading strong {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.credential-environment-heading span {
+  font-weight: 500;
+}
+.credential-environment-notice p {
+  color: var(--secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
 .credential-webhook-dialog {
   max-width: 590px;
 }
@@ -7020,6 +7059,9 @@ button.detail-row:hover {
   overflow: hidden;
   background: var(--line-soft);
   accent-color: var(--accent);
+}
+.guided-context {
+  grid-column: 1 / -1;
 }
 .guided-header progress::-webkit-progress-bar {
   background: var(--line-soft);
