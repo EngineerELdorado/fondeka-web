@@ -855,6 +855,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         {
           name: "MPESA_DRC",
           displayName: "M-Pesa DRC",
+          logoUrl:
+            "https://res.cloudinary.com/dnuhdgm0d/image/upload/v1708165508/payment_methods/sclx6vm4zonl0u0ohryp.png",
           type: "MOBILE_MONEY",
           countryCode: "CD",
           paymentCurrency: "USD",
@@ -866,6 +868,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         {
           name: "MPESA_DRC_CDF",
           displayName: "M-Pesa DRC",
+          logoUrl:
+            "https://res.cloudinary.com/dnuhdgm0d/image/upload/v1708165508/payment_methods/sclx6vm4zonl0u0ohryp.png",
           type: "MOBILE_MONEY",
           countryCode: "CD",
           paymentCurrency: "CDF",
@@ -877,6 +881,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         {
           name: "MPESA_KENYA",
           displayName: "M-Pesa Kenya",
+          logoUrl:
+            "https://res.cloudinary.com/dnuhdgm0d/image/upload/v1708165508/payment_methods/sclx6vm4zonl0u0ohryp.png",
           type: "MOBILE_MONEY",
           countryCode: "KE",
           paymentCurrency: "KES",
@@ -888,6 +894,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         {
           name: "ORANGE_MONEY_COTE_DIVOIRE",
           displayName: "Orange Money",
+          logoUrl:
+            "https://res.cloudinary.com/dnuhdgm0d/image/upload/v1708165372/payment_methods/rvhkl1c1lbpzmzvjdulx.webp",
           type: "MOBILE_MONEY",
           countryCode: "CI",
           paymentCurrency: "XOF",

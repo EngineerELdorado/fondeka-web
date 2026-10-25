@@ -1,6 +1,6 @@
 "use client";
 
-import { catalogFeeBand, catalogFeeExpression } from "@/lib/api-catalog-fees";
+import { catalogFeeBand, catalogFeeExample, catalogFeeExpression } from "@/lib/api-catalog-fees";
 import type { ApiCatalogMethod } from "@/lib/api-catalog";
 import type { ApiEnvironment } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -34,6 +34,9 @@ export function ApiCatalogFees({
       </section>
     );
   const schedule = method.fees?.[payout ? "payout" : "collection"];
+  const example = catalogFeeExample(schedule);
+  const money = (value: number) =>
+    `${new Intl.NumberFormat(language, { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 }).format(value)} ${schedule?.currency || currency}`;
   const reasons: Record<string, string> = {
     PAYMENT_METHOD_INACTIVE: t("This method is inactive in LIVE.", "Ce moyen est inactif en LIVE."),
     OPERATION_DISABLED: t(
@@ -144,26 +147,32 @@ export function ApiCatalogFees({
       <details className="api-catalog-fee-details">
         <summary>{t("How to read these fees", "Comprendre ces frais")}</summary>
         <p>
-          {t(
-            "Percentages apply to the submitted fiat amount: net with EXCLUSIVE, gross with INCLUSIVE. Each lower bound is included; each upper bound is excluded. An open-ended tariff still has payment limits.",
-            "Les pourcentages s’appliquent au montant fiat soumis : net avec EXCLUSIVE, brut avec INCLUSIVE. La borne basse est incluse et la borne haute est exclue. Une tranche ouverte reste soumise aux limites de paiement.",
+          <strong>EXCLUSIVE</strong>{" "}
+          {t("adds fees on top of the amount you enter.", "ajoute les frais au montant saisi.")}
+          {example && (
+            <>
+              {" "}
+              {t(
+                `Example: enter ${money(example.exclusive.amount)}, add ${money(example.exclusive.fee)} in fees, and the total is ${money(example.exclusive.total)}.`,
+                `Exemple : pour ${money(example.exclusive.amount)}, on ajoute ${money(example.exclusive.fee)} de frais, soit ${money(example.exclusive.total)} au total.`,
+              )}
+            </>
           )}
         </p>
-        {payout && (
-          <p>
-            {t(
-              "The recipient, network and funding history can change the final payout route.",
-              "Le destinataire, le réseau et l’historique de financement peuvent modifier le routage final du décaissement.",
-            )}
-          </p>
-        )}
+        <p>
+          <strong>INCLUSIVE</strong>{" "}
+          {t("takes fees out of the amount you enter.", "retire les frais du montant saisi.")}
+          {example && (
+            <>
+              {" "}
+              {t(
+                `Example: enter ${money(example.inclusive.amount)}, take out ${money(example.inclusive.fee)} in fees, and ${money(example.inclusive.net)} is left for the payment.`,
+                `Exemple : sur ${money(example.inclusive.amount)}, on retire ${money(example.inclusive.fee)} de frais. Il reste ${money(example.inclusive.net)} pour le paiement.`,
+              )}
+            </>
+          )}
+        </p>
       </details>
-      <p className="api-catalog-fee-note">
-        {t(
-          "Indicative account tariff. The server determines final fees and availability, including rounding and routing.",
-          "Tarif indicatif de votre compte. Le serveur détermine les frais et la disponibilité définitifs, selon les arrondis et le routage.",
-        )}
-      </p>
     </section>
   );
 }

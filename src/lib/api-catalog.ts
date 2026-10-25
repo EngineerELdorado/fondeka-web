@@ -6,6 +6,7 @@ export type ApiPaymentKind = "MOBILE_MONEY" | "CRYPTO";
 export type ApiCatalogMethod = {
   name: string;
   displayName?: string | null;
+  logoUrl?: string | null;
   type: ApiPaymentKind;
   countryCode?: string | null;
   paymentCurrency?: string | null;
@@ -46,6 +47,7 @@ export function parseApiCatalog(value: unknown, currency?: string): ApiCatalog {
         record(method) &&
         identifier(method.name) &&
         optionalText(method.displayName) &&
+        optionalText(method.logoUrl) &&
         (method.type === "MOBILE_MONEY" || method.type === "CRYPTO") &&
         optionalText(method.countryCode) &&
         optionalText(method.paymentCurrency) &&

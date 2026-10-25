@@ -1,26 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, Globe2, ListFilter, Network, Percent, RefreshCw, Search } from "lucide-react";
 import {
-  apiCatalogPath,
   catalogMethodsFor,
   catalogMethodSelectable,
   catalogNetworksFor,
-  parseApiCatalog,
+  type ApiCatalog,
   type ApiPaymentKind,
 } from "@/lib/api-catalog";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import type { ApiEnvironment } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { request } from "@/lib/data";
+import { useApiCatalog } from "@/lib/use-api-catalog";
 import { useCurrencies } from "@/lib/use-currencies";
 import { filterCatalogGroups, groupCatalogMethods } from "@/lib/api-catalog-groups";
 import { Empty, ErrorState, Loading, Modal } from "./ui";
 import { useWorkspace } from "./workspace-provider";
 import { ApiCatalogFees } from "./api-catalog-fees";
 import { CurrencyBadge } from "./currency-identity";
+import { CatalogMethodLogo } from "./catalog-method-logo";
 
 function CopyIdentifier({
   name,
@@ -69,7 +69,10 @@ function CopyIdentifier({
 }
 
 function CatalogContent({
-  businessId,
+  catalog,
+  checking,
+  error,
+  refresh,
   kind,
   payout,
   environment,
@@ -77,7 +80,10 @@ function CatalogContent({
   currency,
   currencyControl,
 }: {
-  businessId: number;
+  catalog?: ApiCatalog;
+  checking: boolean;
+  error?: string;
+  refresh: () => Promise<void>;
   kind: ApiPaymentKind;
   payout: boolean;
   environment: ApiEnvironment;
@@ -86,74 +92,10 @@ function CatalogContent({
   currencyControl: React.ReactNode;
 }) {
   const { t, language } = useI18n();
-  const path = apiCatalogPath(businessId, currency);
-  const [revision, setRevision] = useState(0);
-  const [query, setQuery] = useState<{
-    path: string;
-    data?: unknown;
-    error?: string;
-    loading: boolean;
-  }>({ path: "", loading: true });
-  const checking = query.path !== path || query.loading;
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const groupId = useId();
   const [selection, setSelection] = useState<{ method: string; network?: string }>();
-  // Private account tariffs live only in this scoped panel, never in a persistent/shared cache.
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    setQuery({ path, loading: true });
-    void request<unknown>(path, { signal: controller.signal }).then(
-      (data) => {
-        if (active) setQuery({ path, data, loading: false });
-      },
-      (error) => {
-        if (active)
-          setQuery({
-            path,
-            error:
-              error instanceof Error
-                ? error.message
-                : t(
-                    "Couldn’t load payment methods.",
-                    "Impossible de charger les moyens de paiement.",
-                  ),
-            loading: false,
-          });
-      },
-    );
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [path, revision, language, t]);
-  useEffect(() => {
-    const resume = () => {
-      if (document.visibilityState !== "visible") return;
-      refresh();
-    };
-    window.addEventListener("focus", resume);
-    document.addEventListener("visibilitychange", resume);
-    return () => {
-      window.removeEventListener("focus", resume);
-      document.removeEventListener("visibilitychange", resume);
-    };
-  }, [refresh]);
-  let catalog;
-  let parseError;
-  if (!checking && query.data !== undefined) {
-    try {
-      catalog = parseApiCatalog(query.data, currency);
-    } catch {
-      parseError = t(
-        "The catalog response could not be read. Refresh to try again.",
-        "La réponse du catalogue est illisible. Actualisez pour réessayer.",
-      );
-    }
-  }
-  const error = query.error || parseError;
   const context = (
     <div className="api-catalog-context">
       <span>
@@ -176,7 +118,7 @@ function CatalogContent({
     </div>
   );
   if (!catalog) {
-    if (query.loading || checking)
+    if (checking)
       return (
         <>
           {context}
@@ -205,6 +147,9 @@ function CatalogContent({
     visible.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
     visible.find((item) => catalogMethodSelectable(item, environment, payout)) ||
     visible[0];
+  const methodCountry = groups.find(
+    (group) => group.countryCode && group.methods.some((item) => item.name === method?.name),
+  );
   const networks = method ? catalogNetworksFor(catalog, method, environment, payout) : [];
   const network =
     networks.find(
@@ -319,13 +264,14 @@ function CatalogContent({
                           }}
                         >
                           <span className="api-catalog-method-top">
-                            {item.paymentCurrency?.trim() ? (
-                              <span title={t("Method currency", "Devise du moyen de paiement")}>
-                                <CurrencyBadge currency={item.paymentCurrency} />
-                              </span>
-                            ) : (
-                              <span />
-                            )}
+                            <span className="api-catalog-method-identity">
+                              <CatalogMethodLogo method={item} />
+                              {item.paymentCurrency?.trim() && (
+                                <span title={t("Method currency", "Devise du moyen de paiement")}>
+                                  <CurrencyBadge currency={item.paymentCurrency} />
+                                </span>
+                              )}
+                            </span>
                             {method?.name === item.name && <Check size={16} />}
                           </span>
                           <strong>{item.displayName || item.name}</strong>
@@ -378,12 +324,18 @@ function CatalogContent({
             aria-label={t("Fees and payload identifiers", "Frais et identifiants du payload")}
           >
             <span className="api-catalog-selection-icon">
-              <Percent size={20} />
+              {method ? <CatalogMethodLogo method={method} /> : <Percent size={20} />}
             </span>
-            <h3>
+            <h3 className="api-catalog-selected-heading">
               {method?.displayName ||
                 method?.name ||
                 t("Fees & identifiers", "Frais et identifiants")}
+              {methodCountry && (
+                <span className="api-catalog-selected-country">
+                  <span aria-hidden="true">{methodCountry.flag}</span>
+                  {methodCountry.name}
+                </span>
+              )}
             </h3>
             <p>
               {t(
@@ -493,13 +445,19 @@ type CatalogBrowserProps = {
 };
 
 function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowserProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { accountKey, apiEnvironment } = useWorkspace();
   const environment = setup.environment || apiEnvironment;
   const scope = `${accountKey}:${setup.business?.id}`;
   const [currencySelection, setCurrencySelection] = useState<{ scope: string; value: string }>();
   const currency = currencySelection?.scope === scope ? currencySelection.value : "USD";
   const products = useCurrencies(["USD", currency]);
+  const query = useApiCatalog(
+    accountKey,
+    !setup.loading && !setup.error ? setup.business?.id : undefined,
+    currency,
+    language,
+  );
   const currencyControl = (
     <label className="api-catalog-fee-currency">
       <span>{t("Fiat fee currency", "Devise fiat des frais")}</span>
@@ -535,7 +493,10 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
   return (
     <CatalogContent
       key={`${accountKey}:${setup.business.id}:${environment}:${kind}:${payout}`}
-      businessId={setup.business.id}
+      catalog={query.data}
+      checking={query.loading}
+      error={query.error}
+      refresh={query.refresh}
       kind={kind}
       payout={payout}
       environment={environment}
@@ -559,10 +520,6 @@ export function ApiGuidePaymentMethods({
   return createPortal(
     <Modal
       title={t("Available payment methods", "Moyens de paiement disponibles")}
-      description={t(
-        "Browse payment methods, compatible networks and your account’s fees. No API key is needed.",
-        "Explorez les moyens de paiement, les réseaux compatibles et les frais de votre compte. Aucune clé API n’est nécessaire.",
-      )}
       className={`api-catalog-modal ${kind === "CRYPTO" ? "api-catalog-crypto" : ""}`}
       onClose={onClose}
     >
