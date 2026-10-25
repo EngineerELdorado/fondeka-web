@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { confirmSignIn, signIn, signOut } from "aws-amplify/auth";
-import { ArrowLeft, ArrowRight, Check, KeyRound, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { Brand, SubmitButton } from "@/components/ui";
 import { accessToken, authConfigured, demoMode, initializeAuth } from "@/lib/auth";
 import { resetDeviceIdentityMemory } from "@/lib/device";
@@ -103,9 +103,6 @@ export default function Login() {
   }
   return (
     <main id="main-content" className="login-screen">
-      <div className="auth-theme-toggle">
-        <LanguageSwitch />
-      </div>
       <section className="login-story">
         <Brand />
         <div className="login-story-content">
@@ -136,31 +133,16 @@ export default function Login() {
       </section>
       <section className="login-form-section">
         <div className="login-form-wrap">
-          <div className="login-card-heading">
-            <span className="login-card-icon" aria-hidden="true">
-              {confirming ? <KeyRound size={25} /> : <Mail size={25} />}
-              <span className="login-card-spark">
-                <Sparkles size={12} />
-              </span>
-            </span>
+          <div className="login-form-header">
             {showSteps && (
-              <span className="login-step-counter" role="status">
+              <p className="login-step-label" role="status">
                 {t(`Step ${confirming ? 2 : 1} of 2`, `Étape ${confirming ? 2 : 1} sur 2`)}
-              </span>
+              </p>
             )}
+            <LanguageSwitch />
           </div>
-          <span className="eyebrow">{t("YOUR NEXT CHAPTER", "VOTRE PROCHAINE ÉTAPE")}</span>
           <h1>
-            <span className="desktop-page-title">
-              {step === "email"
-                ? t("Welcome back.", "Heureux de vous revoir.")
-                : t("Check your inbox.", "Consultez vos e-mails.")}
-            </span>
-            <span className="mobile-page-title">
-              {step === "email"
-                ? t("Sign in to Fondeka.", "Connectez-vous à Fondeka.")
-                : t("Enter your code.", "Saisissez votre code.")}
-            </span>
+            {confirming ? t("Enter your code", "Saisissez votre code") : t("Sign in", "Connexion")}
           </h1>
           <p className="muted">
             {step === "email"
@@ -173,31 +155,6 @@ export default function Login() {
                   `Un code de vérification a été envoyé à ${email}.`,
                 )}
           </p>
-          {showSteps && (
-            <div className="login-signin-path">
-              <ol aria-label={t("Sign-in steps", "Étapes de connexion")}>
-                <li
-                  className={confirming ? "complete" : "current"}
-                  aria-current={!confirming ? "step" : undefined}
-                >
-                  <span aria-hidden="true">{confirming ? <Check size={14} /> : "1"}</span>
-                  {t("Your email", "Votre e-mail")}
-                </li>
-                <li
-                  className={confirming ? "current" : ""}
-                  aria-current={confirming ? "step" : undefined}
-                >
-                  <span aria-hidden="true">2</span>
-                  {t("Verification code", "Code de vérification")}
-                </li>
-              </ol>
-              <progress
-                max={2}
-                value={confirming ? 2 : 1}
-                aria-label={t("Sign-in progress", "Progression de connexion")}
-              />
-            </div>
-          )}
           {demoMode ? (
             <>
               <div className="info-box">
@@ -269,12 +226,11 @@ export default function Login() {
               )}
               <SubmitButton busy={busy}>
                 {step === "email"
-                  ? t("Send verification code", "Envoyer le code de vérification")
-                  : t("Open my workspace", "Ouvrir mon espace")}
-                <ArrowRight size={16} />
+                  ? t("Send code", "Envoyer le code")
+                  : t("Sign in", "Se connecter")}
               </SubmitButton>
               {step === "code" && (
-                <>
+                <div className="login-code-actions">
                   <button
                     className="text-button"
                     type="button"
@@ -304,18 +260,11 @@ export default function Login() {
                     <ArrowLeft size={14} />
                     {t("Use a different email", "Utiliser un autre e-mail")}
                   </button>
-                </>
+                </div>
               )}
             </form>
           )}
           {step === "email" && <AppRegistration disabled={busy} />}
-          <p className="login-footnote">
-            <ShieldCheck size={14} />
-            {t(
-              "Secure sign-in. No password to remember.",
-              "Connexion sécurisée. Aucun mot de passe à retenir.",
-            )}
-          </p>
         </div>
       </section>
     </main>

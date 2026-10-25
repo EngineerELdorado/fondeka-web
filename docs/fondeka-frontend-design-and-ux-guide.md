@@ -258,7 +258,7 @@ Prefer returned provider logos, product images and store branding. Use consisten
 
 Use semantic theme tokens rather than hard-coded light surfaces throughout components. Dark mode should preserve hierarchy through differentiated surfaces, readable text, appropriate borders and restrained shadows.
 
-The portal’s login has an intentional fixed composition: a dark, premium brand/story panel on the left and a light, focused sign-in card on the right. Pastel tool cards and solid icon tiles stand out within the dark panel. On narrow screens, this becomes a compact dark brand area followed by the light form. It does not need a theme switch.
+The portal’s login has a dark brand/story panel on the left and a light, plain sign-in card on the right. Keep the form direct: a heading, labeled inputs, one primary action and a quiet step label. Put language selection in the card header. Adapt vertical spacing and compact the secondary tool illustration on shorter viewports so the sign-in and registration controls fit laptop screens. On narrow screens, use a compact brand header above the form. Keep input text readable and allow content to remain reachable when zoom, a keyboard or an unusually small viewport requires scrolling. It does not need a theme switch.
 
 Treat that as a useful authentication recipe. Keep the receiving project’s actual authentication method, branding and required steps.
 

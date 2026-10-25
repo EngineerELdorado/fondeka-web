@@ -46,10 +46,7 @@ export function AppRegistration({ disabled = false }: { disabled?: boolean }) {
           )}
         </p>
         <small>
-          {t(
-            "Create your account in the Fondeka app.",
-            "Créez votre compte dans l’application Fondeka.",
-          )}
+          {t("Register in the Fondeka app.", "Inscription dans l’application Fondeka.")}
         </small>
       </div>
       {open && <AppRegistrationDialog onClose={() => setOpen(false)} />}
