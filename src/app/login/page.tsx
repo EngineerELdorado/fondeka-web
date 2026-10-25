@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { confirmSignIn, signIn, signOut } from "aws-amplify/auth";
+import { Hub } from "aws-amplify/utils";
 import { ArrowLeft, ArrowRight, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { Brand, SubmitButton } from "@/components/ui";
 import { accessToken, authConfigured, demoMode, initializeAuth } from "@/lib/auth";
@@ -21,21 +22,44 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [cooldown, setCooldown] = useState(0);
+  const [sessionState, setSessionState] = useState<"checking" | "guest" | "authenticated">(
+    demoMode || !authConfigured ? "guest" : "checking",
+  );
   const confirming = step === "code";
   const showSteps = !demoMode && authConfigured;
   const router = useRouter();
   useEffect(() => {
     if (demoMode || !authConfigured) return;
     let active = true;
-    void accessToken()
-      .then((token) => {
-        if (active && token) router.replace("/overview");
-      })
-      .catch(() => {
-        // No existing session: keep the normal email → code sign-in form.
-      });
+    let revision = 0;
+    const check = async () => {
+      const current = ++revision;
+      setSessionState("checking");
+      try {
+        const token = await accessToken();
+        if (!active || current !== revision) return;
+        setSessionState(token ? "authenticated" : "guest");
+        if (token) router.replace("/overview");
+      } catch {
+        if (active && current === revision) setSessionState("guest");
+      }
+    };
+    const stop = Hub.listen("auth", ({ payload }) => {
+      if (payload.event === "signedIn") void check();
+      else if (payload.event === "signedOut") {
+        revision++;
+        setSessionState("guest");
+      }
+    });
+    const restored = (event: PageTransitionEvent) => {
+      if (event.persisted) void check();
+    };
+    window.addEventListener("pageshow", restored);
+    void check();
     return () => {
       active = false;
+      stop();
+      window.removeEventListener("pageshow", restored);
     };
   }, [router]);
   useEffect(() => {
@@ -71,7 +95,7 @@ export default function Login() {
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || sessionState !== "guest") return;
     setBusy(true);
     setError("");
     try {
@@ -132,140 +156,150 @@ export default function Login() {
         </small>
       </section>
       <section className="login-form-section">
-        <div className="login-form-wrap">
-          <div className="login-form-header">
-            {showSteps && (
-              <p className="login-step-label" role="status">
-                {t(`Step ${confirming ? 2 : 1} of 2`, `Étape ${confirming ? 2 : 1} sur 2`)}
-              </p>
-            )}
-            <LanguageSwitch />
+        {sessionState !== "guest" ? (
+          <div className="login-session-loading" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            {t("Opening your workspace…", "Ouverture de votre espace…")}
           </div>
-          <h1>
-            {confirming ? t("Enter your code", "Saisissez votre code") : t("Sign in", "Connexion")}
-          </h1>
-          <p className="muted">
-            {step === "email"
-              ? t(
-                  "Sign in with the email you use in the Fondeka app.",
-                  "Connectez-vous avec l’e-mail utilisé dans l’application Fondeka.",
-                )
-              : t(
-                  `We’ve sent a verification code to ${email}.`,
-                  `Un code de vérification a été envoyé à ${email}.`,
-                )}
-          </p>
-          {demoMode ? (
-            <>
-              <div className="info-box">
-                {t(
-                  "This app is currently running in demo mode. Explore the business tools with sample data.",
-                  "Cette application est en mode démonstration. Explorez les outils Business avec des données fictives.",
-                )}
-              </div>
-              <Link className="button primary full-width" href="/overview">
-                {t("Explore demo workspace", "Explorer la démonstration")} <ArrowRight size={17} />
-              </Link>
-            </>
-          ) : !authConfigured ? (
-            <div className="info-box">
-              {t(
-                "Sign-in is temporarily unavailable. Please try again later.",
-                "La connexion est temporairement indisponible. Veuillez réessayer plus tard.",
-              )}
-            </div>
-          ) : (
-            <form onSubmit={submit} className="form-stack login-auth-form">
-              {step === "email" ? (
-                <label className="login-auth-field">
-                  {t("Email address", "Adresse e-mail")}
-                  <span className="login-field-shell">
-                    <Mail size={18} aria-hidden="true" />
-                    <input
-                      key="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                      inputMode="email"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      enterKeyHint="go"
-                      placeholder="you@yourbusiness.com"
-                      autoFocus
-                    />
-                  </span>
-                </label>
-              ) : (
-                <label className="login-auth-field">
-                  {t("Verification code", "Code de vérification")}
-                  <span className="login-field-shell login-code-field">
-                    <input
-                      key="code"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      required
-                      pattern="[0-9]{6}"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      enterKeyHint="done"
-                      autoFocus
-                      placeholder="000000"
-                      className="otp-input"
-                    />
-                  </span>
-                </label>
-              )}
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
+        ) : (
+          <div className="login-form-wrap">
+            <div className="login-form-header">
+              {showSteps && (
+                <p className="login-step-label" role="status">
+                  {t(`Step ${confirming ? 2 : 1} of 2`, `Étape ${confirming ? 2 : 1} sur 2`)}
                 </p>
               )}
-              <SubmitButton busy={busy}>
-                {step === "email"
-                  ? t("Send code", "Envoyer le code")
-                  : t("Sign in", "Se connecter")}
-              </SubmitButton>
-              {step === "code" && (
-                <div className="login-code-actions">
-                  <button
-                    className="text-button"
-                    type="button"
-                    disabled={cooldown > 0 || busy}
-                    onClick={() => {
-                      setBusy(true);
-                      setError("");
-                      void sendCode()
-                        .catch((error) => setError(error.message))
-                        .finally(() => setBusy(false));
-                    }}
-                  >
-                    {cooldown > 0
-                      ? t(`Resend code in ${cooldown}s`, `Renvoyer le code dans ${cooldown}s`)
-                      : t("Resend verification code", "Renvoyer le code de vérification")}
-                  </button>
-                  <button
-                    className="text-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setStep("email");
-                      setCode("");
-                      setError("");
-                    }}
-                  >
-                    <ArrowLeft size={14} />
-                    {t("Use a different email", "Utiliser un autre e-mail")}
-                  </button>
+              <LanguageSwitch />
+            </div>
+            <h1>
+              {confirming
+                ? t("Enter your code", "Saisissez votre code")
+                : t("Sign in", "Connexion")}
+            </h1>
+            <p className="muted">
+              {step === "email"
+                ? t(
+                    "Sign in with the email you use in the Fondeka app.",
+                    "Connectez-vous avec l’e-mail utilisé dans l’application Fondeka.",
+                  )
+                : t(
+                    `We’ve sent a verification code to ${email}.`,
+                    `Un code de vérification a été envoyé à ${email}.`,
+                  )}
+            </p>
+            {demoMode ? (
+              <>
+                <div className="info-box">
+                  {t(
+                    "This app is currently running in demo mode. Explore the business tools with sample data.",
+                    "Cette application est en mode démonstration. Explorez les outils Business avec des données fictives.",
+                  )}
                 </div>
-              )}
-            </form>
-          )}
-          {step === "email" && <AppRegistration disabled={busy} />}
-        </div>
+                <Link className="button primary full-width" href="/overview">
+                  {t("Explore demo workspace", "Explorer la démonstration")}{" "}
+                  <ArrowRight size={17} />
+                </Link>
+              </>
+            ) : !authConfigured ? (
+              <div className="info-box">
+                {t(
+                  "Sign-in is temporarily unavailable. Please try again later.",
+                  "La connexion est temporairement indisponible. Veuillez réessayer plus tard.",
+                )}
+              </div>
+            ) : (
+              <form onSubmit={submit} className="form-stack login-auth-form">
+                {step === "email" ? (
+                  <label className="login-auth-field">
+                    {t("Email address", "Adresse e-mail")}
+                    <span className="login-field-shell">
+                      <Mail size={18} aria-hidden="true" />
+                      <input
+                        key="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        enterKeyHint="go"
+                        placeholder="you@yourbusiness.com"
+                        autoFocus
+                      />
+                    </span>
+                  </label>
+                ) : (
+                  <label className="login-auth-field">
+                    {t("Verification code", "Code de vérification")}
+                    <span className="login-field-shell login-code-field">
+                      <input
+                        key="code"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        required
+                        pattern="[0-9]{6}"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        enterKeyHint="done"
+                        autoFocus
+                        placeholder="000000"
+                        className="otp-input"
+                      />
+                    </span>
+                  </label>
+                )}
+                {error && (
+                  <p className="form-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                <SubmitButton busy={busy}>
+                  {step === "email"
+                    ? t("Send code", "Envoyer le code")
+                    : t("Sign in", "Se connecter")}
+                </SubmitButton>
+                {step === "code" && (
+                  <div className="login-code-actions">
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={cooldown > 0 || busy}
+                      onClick={() => {
+                        setBusy(true);
+                        setError("");
+                        void sendCode()
+                          .catch((error) => setError(error.message))
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      {cooldown > 0
+                        ? t(`Resend code in ${cooldown}s`, `Renvoyer le code dans ${cooldown}s`)
+                        : t("Resend verification code", "Renvoyer le code de vérification")}
+                    </button>
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setStep("email");
+                        setCode("");
+                        setError("");
+                      }}
+                    >
+                      <ArrowLeft size={14} />
+                      {t("Use a different email", "Utiliser un autre e-mail")}
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
+            {step === "email" && <AppRegistration disabled={busy} />}
+          </div>
+        )}
       </section>
     </main>
   );
