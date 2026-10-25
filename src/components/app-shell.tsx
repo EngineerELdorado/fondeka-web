@@ -183,14 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
           <div className="topbar-right">
-            {pathname.startsWith("/developers") ? (
-              <ApiEnvironmentSwitch />
-            ) : (
-              <span className={`environment-pill ${demoMode ? "demo" : "live"}`}>
-                {demoMode ? <FlaskConical size={13} /> : <ShieldCheck size={13} />}{" "}
-                {demoMode ? uiText("Demo mode") : uiText("Live workspace")}
-              </span>
-            )}
+            {pathname.startsWith("/developers") && <ApiEnvironmentSwitch />}
             <Link href="/developers/guides" className="topbar-docs">
               {uiText("Developer guide")}
               <ArrowUpRight size={14} />
