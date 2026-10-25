@@ -77,6 +77,20 @@ export function resourceAccessUnavailable(state: BusinessToolsState, destination
       state.resourceUnavailableFor.split("?")[0] === destination.split("?")[0])
   );
 }
+/** A backend-approved unpaid bank attempt may be replaced only within its original offer. */
+export function paymentOffer(state: BusinessToolsState) {
+  const access = effectiveAccess(state);
+  const purchase = state.purchase;
+  if (!purchase) return access;
+  if (
+    access &&
+    purchase.id &&
+    purchase.status === "PENDING" &&
+    purchase.canChangePaymentMethod === true &&
+    (purchase.tool || "BUNDLE") === (access.tool || "BUNDLE")
+  )
+    return { ...access, pendingPurchase: null };
+}
 export class BusinessToolsClient {
   private state: BusinessToolsState = {
     loading: true,
@@ -161,7 +175,10 @@ export class BusinessToolsClient {
           !Number.isSafeInteger(intent.paymentMethod?.id) ||
           intent.paymentMethod.id <= 0 ||
           !/^[A-Z]{3}$/.test(intent.paymentMethod.currency) ||
-          intent.paymentMethod.feeApplicationMode !== "EXCLUSIVE"
+          intent.paymentMethod.feeApplicationMode !== "EXCLUSIVE" ||
+          (intent.replacePurchaseId !== undefined &&
+            (typeof intent.replacePurchaseId !== "string" ||
+              !purchaseIdPattern.test(intent.replacePurchaseId)))
         )
           throw new Error("Invalid saved payment");
         this.update({ intent, uncertain: true });
@@ -194,6 +211,10 @@ export class BusinessToolsClient {
       access?.pendingPurchase &&
       this.state.purchase?.id !== access.pendingPurchase.id
     ) {
+      const replacementIntent =
+        this.state.intent?.replacePurchaseId === access.pendingPurchase.id
+          ? this.state.intent
+          : undefined;
       this.update({
         purchase: {
           ...access.pendingPurchase,
@@ -202,10 +223,14 @@ export class BusinessToolsClient {
           failureCode: null,
           failureMessage: null,
         },
-        intent: undefined,
-        uncertain: false,
+        intent: replacementIntent,
+        uncertain: !!replacementIntent,
       });
-      this.save({ purchaseId: access.pendingPurchase.id });
+      this.save(
+        replacementIntent
+          ? { intent: replacementIntent }
+          : { purchaseId: access.pendingPurchase.id },
+      );
     }
   }
   /** One account-level result in memory; entering another tool does not invalidate it. */
@@ -304,19 +329,22 @@ export class BusinessToolsClient {
             this.dependencies.onGranted();
         } else if (selected.pendingPurchase) {
           const pending = selected.pendingPurchase;
+          const replacementIntent =
+            this.state.intent?.replacePurchaseId === pending.id ? this.state.intent : undefined;
           this.update({
             purchase: {
+              ...(this.state.purchase?.id === pending.id ? this.state.purchase : {}),
               ...pending,
               access: selected,
               accessGranted: false,
               failureCode: null,
               failureMessage: null,
             },
-            uncertain: false,
-            intent: undefined,
+            uncertain: !!replacementIntent,
+            intent: replacementIntent,
             submissionError: undefined,
           });
-          this.save({ purchaseId: pending.id });
+          this.save(replacementIntent ? { intent: replacementIntent } : { purchaseId: pending.id });
         } else if (savedId && !this.state.purchase) {
           await this.loadPurchase(savedId);
         }
@@ -340,19 +368,19 @@ export class BusinessToolsClient {
   }
   async purchase(paymentMethod: PaymentSelection, quote: ReviewedQuote) {
     if (this.state.busy || this.disposed) return;
-    const access = effectiveAccess(this.state);
+    const access = paymentOffer(this.state);
     if (
       !access ||
       this.state.loading ||
       this.state.error ||
       accessDecision(access) !== "purchase" ||
       this.state.intent ||
-      this.state.purchase ||
       this.state.resourceUnavailable
     )
       throw new Error("Check your existing access or payment before starting a purchase.");
     validateReviewedQuote(quote, paymentMethod, access, (this.dependencies.now ?? Date.now)());
     const intent: PurchaseIntent = {
+      ...(this.state.purchase?.id ? { replacePurchaseId: this.state.purchase.id } : {}),
       planCode: access.plan.code,
       idempotencyKey: `bt_${(this.dependencies.uuid ?? (() => crypto.randomUUID()))()}`,
       paymentMethod: { ...paymentMethod },
@@ -366,7 +394,8 @@ export class BusinessToolsClient {
         "Allow session storage before starting this payment, so it can be safely recovered.",
       );
     }
-    this.update({ intent, busy: true, error: undefined });
+    this.revision++; // An older status read must not overwrite the confirmed replacement intent.
+    this.update({ intent, busy: true, error: undefined, refreshing: false });
     await this.post(intent);
   }
   private async post(intent: PurchaseIntent) {
@@ -379,7 +408,11 @@ export class BusinessToolsClient {
           body: JSON.stringify(intent),
         }),
       );
-      if (!this.disposed && revision === this.revision) await this.acceptPurchase(purchase);
+      if (!this.disposed && revision === this.revision) {
+        await this.acceptPurchase(purchase);
+        if (intent.replacePurchaseId && this.state.purchase?.status === "PENDING")
+          await this.reload();
+      }
     } catch (error) {
       if (this.disposed) return;
       this.update({
@@ -393,15 +426,27 @@ export class BusinessToolsClient {
       if (
         (status === 400 ||
           status === 422 ||
-          (status === 409 && this.state.access?.plan.code !== intent.planCode)) &&
+          (status === 409 &&
+            (this.state.access?.plan.code !== intent.planCode || !!intent.replacePurchaseId))) &&
         !this.disposed &&
         !this.state.loading &&
         !this.state.error &&
         !this.state.access?.accessGranted &&
-        !this.state.purchase
+        (!this.state.purchase || this.state.purchase.id === intent.replacePurchaseId)
       ) {
         this.save();
-        this.update({ intent: undefined, uncertain: false });
+        this.update({
+          intent: undefined,
+          uncertain: false,
+          ...(intent.replacePurchaseId
+            ? {
+                submissionError:
+                  error instanceof Error
+                    ? error.message
+                    : "This payment method could not be selected.",
+              }
+            : {}),
+        });
       }
     } finally {
       this.update({ busy: false });
@@ -419,7 +464,7 @@ export class BusinessToolsClient {
         this.state.access?.accessGranted
       )
         return;
-      if (this.state.purchase) {
+      if (this.state.purchase && this.state.purchase.id !== this.state.intent?.replacePurchaseId) {
         await this.checkStatus();
         return;
       }

@@ -1,5 +1,5 @@
 import type { PaymentMethod } from "./business-tools";
-export const paymentGroupOrder = ["BALANCE", "CRYPTO", "MOBILE_MONEY", "BANK"] as const;
+export const paymentGroupOrder = ["BALANCE", "MOBILE_MONEY", "CRYPTO", "BANK"] as const;
 export type PaymentGroupType = (typeof paymentGroupOrder)[number];
 export function groupPaymentMethods(methods: PaymentMethod[]) {
   return paymentGroupOrder

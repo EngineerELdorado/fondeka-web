@@ -24,6 +24,7 @@ import {
   BusinessToolsClient,
   clearBusinessToolsRecovery,
   mayMountOwnerData,
+  paymentOffer,
 } from "../src/lib/business-tools-client";
 import { tokenCustomerScope } from "../src/lib/session-scope";
 
@@ -885,4 +886,194 @@ test("only known internal destinations and the specific owner-access denial ente
     [403, "BUSINESS_TOOLS_ACCESS_REQUIRED", "/customer-api/transactions/123"],
   ] as const)
     assert.equal(needsBusinessToolsRecovery(status, code, path), false);
+});
+
+test("reopening an unpaid bank purchase offers method selection and preserves the existing instructions", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const calls: string[] = [];
+  const subject = client(async (path, init) => {
+    calls.push(`${init?.method || "GET"} ${path}`);
+    return path === accessPath
+      ? pending
+      : { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+  });
+  await subject.enter("/stores");
+  assert.equal(paymentOffer(subject.getSnapshot()), undefined); // Await the backend capability.
+  await subject.checkStatus();
+  subject.dismissOffer();
+  await subject.enter("/pos");
+  assert.equal(accessDecision(paymentOffer(subject.getSnapshot())!), "purchase");
+  assert.equal(subject.getSnapshot().purchase?.paymentTransactionId, 789);
+  assert.equal(subject.getSnapshot().access?.pendingPurchase?.id, purchaseId);
+  assert.ok(calls.every((call) => call.startsWith("GET ")));
+});
+test("confirming another method replaces the named unpaid bank attempt with a fresh persisted intent", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const nextId = "7f6041df-85ea-47ee-9ee4-1f01f4097ef0";
+  const store = storage();
+  let paid = false;
+  const posted: unknown[] = [];
+  const subject = client(
+    async (path, init) => {
+      if (path === accessPath) return paid ? access({ accessGranted: true }) : pending;
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        assert.deepEqual(JSON.parse(store.getItem(recoveryPrefix + "customer-a")!).intent, body);
+        posted.push(body);
+        paid = true;
+        return purchase("COMPLETED", access({ accessGranted: true }), nextId);
+      }
+      return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+    },
+    { store, uuid: () => nextId },
+  );
+  await subject.enter("/stores");
+  await subject.checkStatus();
+  await subject.purchase(selection, quote());
+  assert.deepEqual(posted, [
+    {
+      planCode: "SERVER_PLAN",
+      idempotencyKey: `bt_${nextId}`,
+      paymentMethod: selection,
+      replacePurchaseId: purchaseId,
+    },
+  ]);
+  assert.equal(mayMountOwnerData(subject.getSnapshot(), "/stores", true), true);
+  assert.equal(store.getItem(recoveryPrefix + "customer-a"), null);
+});
+test("an uncertain bank replacement retries the identical intent instead of resuming the old instructions", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const bodies: string[] = [];
+  let paid = false;
+  const subject = client(async (path, init) => {
+    if (path === accessPath) return paid ? access({ accessGranted: true }) : pending;
+    if (init?.method === "POST") {
+      bodies.push(String(init.body));
+      if (bodies.length === 1) throw new Error("Connection lost");
+      paid = true;
+      return purchase(
+        "COMPLETED",
+        access({ accessGranted: true }),
+        "7f6041df-85ea-47ee-9ee4-1f01f4097ef0",
+      );
+    }
+    return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+  });
+  await subject.enter("/stores");
+  await subject.checkStatus();
+  await subject.purchase(selection, quote());
+  assert.equal(subject.getSnapshot().uncertain, true);
+  assert.equal(subject.getSnapshot().intent?.replacePurchaseId, purchaseId);
+  await subject.retryIntent();
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0], bodies[1]);
+  assert.equal(subject.getSnapshot().access?.accessGranted, true);
+});
+test("a rejected bank replacement leaves the old bank payment available and allows correcting the selection", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const subject = client(async (path, init) => {
+    if (path === accessPath) return pending;
+    if (init?.method === "POST")
+      throw Object.assign(new Error("Unavailable method"), { status: 400 });
+    return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+  });
+  await subject.enter("/stores");
+  await subject.checkStatus();
+  await subject.purchase(selection, quote());
+  assert.equal(subject.getSnapshot().intent, undefined);
+  assert.equal(subject.getSnapshot().uncertain, false);
+  assert.equal(subject.getSnapshot().purchase?.id, purchaseId);
+  assert.equal(subject.getSnapshot().submissionError, "Unavailable method");
+  assert.equal(accessDecision(paymentOffer(subject.getSnapshot())!), "purchase");
+});
+test("method selection cannot replace another tool's payment or a payment without backend approval", async () => {
+  for (const capability of [undefined, false, true]) {
+    const pending = access({
+      pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+    });
+    let posts = 0;
+    const subject = client(async (path, init) => {
+      if (init?.method === "POST") posts++;
+      return path === accessPath
+        ? pending
+        : { ...purchase("PENDING", pending), tool: "API", canChangePaymentMethod: capability };
+    });
+    await subject.enter("/stores");
+    await subject.checkStatus();
+    assert.equal(paymentOffer(subject.getSnapshot()), undefined);
+    await assert.rejects(subject.purchase(selection, quote()), /existing access/);
+    assert.equal(posts, 0);
+  }
+});
+
+test("a page reload preserves an uncertain bank replacement and never automatically submits it", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const original = {
+    planCode: "SERVER_PLAN",
+    idempotencyKey: "bt_original-replacement",
+    paymentMethod: selection,
+    replacePurchaseId: purchaseId,
+  };
+  const store = storage();
+  store.setItem(
+    recoveryPrefix + "customer-a",
+    JSON.stringify({ intent: original, tool: "BUNDLE", destination: "/stores" }),
+  );
+  let posted: unknown;
+  const subject = client(
+    async (path, init) => {
+      if (path === accessPath) return pending;
+      if (init?.method === "POST") {
+        posted = JSON.parse(String(init.body));
+        return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+      }
+      return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+    },
+    { store },
+  );
+  await subject.enter("/stores");
+  assert.equal(subject.getSnapshot().uncertain, true);
+  assert.deepEqual(subject.getSnapshot().intent, original);
+  assert.equal(posted, undefined);
+  await subject.retryIntent();
+  assert.deepEqual(posted, original);
+});
+test("a slow status response for the old bank payment cannot replace a newly accepted payment", async () => {
+  const pending = access({
+    pendingPurchase: { id: purchaseId, status: "PENDING", paymentTransactionId: 789 },
+  });
+  const delayed = deferred<BusinessToolsPurchase>();
+  let statusReads = 0;
+  let paid = false;
+  const subject = client(async (path, init) => {
+    if (path === accessPath) return paid ? access({ accessGranted: true }) : pending;
+    if (init?.method === "POST") {
+      paid = true;
+      return purchase(
+        "COMPLETED",
+        access({ accessGranted: true }),
+        "7f6041df-85ea-47ee-9ee4-1f01f4097ef0",
+      );
+    }
+    if (++statusReads > 1) return delayed.promise;
+    return { ...purchase("PENDING", pending), canChangePaymentMethod: true };
+  });
+  await subject.enter("/stores");
+  await subject.checkStatus();
+  const oldRead = subject.checkStatus();
+  await subject.purchase(selection, quote());
+  delayed.resolve({ ...purchase("PENDING", pending), canChangePaymentMethod: true });
+  await oldRead;
+  assert.equal(subject.getSnapshot().purchase, undefined);
+  assert.equal(subject.getSnapshot().access?.accessGranted, true);
 });

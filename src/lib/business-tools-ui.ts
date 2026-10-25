@@ -108,6 +108,9 @@ const en = {
   legacyReviewTitle: "Payment received",
   legacyReviewBody: "Access needs review. Contact Fondeka support with the payment reference.",
   anotherMethod: "Choose another method",
+  pendingBankChoice:
+    "Your earlier bank transfer is awaiting payment. Change methods only if you have not sent the transfer. Your new choice replaces that unpaid transfer when you confirm.",
+  viewBankTransfer: "View existing bank instructions",
   reviewOffer: "Review this tool’s offer",
   otherToolActive:
     "Your purchase is active for its tool. The selected tool still requires separate access; review its offer to continue.",
@@ -224,6 +227,9 @@ const fr: typeof en = {
   legacyReviewBody:
     "L’accès nécessite une vérification. Contactez l’assistance Fondeka avec la référence du paiement.",
   anotherMethod: "Choisir un autre moyen",
+  pendingBankChoice:
+    "Votre virement précédent est en attente de paiement. Changez de moyen uniquement si vous n’avez pas envoyé le virement. Votre nouveau choix remplace ce virement non payé lors de la confirmation.",
+  viewBankTransfer: "Voir les instructions du virement existant",
   reviewOffer: "Voir l’offre de cet outil",
   otherToolActive:
     "Votre achat donne accès à son outil. L’outil sélectionné nécessite encore un accès distinct ; consultez son offre pour continuer.",

@@ -22,7 +22,7 @@ import { usePaymentLanguage } from "@/lib/use-payment-language";
 import { useMobileLayout } from "@/lib/use-mobile-layout";
 import { request } from "@/lib/data";
 import { useQuery } from "@/lib/use-query";
-import { resourceAccessUnavailable } from "@/lib/business-tools-client";
+import { paymentOffer, resourceAccessUnavailable } from "@/lib/business-tools-client";
 import { useBusinessTools } from "./business-tools-provider";
 import { CryptoPaymentInstructions } from "./crypto-payment-instructions";
 import { useWorkspace } from "./workspace-provider";
@@ -162,6 +162,10 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
   const mobile = useMobileLayout();
   const access = state.access;
   const purchase = state.purchase;
+  const [paymentView, setPaymentView] = useState<"selection" | "instructions">("selection");
+  const offer = paymentOffer(state);
+  const canChoose = !!offer && accessDecision(offer) === "purchase";
+  const choosingMethod = canChoose && (!purchase || paymentView === "selection");
   const decision = access ? accessDecision(access) : undefined;
   const resourceUnavailable = resourceAccessUnavailable(state, state.destination || "");
   const title =
@@ -171,21 +175,23 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
         ? t.errorTitle
         : state.uncertain || state.intent
           ? t.checkingPayment
-          : purchase?.status === "PENDING" || decision === "pending"
-            ? t.processing
-            : purchase
-              ? purchase.status === "COMPLETED"
-                ? purchase.failureCode === "BUSINESS_TOOLS_LEGACY_CREDIT_UNAVAILABLE"
-                  ? t.legacyReviewTitle
-                  : t.completedTitle
-                : purchase.status === "REFUNDED"
-                  ? t.refundedTitle
-                  : t.failedTitle
-              : decision === "unavailable"
-                ? t.unavailable
-                : decision === "review"
-                  ? t.reviewTitle
-                  : access?.plan.name || t.title;
+          : choosingMethod
+            ? access?.plan.name || t.title
+            : purchase?.status === "PENDING" || decision === "pending"
+              ? t.processing
+              : purchase
+                ? purchase.status === "COMPLETED"
+                  ? purchase.failureCode === "BUSINESS_TOOLS_LEGACY_CREDIT_UNAVAILABLE"
+                    ? t.legacyReviewTitle
+                    : t.completedTitle
+                  : purchase.status === "REFUNDED"
+                    ? t.refundedTitle
+                    : t.failedTitle
+                : decision === "unavailable"
+                  ? t.unavailable
+                  : decision === "review"
+                    ? t.reviewTitle
+                    : access?.plan.name || t.title;
   return (
     <Modal
       title={title}
@@ -235,7 +241,12 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
             </div>
           </>
         ) : purchase ? (
-          <PurchaseProgress purchase={purchase} onClose={onClose} />
+          <div hidden={choosingMethod}>
+            <PurchaseProgress
+              purchase={purchase}
+              onClose={canChoose ? () => setPaymentView("selection") : onClose}
+            />
+          </div>
         ) : decision === "pending" ? (
           <PaymentLoading />
         ) : decision === "unavailable" ? (
@@ -251,9 +262,8 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
         ) : decision === "purchase" ? null : (
           <PaymentLoading />
         )}
-        {access &&
-          decision === "purchase" &&
-          !purchase &&
+        {offer &&
+          choosingMethod &&
           !state.intent &&
           !state.uncertain &&
           !state.error &&
@@ -262,23 +272,39 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
               <div className="activation-price">
                 <span>{t.activationPrice}</span>
                 <strong>
-                  {paymentMoney(access.pricing.amountDue, access.pricing.currency, language)}
+                  {paymentMoney(offer.pricing.amountDue, offer.pricing.currency, language)}
                 </strong>
                 <small>
-                  {access.pricing.currency}{" "}
-                  <span>{billingLabel(access.plan.billingMode, language)}</span>
+                  {offer.pricing.currency}{" "}
+                  <span>{billingLabel(offer.plan.billingMode, language)}</span>
                 </small>
               </div>
               <p className="activation-explanation">
-                {access.purchaseNotice ||
-                  (access.pricingMode === "PER_TOOL" && access.tool !== "BUNDLE"
+                {offer.purchaseNotice ||
+                  (offer.pricingMode === "PER_TOOL" && offer.tool !== "BUNDLE"
                     ? language === "fr"
-                      ? `Cet achat active uniquement ${access.plan.name}. Les autres outils Business nécessitent un accès distinct.`
-                      : `This purchase unlocks ${access.plan.name} only. Other Business Tools require separate access.`
+                      ? `Cet achat active uniquement ${offer.plan.name}. Les autres outils Business nécessitent un accès distinct.`
+                      : `This purchase unlocks ${offer.plan.name} only. Other Business Tools require separate access.`
                     : t.explanation)}
               </p>
               {state.submissionError && <PaymentError message={state.submissionError} />}
-              <PaymentSelector access={access} onClose={onClose} />
+              {purchase?.status === "PENDING" && (
+                <div className="activation-note">
+                  <p>{t.pendingBankChoice}</p>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setPaymentView("instructions")}
+                  >
+                    {t.viewBankTransfer}
+                  </button>
+                </div>
+              )}
+              <PaymentSelector
+                access={offer}
+                onClose={onClose}
+                onSubmitted={() => setPaymentView("instructions")}
+              />
             </div>
           )}
       </div>
@@ -303,9 +329,11 @@ function StateActions({ onClose, onRefresh }: { onClose: () => void; onRefresh: 
 function PaymentSelector({
   access,
   onClose,
+  onSubmitted,
 }: {
   access: BusinessToolsAccess;
   onClose: () => void;
+  onSubmitted: () => void;
 }) {
   const { client, state } = useBusinessTools();
   const t = paymentCopy(usePaymentLanguage());
@@ -325,8 +353,9 @@ function PaymentSelector({
       busy={state.busy || state.loading}
       confirmLabel={t.activate}
       onClose={onClose}
-      onConfirm={(selection, value, receivedAt) =>
-        client.purchase(selection, {
+      onConfirm={async (selection, value, receivedAt) => {
+        const previousId = state.purchase?.id;
+        await client.purchase(selection, {
           value,
           receivedAt,
           selection: JSON.stringify(selection),
@@ -335,8 +364,16 @@ function PaymentSelector({
           planAmount: access.plan.amount,
           planCurrency: access.plan.currency,
           pricing: { ...access.pricing },
-        })
-      }
+        });
+        const current = client.getSnapshot();
+        if (
+          current.purchase &&
+          current.purchase.id !== previousId &&
+          !current.uncertain &&
+          !current.intent
+        )
+          onSubmitted();
+      }}
     />
   );
 }

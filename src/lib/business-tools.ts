@@ -44,6 +44,7 @@ export interface BusinessToolAccess extends Omit<BusinessToolsAccess, "bundle" |
   purchaseAction: BusinessPurchaseAction;
 }
 export interface BusinessToolsPurchase {
+  canChangePaymentMethod?: boolean;
   tool?: BusinessToolScope;
   id: string | null;
   status: PurchaseStatus;
@@ -83,6 +84,7 @@ export interface PaymentSelection {
   networkId?: number;
 }
 export interface PurchaseIntent {
+  replacePurchaseId?: string;
   planCode: string;
   idempotencyKey: string;
   paymentMethod: PaymentSelection;
@@ -394,6 +396,8 @@ export function parsePurchase(value: unknown): BusinessToolsPurchase {
   const purchase = value as BusinessToolsPurchase;
   if (
     !purchase ||
+    (purchase.canChangePaymentMethod !== undefined &&
+      typeof purchase.canChangePaymentMethod !== "boolean") ||
     (purchase.tool !== undefined && purchase.tool !== "BUNDLE" && !isBusinessTool(purchase.tool)) ||
     typeof purchase.accessGranted !== "boolean" ||
     !["PENDING", "COMPLETED", "FAILED", "CANCELLED", "REFUNDED"].includes(purchase.status) ||

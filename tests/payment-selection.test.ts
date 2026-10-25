@@ -75,14 +75,14 @@ test("method groups keep backend identities, USD priority and descending wallet 
   const groups = groupPaymentMethods(methods);
   assert.deepEqual(
     groups.map((g) => g.type),
-    ["BALANCE", "CRYPTO", "MOBILE_MONEY", "BANK"],
+    ["BALANCE", "MOBILE_MONEY", "CRYPTO", "BANK"],
   );
   assert.deepEqual(
     groups[0].methods.map((m) => m.id),
     [7, 3, 2, 1, 8],
   );
   assert.deepEqual(
-    groups[1].methods.map((m) => m.id),
+    groups.find((group) => group.type === "CRYPTO")!.methods.map((m) => m.id),
     [4, 5],
   );
   assert.deepEqual(methods, before);
