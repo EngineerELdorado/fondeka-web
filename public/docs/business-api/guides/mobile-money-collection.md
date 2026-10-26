@@ -10,7 +10,7 @@ X-API-Key: YOUR_API_KEY
 Idempotency-Key: invoice-1001:collection
 Content-Type: application/json
 
-{"amount":500,"currency":"KES","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","clientReference":"invoice-1001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":500,"currency":"KES","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","orderReference":"invoice-1001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 Use the payer's international phone number, without a national trunk zero after the country code. Amount is fiat net for EXCLUSIVE; fees are added to the gross collected. Use INCLUSIVE when the request amount is the total the payer should pay. Supported LIVE currencies, limits and routes depend on configuration.

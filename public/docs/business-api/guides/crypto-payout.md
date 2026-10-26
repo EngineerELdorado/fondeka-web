@@ -10,7 +10,7 @@ X-API-Key: YOUR_API_KEY
 Idempotency-Key: crypto-disbursement-1001:payout
 Content-Type: application/json
 
-{"amount":25,"currency":"USD","paymentMethodName":"USDT","networkName":"TRC20","accountRef":"YOUR_RECIPIENT_TRON_ADDRESS","clientReference":"crypto-disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":25,"currency":"USD","paymentMethodName":"USDT","networkName":"TRC20","accountRef":"YOUR_RECIPIENT_TRON_ADDRESS","orderReference":"crypto-disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 Replace the destination with the recipient's valid address on the selected network. Wrong-network transfers can be unrecoverable. An enum's existence does not enable a payout method or route; confirm availability and your account's payout eligibility before going live.

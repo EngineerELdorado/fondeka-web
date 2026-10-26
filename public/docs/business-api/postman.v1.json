@@ -177,7 +177,7 @@
         "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"amount\": 10,\n  \"clientReference\": \"crypto-order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"paymentMethodName\": \"USDT\"\n}",
+          "raw": "{\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -220,7 +220,7 @@
         "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"clientReference\": \"order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -289,7 +289,7 @@
         "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"clientReference\": \"crypto-order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"paymentMethodName\": \"USDT\"\n}",
+          "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -332,7 +332,7 @@
         "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"clientReference\": \"order-0001\",\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+          "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
           "options": {
             "raw": {
               "language": "json"

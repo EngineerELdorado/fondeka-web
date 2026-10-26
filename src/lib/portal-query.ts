@@ -6,7 +6,7 @@ export interface PortalFilters {
   status: string;
   currency: string;
   reference: string;
-  clientReference: string;
+  orderReference: string;
   fromDate: string;
   toDate: string;
 }
@@ -15,7 +15,7 @@ export const emptyFilters: PortalFilters = {
   status: "",
   currency: "",
   reference: "",
-  clientReference: "",
+  orderReference: "",
   fromDate: "",
   toDate: "",
 };
@@ -26,14 +26,14 @@ export function portalQuery(
   environment: ApiEnvironment = "LIVE",
 ) {
   const params = new URLSearchParams({ environment, page: String(page), size: "10" });
-  for (const key of ["action", "status", "currency", "reference", "clientReference"] as const) {
+  for (const key of ["action", "status", "currency", "reference", "orderReference"] as const) {
     const value = filters[key].trim();
     if (!value) continue;
     if (key === "status" && !isBusinessApiPaymentStatus(value))
       throw new Error(
         "Choose ACCEPTED, PROCESSING, COMPLETED or FAILED, or clear the status filter.",
       );
-    if ((key === "reference" || key === "clientReference") && value.length > 128)
+    if ((key === "reference" || key === "orderReference") && value.length > 128)
       throw new Error("References must be 128 characters or fewer.");
     if (key === "currency" && !/^[A-Za-z]{3}$/.test(value))
       throw new Error("Enter a three-letter fiat currency code.");

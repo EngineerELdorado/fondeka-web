@@ -10,7 +10,7 @@ X-API-Key: YOUR_API_KEY
 Idempotency-Key: crypto-invoice-1001:collection
 Content-Type: application/json
 
-{"amount":25,"currency":"USD","paymentMethodName":"USDT","networkName":"TRC20","clientReference":"crypto-invoice-1001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":25,"currency":"USD","paymentMethodName":"USDT","networkName":"TRC20","orderReference":"crypto-invoice-1001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 No payer address is required in `accountRef`. Choose a configured crypto method/network pair. The amount is **25 USD**, not an instruction to transfer an assumed 25 tokens. Live prices, minimums and fees apply.

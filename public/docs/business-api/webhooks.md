@@ -20,7 +20,7 @@ Headers are `X-Fondeka-Event-Id`, `X-Fondeka-Timestamp` (Unix seconds) and `X-Fo
 4. Compare signatures in constant time. Only then parse JSON and validate ownership/environment, event type and header/body event ID equality.
 5. Insert the verified event into a durable inbox with a unique event ID. Return 2xx after commit, and process it asynchronously.
 
-Use the [Node receiver](examples/node/webhook.mjs) or [Python receiver](examples/python/webhook.py). Both preserve raw bytes, reject tampering/stale events/wrong signing secrets/wrong environments, and persist before acknowledgment. Configure each receiver with the secret belonging to its Business API key. Your inbox processor must also match the reference/client reference to an order owned by that integration before fulfillment. They are executable examples; use a shared database inbox and idempotent fulfillment in a production application with multiple instances.
+Use the [Node receiver](examples/node/webhook.mjs) or [Python receiver](examples/python/webhook.py). Both preserve raw bytes, reject tampering/stale events/wrong signing secrets/wrong environments, and persist before acknowledgment. Configure each receiver with the secret belonging to its Business API key. Your inbox processor must also match the reference/order reference to an order owned by that integration before fulfillment. They are executable examples; use a shared database inbox and idempotent fulfillment in a production application with multiple instances.
 
 ## Delivery and deduplication
 

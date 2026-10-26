@@ -42,7 +42,7 @@ def main():
     client=Client()
     wallets=client.request('GET','/wallets?currency=USD')
     if len(wallets)!=1 or wallets[0]['environment']!='SANDBOX': raise RuntimeError('SANDBOX was not confirmed; no write sent.')
-    body={'amount':10,'currency':'USD','paymentMethodName':'MPESA_KENYA','accountRef':'+254707371664','clientReference':client.intent,'feeApplicationMode':'EXCLUSIVE'}
+    body={'amount':10,'currency':'USD','paymentMethodName':'MPESA_KENYA','accountRef':'+254707371664','orderReference':client.intent,'feeApplicationMode':'EXCLUSIVE'}
     collection=client.request('POST','/collections',body,client.intent+':collection')
     completed=client.poll(collection['fondekaReference']); print('Collection',json.dumps(completed))
     if completed['status']!='COMPLETED': return

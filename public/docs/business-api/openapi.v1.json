@@ -42,15 +42,15 @@
                       "value" : {
                         "createdAt" : "2026-10-23T12:00:00Z",
                         "data" : {
-                          "action" : "BUSINESS_API_COLLECTION",
-                          "amount" : 10.0,
-                          "clientReference" : "order-0001",
-                          "currency" : "USD",
                           "environment" : "SANDBOX",
-                          "fee" : 0.3,
-                          "fondekaReference" : "SBX00000000000000000000000000000001",
-                          "grossAmount" : 10.3,
                           "service" : "BUSINESS_API",
+                          "action" : "BUSINESS_API_COLLECTION",
+                          "orderReference" : "order-0001",
+                          "fondekaReference" : "SBX00000000000000000000000000000001",
+                          "amount" : 10.0,
+                          "fee" : 0.3,
+                          "grossAmount" : 10.3,
+                          "currency" : "USD",
                           "status" : "COMPLETED"
                         },
                         "environment" : "SANDBOX",
@@ -224,14 +224,6 @@
             "multipleOf" : 0.01,
             "type" : "number"
           },
-          "clientReference" : {
-            "description" : "Your order/invoice reference, returned in payment resources and webhook data. Not an idempotency key.",
-            "example" : "order-0001",
-            "maxLength" : 128,
-            "minLength" : 0,
-            "nullable" : true,
-            "type" : "string"
-          },
           "currency" : {
             "description" : "Three-letter fiat wallet currency, case-insensitive. Availability depends on configured currency and payment route.",
             "example" : "USD",
@@ -259,6 +251,14 @@
             "description" : "Stable crypto-network enum code. Required for crypto unless networkId is supplied.",
             "enum" : [ "BTC", "LIGHTNING", "ERC20", "BEP20", "TRC20", "POLYGON", "BSC", "ARBITRUM", "BASE", "AVALANCHE", "SOLANA" ],
             "example" : "TRC20",
+            "nullable" : true,
+            "type" : "string"
+          },
+          "orderReference" : {
+            "description" : "Your order/invoice reference, returned in payment resources and webhook data. Not an idempotency key.",
+            "example" : "order-0001",
+            "maxLength" : 128,
+            "minLength" : 0,
             "nullable" : true,
             "type" : "string"
           },
@@ -292,11 +292,6 @@
             "description" : "Net fiat amount after fees. For a completed collection this is the reconciled wallet credit; before completion it is the quote.",
             "example" : 10.0,
             "type" : "number"
-          },
-          "clientReference" : {
-            "description" : "Merchant-supplied order/invoice reference.",
-            "nullable" : true,
-            "type" : "string"
           },
           "cryptoDetails" : {
             "allOf" : [ {
@@ -337,6 +332,11 @@
             "description" : "Gross fiat amount including fee; payout wallet debit. Completed collections show reconciled gross.",
             "example" : 10.3,
             "type" : "number"
+          },
+          "orderReference" : {
+            "description" : "Merchant-supplied order/invoice reference.",
+            "nullable" : true,
+            "type" : "string"
           },
           "service" : {
             "enum" : [ "BUSINESS_API" ],
@@ -748,7 +748,7 @@
     },
     "description" : "Collect and pay out through mobile money and crypto, settling in account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. The /v1 path is the API major version; info.version versions this documentation contract.",
     "title" : "Fondeka Business API",
-    "version" : "1.1.0"
+    "version" : "1.2.0"
   },
   "openapi" : "3.0.3",
   "paths" : {
@@ -802,10 +802,10 @@
                   "summary" : "Fiat-priced USDT on TRON",
                   "value" : {
                     "amount" : 10.0,
-                    "clientReference" : "crypto-order-0001",
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "networkName" : "TRC20",
+                    "orderReference" : "crypto-order-0001",
                     "paymentMethodName" : "USDT"
                   }
                 },
@@ -814,9 +814,9 @@
                   "value" : {
                     "accountRef" : "+254707371664",
                     "amount" : 10.0,
-                    "clientReference" : "order-0001",
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
+                    "orderReference" : "order-0001",
                     "paymentMethodName" : "MPESA_KENYA"
                   }
                 }
@@ -835,15 +835,15 @@
                 "examples" : {
                   "sandboxAccepted" : {
                     "value" : {
-                      "action" : "BUSINESS_API_COLLECTION",
-                      "amount" : 10.0,
-                      "clientReference" : "order-0001",
-                      "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "fee" : 0.3,
-                      "fondekaReference" : "SBX00000000000000000000000000000001",
-                      "grossAmount" : 10.3,
                       "service" : "BUSINESS_API",
+                      "action" : "BUSINESS_API_COLLECTION",
+                      "orderReference" : "order-0001",
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
+                      "amount" : 10.0,
+                      "fee" : 0.3,
+                      "grossAmount" : 10.3,
+                      "currency" : "USD",
                       "status" : "ACCEPTED"
                     }
                   }
@@ -2987,10 +2987,10 @@
                   "value" : {
                     "accountRef" : "TJRabPrwbZy45sbavfcjinPJC18kjpRTv8",
                     "amount" : 10.0,
-                    "clientReference" : "crypto-order-0001",
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "networkName" : "TRC20",
+                    "orderReference" : "crypto-order-0001",
                     "paymentMethodName" : "USDT"
                   }
                 },
@@ -2999,9 +2999,9 @@
                   "value" : {
                     "accountRef" : "+254707371664",
                     "amount" : 10.0,
-                    "clientReference" : "order-0001",
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
+                    "orderReference" : "order-0001",
                     "paymentMethodName" : "MPESA_KENYA"
                   }
                 }
@@ -3020,15 +3020,15 @@
                 "examples" : {
                   "sandboxAccepted" : {
                     "value" : {
-                      "action" : "BUSINESS_API_PAYOUT",
-                      "amount" : 10.0,
-                      "clientReference" : "order-0001",
-                      "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "fee" : 0.3,
-                      "fondekaReference" : "SBX00000000000000000000000000000001",
-                      "grossAmount" : 10.3,
                       "service" : "BUSINESS_API",
+                      "action" : "BUSINESS_API_PAYOUT",
+                      "orderReference" : "order-0001",
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
+                      "amount" : 10.0,
+                      "fee" : 0.3,
+                      "grossAmount" : 10.3,
+                      "currency" : "USD",
                       "status" : "ACCEPTED"
                     }
                   }
@@ -5784,15 +5784,15 @@
                 "examples" : {
                   "sandbox" : {
                     "value" : {
-                      "action" : "BUSINESS_API_COLLECTION",
-                      "amount" : 10.0,
-                      "clientReference" : "order-0001",
-                      "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "fee" : 0.3,
-                      "fondekaReference" : "SBX00000000000000000000000000000001",
-                      "grossAmount" : 10.3,
                       "service" : "BUSINESS_API",
+                      "action" : "BUSINESS_API_COLLECTION",
+                      "orderReference" : "order-0001",
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
+                      "amount" : 10.0,
+                      "fee" : 0.3,
+                      "grossAmount" : 10.3,
+                      "currency" : "USD",
                       "status" : "COMPLETED"
                     }
                   }

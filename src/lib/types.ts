@@ -173,17 +173,15 @@ export interface ApiTransaction {
   updatedAt: string;
   transaction: {
     environment: ApiEnvironment;
-    failureCode?: string;
-    failureMessage?: string;
-    fondekaReference: string;
-    clientReference?: string | null;
-    status: BusinessApiPaymentStatus;
-    amount: number;
-    currency: string;
     service: "BUSINESS_API";
     action: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT";
-    grossAmount: number;
+    orderReference?: string | null;
+    fondekaReference: string;
+    amount: number;
     fee: number;
+    grossAmount: number;
+    currency: string;
+    status: BusinessApiPaymentStatus;
     cryptoDetails?: {
       address?: string | null;
       cryptoCurrency?: string | null;
@@ -194,6 +192,8 @@ export interface ApiTransaction {
       invoiceUrl?: string | null;
       expiresAt?: string | null;
     } | null;
+    failureCode?: string;
+    failureMessage?: string;
   };
 }
 

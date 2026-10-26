@@ -19,7 +19,7 @@ Request `amount` and `currency` always describe fiat, even for a crypto method. 
 | Field | Meaning |
 | --- | --- |
 | `fondekaReference` | Opaque Fondeka payment identifier; use it in the existing `/transactions/{reference}` path |
-| `clientReference` | Your optional order/invoice correlation value |
+| `orderReference` | Your optional order/invoice correlation value |
 | `service`, `action` | BUSINESS_API and the collection/payout operation |
 | `amount` | Net fiat amount; quote before completion, reconciled wallet credit for a completed collection |
 | `fee` | One consolidated fee, without internal/provider components |
@@ -55,6 +55,6 @@ An accepted payout debits/reserves gross immediately. A completed collection cre
 
 Use `Idempotency-Key` on collections, payouts, sandbox top-ups and sandbox conversions. Allowed values are 1–128 ASCII letters, digits, `.`, `:`, `_` or `-`. Payment keys are scoped to Business+environment across keys and collection/payout directions. Sandbox funding and conversion keys have account-level scopes for their respective operations. Converting between a name and its matching legacy ID does not create a new payment.
 
-After a timeout or retryable HTTP failure, retry the same logical operation with the same key and payload. A 409 means that key already belongs to different normalized content; recover the original operation before deciding to create a new intent. `clientReference` is your correlation field, not a substitute for idempotency.
+After a timeout or retryable HTTP failure, retry the same logical operation with the same key and payload. A 409 means that key already belongs to different normalized content; recover the original operation before deciding to create a new intent. `orderReference` is your correlation field, not a substitute for idempotency.
 
 Each merchant HTTP attempt returns a fresh `X-Request-Id`, also present as `requestId` in errors. Preserve it when asking support for help. Webhook event IDs are separate identifiers and stay stable across delivery retries.

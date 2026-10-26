@@ -9,7 +9,7 @@ import {mkdtemp,readFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const secret='example-test-signing-secret',timestamp='1800000000';
-const event={id:'11111111-1111-4111-8111-111111111111',type:'business_api.collection.completed',environment:'SANDBOX',data:{fondekaReference:'SBX123',service:'BUSINESS_API',environment:'SANDBOX',action:'BUSINESS_API_COLLECTION',status:'COMPLETED',clientReference:'Facture été'}};
+const event={id:'11111111-1111-4111-8111-111111111111',type:'business_api.collection.completed',environment:'SANDBOX',data:{fondekaReference:'SBX123',service:'BUSINESS_API',environment:'SANDBOX',action:'BUSINESS_API_COLLECTION',status:'COMPLETED',orderReference:'Facture été'}};
 const raw=Buffer.from(JSON.stringify(event,null,2));
 const signature='v1='+createHmac('sha256',secret).update(timestamp+'.').update(raw).digest('hex');
 const args={raw,timestamp,signature,eventId:event.id,secret,now:Number(timestamp)};

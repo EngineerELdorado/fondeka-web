@@ -127,7 +127,7 @@ npm run docs:sync
 npm run docs:check
 ```
 
-The current documentation contract is 1.1.0; endpoint paths stay under `/v1`. Release this portal with the matching compact-response backend. Syncing local artifacts does not deploy or certify production. Existing queued webhook events retain their signed bytes; the guide explains how a receiver can normalize older reference/fee fields only after raw-body signature verification and envelope validation.
+The current documentation contract is 1.2.0; endpoint paths stay under `/v1`. Business API requests, payment snapshots and order filters use `orderReference`. Release this portal with matching backend web and worker binaries so responses and new webhooks share the same fields. Syncing local artifacts does not deploy or certify production. Existing queued webhook events retain their signed bytes; the guide explains how a receiver can normalize older Fondeka/order reference and fee fields only after raw-body signature verification and envelope validation.
 
 Sync copies only the listed public files and records their SHA-256 hashes in `release.json`. Commit the bundle with the portal change. `docs:check` verifies the published release and relative links without needing a backend checkout, database, credentials or provider calls. Do not reformat or hand-edit the copied files; regenerate/review the backend release and sync it again.
 

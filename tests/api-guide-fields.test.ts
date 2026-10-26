@@ -128,7 +128,7 @@ test("the shared schema remains complete independently of the guide-specific fie
     [
       "accountRef",
       "amount",
-      "clientReference",
+      "orderReference",
       "currency",
       "feeApplicationMode",
       "networkId",

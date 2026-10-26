@@ -319,10 +319,12 @@ test("known owner deep links retain their selections and discard external return
   );
   assert.equal(path, "/stores/7?tab=customers&page=2&customer=3&sale=CO-123");
   const api = businessDestination(
-    "/developers?business=7&environment=SANDBOX&apiReference=SBXabc&api_currency=CDF&returnTo=//foreign.example",
+    "/developers?business=7&environment=SANDBOX&apiReference=SBXabc&api_currency=CDF&api_orderReference=Order%2642&api_clientReference=old-bookmark&returnTo=//foreign.example",
   );
   assert.match(api!, /environment=SANDBOX/);
   assert.match(api!, /api_currency=CDF/);
+  assert.match(api!, /api_orderReference=Order%2642/);
+  assert.match(api!, /api_clientReference=old-bookmark/);
   assert.doesNotMatch(api!, /returnTo/);
 });
 test("receipt printing escapes all merchant/customer content and preserves normal currency units", () => {

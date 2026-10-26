@@ -115,7 +115,7 @@ test("documentation links cannot escape the reviewed files, run script URLs or e
 });
 
 test("the downloadable reference exposes merchant-only endpoints and keeps JWT administration outside the contract", () => {
-  assert.equal(spec.info.version, "1.1.0");
+  assert.equal(spec.info.version, "1.2.0");
   assert.equal(spec.openapi, "3.0.3");
   assert.equal(spec.servers[0].url, "https://api.fondeka.com");
   assert.equal(Object.keys(spec.paths).length, 9);
@@ -131,13 +131,18 @@ test("the downloadable reference exposes merchant-only endpoints and keeps JWT a
 });
 
 test("the published payment snapshots use only compact fields and preserve lookup parameter names", () => {
+  const request = spec.components.schemas.BusinessApiTransactionRequest;
+  assert.equal(Object.hasOwn(request.properties, "clientReference"), false);
+  assert.equal(request.properties.orderReference.maxLength, 128);
+  assert.equal(request.properties.orderReference.nullable, true);
+  assert.equal(request.required.includes("orderReference"), false);
   const schema = spec.components.schemas.BusinessApiTransactionResource;
   assert.deepEqual(
     Object.keys(schema.properties).sort(),
     [
       "action",
       "amount",
-      "clientReference",
+      "orderReference",
       "cryptoDetails",
       "currency",
       "environment",
@@ -163,10 +168,23 @@ test("the published payment snapshots use only compact fields and preserve looku
       .requestBody.content["application/json"].examples.completedCollection.value.data,
   ];
   for (const payment of examples) {
+    assert.deepEqual(Object.keys(payment), [
+      "environment",
+      "service",
+      "action",
+      "orderReference",
+      "fondekaReference",
+      "amount",
+      "fee",
+      "grossAmount",
+      "currency",
+      "status",
+    ]);
     for (const key of schema.required) assert.ok(Object.hasOwn(payment, key), key);
     assert.equal(payment.grossAmount, payment.amount + payment.fee);
     for (const removed of [
       "reference",
+      "clientReference",
       "allFees",
       "internalFeeAmount",
       "externalFeeAmount",

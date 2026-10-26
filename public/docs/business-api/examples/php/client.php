@@ -34,7 +34,7 @@ function poll(string $reference): array {
 }
 $wallets=api('GET','/wallets?currency=USD');
 if(count($wallets)!==1 || $wallets[0]['environment']!=='SANDBOX') throw new RuntimeException('SANDBOX not confirmed; no write sent.');
-$body=['amount'=>10,'currency'=>'USD','paymentMethodName'=>'MPESA_KENYA','accountRef'=>'+254707371664','clientReference'=>$intent,'feeApplicationMode'=>'EXCLUSIVE'];
+$body=['amount'=>10,'currency'=>'USD','paymentMethodName'=>'MPESA_KENYA','accountRef'=>'+254707371664','orderReference'=>$intent,'feeApplicationMode'=>'EXCLUSIVE'];
 $collection=api('POST','/collections',$body,$intent.':collection');
 $completed=poll($collection['fondekaReference']); echo "Collection ".json_encode($completed,JSON_THROW_ON_ERROR).PHP_EOL;
 if($completed['status']==='COMPLETED') {

@@ -4,7 +4,7 @@ import { useUiText } from "@/lib/use-ui-text";
 import { useState, useSyncExternalStore } from "react";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { Modal } from "./ui";
-import { money } from "@/lib/format";
+import { date, money } from "@/lib/format";
 import { SandboxConversionClient } from "@/lib/sandbox-conversion";
 import type { SandboxConversion } from "@/lib/types";
 
@@ -291,7 +291,7 @@ function ConversionSummary({ value }: { value: SandboxConversion }) {
         {value.createdAt && (
           <div>
             <dt>{uiText("Completed")}</dt>
-            <dd>{new Date(value.createdAt).toLocaleString()}</dd>
+            <dd>{date(value.createdAt)}</dd>
           </div>
         )}
       </dl>

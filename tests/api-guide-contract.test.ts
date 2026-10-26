@@ -33,17 +33,25 @@ const examples = apiGuideTracks.flatMap((track) =>
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
-test("the verified-event compatibility example preserves raw events, zero fees and missing pricing", () => {
+test("the verified-event compatibility example preserves raw events, order references, zero fees and missing pricing", () => {
   for (const data of [
-    { fondekaReference: "opaque-new", fee: 0.3 },
-    { reference: "opaque-saved-event", allFees: 0.5 },
-    { fondekaReference: "current-wins", reference: "old", fee: 0, allFees: 5 },
+    { fondekaReference: "opaque-new", orderReference: "current-order", fee: 0.3 },
+    { reference: "opaque-saved-event", clientReference: "saved-order", allFees: 0.5 },
+    { fondekaReference: "compact-event", clientReference: "saved-compact-order", fee: 0.3 },
+    {
+      fondekaReference: "current-wins",
+      reference: "old",
+      orderReference: "",
+      clientReference: "old-order",
+      fee: 0,
+      allFees: 5,
+    },
     { fondekaReference: "missing-fee" },
   ]) {
     const event = { data };
     const raw = JSON.stringify(event);
     const normalized = runInNewContext(
-      `${verifiedWebhookCompatibilityExample}\n({fondekaReference, fee})`,
+      `${verifiedWebhookCompatibilityExample}\n({fondekaReference, orderReference, fee})`,
       { event },
     );
     assert.equal(
@@ -51,6 +59,7 @@ test("the verified-event compatibility example preserves raw events, zero fees a
       "fondekaReference" in data ? data.fondekaReference : data.reference,
     );
     assert.equal(normalized.fee, "fee" in data ? data.fee : data.allFees);
+    assert.equal(normalized.orderReference, data.orderReference ?? data.clientReference);
     assert.equal(JSON.stringify(event), raw);
   }
 });
@@ -123,7 +132,7 @@ test("request and response examples are the literal contract values, including e
   const body = publishedExample(guideMedia(operation.requestBody?.content), example.exampleName);
   assert.deepEqual(body, {
     amount: 10,
-    clientReference: "crypto-order-0001",
+    orderReference: "crypto-order-0001",
     currency: "USD",
     feeApplicationMode: "EXCLUSIVE",
     networkName: "TRC20",

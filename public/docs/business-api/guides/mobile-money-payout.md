@@ -10,7 +10,7 @@ X-API-Key: YOUR_API_KEY
 Idempotency-Key: disbursement-1001:payout
 Content-Type: application/json
 
-{"amount":500,"currency":"KES","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","clientReference":"disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":500,"currency":"KES","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","orderReference":"disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 `accountRef` is the recipient's international phone number. EXCLUSIVE sends the requested net and adds fees to the wallet debit. INCLUSIVE treats the requested amount as the gross wallet debit and reduces the amount sent by fees. Do not assume fees from a previous payment are still current.

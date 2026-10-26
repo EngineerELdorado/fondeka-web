@@ -32,12 +32,25 @@ export function money(value: number | string | null | undefined, currency = "USD
     return `${amount.toFixed(2)} ${currency}`;
   }
 }
-export function date(value?: string) {
-  if (!value || Number.isNaN(new Date(value).getTime())) return "—";
-  return new Intl.DateTimeFormat(
-    typeof document === "undefined" ? "en" : document.documentElement.lang,
-    { month: "short", day: "numeric", year: "numeric" },
-  ).format(new Date(value));
+export function date(
+  value?: string | null,
+  language = typeof document === "undefined" ? "en" : document.documentElement.lang,
+) {
+  if (!value) return "—";
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return "—";
+  const calendar = { month: "short", day: "numeric", year: "numeric" } as const;
+  // Calendar-only values have no clock time and must not shift into the previous local day.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value))
+    return new Intl.DateTimeFormat(language, { ...calendar, timeZone: "UTC" }).format(instant);
+  return new Intl.DateTimeFormat(language, {
+    ...calendar,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  }).format(instant);
 }
 export function label(value?: string) {
   if (!value) return "—";

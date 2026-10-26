@@ -54,7 +54,7 @@ test("portal key, list and detail queries carry the selected environment with ex
         ...emptyFilters,
         currency: "usd",
         action: "BUSINESS_API_COLLECTION",
-        clientReference: "Order&42",
+        orderReference: "Order&42",
       },
       3,
       "SANDBOX",
@@ -64,7 +64,7 @@ test("portal key, list and detail queries carry the selected environment with ex
   assert.equal(query.get("page"), "3");
   assert.equal(query.get("currency"), "USD");
   assert.equal(query.get("action"), "BUSINESS_API_COLLECTION");
-  assert.equal(query.get("clientReference"), "Order&42");
+  assert.equal(query.get("orderReference"), "Order&42");
   assert.equal(new URLSearchParams(portalQuery(emptyFilters, 0)).get("environment"), "LIVE");
   assert.notEqual(
     apiTransactionPath(42, "TX001", "LIVE"),
@@ -177,4 +177,36 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
   );
   assert.equal(filtered.content.length, 1);
   assert.equal(filtered.content[0].transaction.failureCode, "INVALID_DESTINATION");
+});
+
+test("portal order filters and detail lookups share the 1.2.0 snapshot in both environments", async () => {
+  for (const environment of ["LIVE", "SANDBOX"] as const) {
+    const path = "/customer-api/businesses/1/api-transactions";
+    const history = await demoRequest<Page<ApiTransaction>>(`${path}?environment=${environment}`);
+    const payment = history.content[2].transaction;
+    assert.ok(payment.orderReference);
+    assert.equal(Object.hasOwn(payment, "clientReference"), false);
+    const query = portalQuery(
+      {
+        ...emptyFilters,
+        orderReference: ` ${payment.orderReference} `,
+        reference: payment.fondekaReference,
+      },
+      0,
+      environment,
+    );
+    const filtered = await demoRequest<Page<ApiTransaction>>(`${path}?${query}`);
+    assert.equal(filtered.content.length, 1);
+    assert.equal(filtered.content[0].transaction.orderReference, payment.orderReference);
+    const detail = await demoRequest<ApiTransaction>(
+      apiTransactionPath(1, payment.fondekaReference, environment),
+    );
+    assert.deepEqual(detail.transaction, filtered.content[0].transaction);
+    const legacy = new URLSearchParams({ environment, clientReference: payment.orderReference });
+    assert.equal((await demoRequest<Page<ApiTransaction>>(`${path}?${legacy}`)).content.length, 1);
+    legacy.set("orderReference", ` ${payment.orderReference} `);
+    assert.equal((await demoRequest<Page<ApiTransaction>>(`${path}?${legacy}`)).content.length, 1);
+    legacy.set("orderReference", "different-order");
+    await assert.rejects(demoRequest(`${path}?${legacy}`), { status: 400 });
+  }
 });

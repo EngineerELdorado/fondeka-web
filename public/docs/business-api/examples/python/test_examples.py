@@ -5,7 +5,7 @@ from webhook import verify
 
 class ExamplesTest(unittest.TestCase):
     def setUp(self):
-        self.event={'id':'11111111-1111-4111-8111-111111111111','type':'business_api.collection.completed','environment':'SANDBOX','data':{'fondekaReference':'SBX123','service':'BUSINESS_API','environment':'SANDBOX','action':'BUSINESS_API_COLLECTION','status':'COMPLETED','clientReference':'Facture été'}}
+        self.event={'id':'11111111-1111-4111-8111-111111111111','type':'business_api.collection.completed','environment':'SANDBOX','data':{'fondekaReference':'SBX123','service':'BUSINESS_API','environment':'SANDBOX','action':'BUSINESS_API_COLLECTION','status':'COMPLETED','orderReference':'Facture été'}}
         self.raw=json.dumps(self.event,ensure_ascii=False,indent=2).encode();self.secret='example-test-signing-secret';self.timestamp='1800000000'
         self.signature='v1='+hmac.new(self.secret.encode(),self.timestamp.encode()+b'.'+self.raw,hashlib.sha256).hexdigest()
         self.args={'raw':self.raw,'timestamp':self.timestamp,'signature':self.signature,'event_id':self.event['id'],'secret':self.secret,'now':1800000000}

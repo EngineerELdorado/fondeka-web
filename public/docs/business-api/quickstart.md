@@ -51,7 +51,7 @@ X-API-Key: YOUR_SANDBOX_API_KEY
 Idempotency-Key: my-first-integration-001:collection
 Content-Type: application/json
 
-{"amount":10,"currency":"USD","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","clientReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":10,"currency":"USD","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","orderReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 The first response is `202 Accepted`, usually with a non-terminal status and an opaque `fondekaReference`. Preserve its value and poll the unchanged `GET /business-api/v1/businesses/{businessId}/transactions/{reference}` URL. Fees appear as one `fee`; there are no internal IDs or fee splits. A polling timeout is not a failed payment. Continue later using the same Fondeka reference, and preserve the original idempotency key if retrying submission.

@@ -97,13 +97,7 @@ function PayableCryptoInstructions({
         </div>
         <div>
           <dt>{fr ? "Expiration" : "Expires"}</dt>
-          <dd>
-            {fr && crypto.expiresAt && !Number.isNaN(Date.parse(crypto.expiresAt))
-              ? new Intl.DateTimeFormat("fr", { dateStyle: "medium" }).format(
-                  new Date(crypto.expiresAt),
-                )
-              : date(crypto.expiresAt ?? undefined)}
-          </dd>
+          <dd>{date(crypto.expiresAt, fr ? "fr" : undefined)}</dd>
         </div>
         {crypto.exchangeRate != null && (
           <div>

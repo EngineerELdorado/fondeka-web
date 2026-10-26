@@ -96,6 +96,33 @@ export function publishedExample(media?: ApiMedia, name?: string): unknown {
   const examples = media?.examples || {};
   return (name && examples[name] ? examples[name] : Object.values(examples)[0])?.value;
 }
+const paymentSnippetFieldOrder = [
+  "environment",
+  "service",
+  "action",
+  "orderReference",
+  "fondekaReference",
+  "amount",
+  "fee",
+  "grossAmount",
+  "currency",
+  "status",
+];
+/** Presentation only: keep contract values and optional fields, without changing source payloads. */
+export function orderGuidePaymentSnippet(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  if ("fondekaReference" in value) {
+    const fields = value as Record<string, unknown>;
+    return Object.fromEntries([
+      ...paymentSnippetFieldOrder
+        .filter((key) => Object.hasOwn(fields, key))
+        .map((key) => [key, fields[key]]),
+      ...Object.entries(fields).filter(([key]) => !paymentSnippetFieldOrder.includes(key)),
+    ]);
+  }
+  if ("data" in value) return { ...value, data: orderGuidePaymentSnippet(value.data) };
+  return value;
+}
 /** Use the DRC mobile-money example throughout the portal's JSON and cURL snippets. */
 export function guideRequestBody(spec: GuideSpec, example: GuideExample): unknown {
   const body = publishedExample(
@@ -151,6 +178,7 @@ export function contractCurl(
 export const verifiedWebhookCompatibilityExample = [
   "// Only after raw-body signature verification and envelope validation.",
   "const fondekaReference = event.data.fondekaReference ?? event.data.reference;",
+  "const orderReference = event.data.orderReference ?? event.data.clientReference;",
   "const fee = event.data.fee ?? event.data.allFees;",
 ].join("\n");
 

@@ -1181,6 +1181,15 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
     key.webhookUrl = webhookUpdatePayload(body.webhookUrl).webhookUrl;
     result = key;
   } else if (/^\/businesses\/\d+\/api-transactions$/.test(route)) {
+    const orderReference = url.searchParams.get("orderReference")?.trim();
+    const legacyOrderReference = url.searchParams.get("clientReference")?.trim();
+    if (
+      orderReference !== undefined &&
+      legacyOrderReference !== undefined &&
+      orderReference !== legacyOrderReference
+    )
+      throw Object.assign(new Error("Order reference filters must match."), { status: 400 });
+    const orderFilter = orderReference ?? legacyOrderReference;
     result = paginate(
       demoTransactions(apiEnvironment(url.searchParams.get("environment") ?? undefined)).filter(
         (item) => {
@@ -1191,8 +1200,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
             (!params.get("status") || tx.status === params.get("status")) &&
             (!params.get("currency") || tx.currency === params.get("currency")) &&
             (!params.get("reference") || tx.fondekaReference === params.get("reference")) &&
-            (!params.get("clientReference") ||
-              tx.clientReference === params.get("clientReference")) &&
+            (!orderFilter || tx.orderReference === orderFilter) &&
             (!params.get("fromDate") ||
               new Date(item.createdAt).getTime() >= Number(params.get("fromDate"))) &&
             (!params.get("toDate") ||
@@ -1226,24 +1234,16 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
         createdAt: day(i / 4),
         updatedAt: day(i / 4),
         transaction: {
-          service: "BUSINESS_API",
           environment: "SANDBOX",
-          fondekaReference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
-          clientReference: `sandbox-order-${i + 1}`,
+          service: "BUSINESS_API",
           action: i % 2 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
-          status,
+          orderReference: `sandbox-order-${i + 1}`,
+          fondekaReference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
           amount,
-          currency: "USD",
-          grossAmount: amount,
           fee: 0,
-          ...(i === 4
-            ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
-            : status === "FAILED"
-              ? {
-                  failureCode: "INVALID_DESTINATION",
-                  failureMessage: "Sandbox simulation: invalid destination.",
-                }
-              : {}),
+          grossAmount: amount,
+          currency: "USD",
+          status,
           cryptoDetails:
             i === 2
               ? {
@@ -1255,6 +1255,14 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
                   exchangeRateCurrency: "USD",
                 }
               : undefined,
+          ...(i === 4
+            ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
+            : status === "FAILED"
+              ? {
+                  failureCode: "INVALID_DESTINATION",
+                  failureMessage: "Sandbox simulation: invalid destination.",
+                }
+              : {}),
         },
       };
     });
@@ -1265,17 +1273,17 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
     createdAt: day(i / 4),
     updatedAt: day(i / 4),
     transaction: {
-      service: "BUSINESS_API",
       environment: "LIVE",
-      fondekaReference: `TXDEMO${8421 - i}`,
-      clientReference: `order-${i + 1}`,
+      service: "BUSINESS_API",
       action: i % 3 === 0 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
+      orderReference: `order-${i + 1}`,
+      fondekaReference: `TXDEMO${8421 - i}`,
+      amount: [125, 84, 260][i % 3],
+      fee: 0.5,
+      grossAmount: [125.5, 84.5, 260.5][i % 3],
+      currency: i === 5 ? "EUR" : "USD",
       status:
         i === 1 ? "ACCEPTED" : i === 4 ? "FAILED" : i === 3 || i === 7 ? "PROCESSING" : "COMPLETED",
-      amount: [125, 84, 260][i % 3],
-      grossAmount: [125.5, 84.5, 260.5][i % 3],
-      fee: 0.5,
-      currency: i === 5 ? "EUR" : "USD",
       cryptoDetails:
         i === 2
           ? {

@@ -290,7 +290,8 @@ export function businessDestination(value: string): string | undefined {
     copy("api_action", /^(BUSINESS_API_COLLECTION|BUSINESS_API_PAYOUT)$/);
     copy("api_status", /^[A-Z_]{1,64}$/);
     copy("api_currency", /^[A-Za-z]{3}$/);
-    for (const key of ["api_reference", "api_clientReference"]) copy(key, /^[^\r\n]{1,128}$/);
+    for (const key of ["api_reference", "api_orderReference", "api_clientReference"])
+      copy(key, /^[^\r\n]{1,128}$/);
     for (const key of ["api_fromDate", "api_toDate"]) copy(key, /^\d{4}-\d{2}-\d{2}$/);
   }
   if (url.pathname === "/payment-requests" || /^\/stores(?:\/\d+)?$/.test(url.pathname)) {

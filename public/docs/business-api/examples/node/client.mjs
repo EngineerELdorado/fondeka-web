@@ -32,7 +32,7 @@ export async function main() {
   const config=settings();
   const wallets=await api(config,'GET','/wallets?currency=USD');
   if(wallets.length!==1 || wallets[0].environment!=='SANDBOX') throw new Error('Backend did not confirm SANDBOX; no write sent.');
-  const body={amount:10,currency:'USD',paymentMethodName:'MPESA_KENYA',accountRef:'+254707371664',clientReference:config.intent,feeApplicationMode:'EXCLUSIVE'};
+  const body={amount:10,currency:'USD',paymentMethodName:'MPESA_KENYA',accountRef:'+254707371664',orderReference:config.intent,feeApplicationMode:'EXCLUSIVE'};
   const collection=await api(config,'POST','/collections',body,`${config.intent}:collection`);
   const collected=await poll(config,collection.fondekaReference);
   console.log('Collection',JSON.stringify(collected));

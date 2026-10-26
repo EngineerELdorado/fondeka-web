@@ -1,5 +1,15 @@
 # Contract changelog
 
+## 1.2.0 — 2026-10-26 — Order reference
+
+`orderReference` replaces `clientReference` in collection/payout request bodies, payment responses, new webhook data and nested portal transaction snapshots. It remains optional, limited to 128 characters and independent of `Idempotency-Key`. Portal order filtering also uses `orderReference`. Existing stored references and idempotency fingerprints are preserved; old/new request names can replay the same intent without another charge. Legacy request bodies and the old portal filter name remain accepted as compatibility aliases, while responses and published schemas use only the new name. Conflicting portal filter aliases return 400. Previously saved webhook payloads keep their original bytes. Update request serializers, response readers, order correlation and developer examples; routes and financial processing remain unchanged.
+
+Payment objects serialize core fields in this order: `environment`, `service`, `action`, `orderReference`, `fondekaReference`, `amount`, `fee`, `grossAmount`, `currency`, `status`. Optional crypto instructions and failure details follow. This ordering applies to submissions, lookups, portal snapshots and newly created webhook data; consumers should continue reading properties by name.
+
+## 2026-10-26 — Destination-dependent payout discovery
+
+Catalog and wallet-fee inheritance reads now use explicit metadata routing. Providers requiring a previously used funding destination remain eligible for static discovery, without missing-destination warnings. Inherited wallet fees are resolved within the selected API provider. Actual payout submission still evaluates recipient eligibility and funding history; a catalog read does not authorize a payout. Destinations missing from an execution lookup still produce a warning and exclude restricted routes. No API payload or portal integration change is required.
+
 ## 1.1.0 — 2026-10-26 — Compact payment responses
 
 Submission, lookup, new webhook `data` and portal `transaction` snapshots now expose `clientReference`, `fondekaReference`, `amount`, `grossAmount`, one consolidated `fee`, `currency`, `environment`, `service`, `action` and `status`. Crypto instructions and sanitized failure details are included only when available. Internal IDs, fee splits, duplicate settlement fields and the refund flag are omitted.

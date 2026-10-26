@@ -163,7 +163,7 @@ const descriptionsFr: Record<string, Record<string, string>> = {
       "Téléphone international du payeur pour un encaissement mobile money, ou téléphone/adresse crypto du bénéficiaire pour un décaissement. Facultatif pour un encaissement crypto.",
     amount:
       "Montant fiat dans currency, jamais une quantité de jetons. EXCLUSIVE demande le net ; INCLUSIVE demande le brut. Deux décimales maximum.",
-    clientReference:
+    orderReference:
       "Votre référence de commande ou de facture, renvoyée dans le paiement et le webhook. Ce n’est pas une clé d’idempotence.",
     currency:
       "Code de la devise fiat de règlement ou du portefeuille débité. La disponibilité dépend de la route configurée.",
@@ -182,7 +182,7 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     action: "Indique si ce paiement est un encaissement ou un décaissement de l’API Business.",
     amount:
       "Montant fiat net après frais. Pour un encaissement terminé, c’est le crédit net réel du portefeuille ; avant confirmation, c’est le devis accepté.",
-    clientReference: "Référence de commande ou de facture fournie par votre intégration.",
+    orderReference: "Référence de commande ou de facture fournie par votre intégration.",
     cryptoDetails:
       "Instructions de l’encaissement crypto ou destination du décaissement. Ce champ est omis pour le mobile money ou tant que les instructions ne sont pas disponibles.",
     currency: "Devise fiat utilisée pour amount, grossAmount et fee.",

@@ -28,7 +28,7 @@ test("portal filters use exact references, preserve merchant reference case, and
         action: "BUSINESS_API_COLLECTION",
         currency: "eur",
         reference: " TX123 ",
-        clientReference: "Order&42=Yes",
+        orderReference: "Order&42=Yes",
       },
       3,
     ),
@@ -36,9 +36,12 @@ test("portal filters use exact references, preserve merchant reference case, and
   assert.equal(query.get("page"), "3");
   assert.equal(query.get("currency"), "EUR");
   assert.equal(query.get("reference"), "TX123");
-  assert.equal(query.get("clientReference"), "Order&42=Yes");
+  assert.equal(query.get("orderReference"), "Order&42=Yes");
+  assert.equal(query.has("clientReference"), false);
+  assert.equal(query.has("fondekaReference"), false);
   assert.equal(query.get("action"), "BUSINESS_API_COLLECTION");
   assert.equal(new URLSearchParams(portalQuery(emptyFilters, 0)).has("status"), false);
+  assert.throws(() => portalQuery({ ...emptyFilters, orderReference: "x".repeat(129) }, 0));
 });
 test("portal date filters use inclusive local calendar boundaries and reject inverted dates", () => {
   const query = new URLSearchParams(

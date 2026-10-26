@@ -43,12 +43,18 @@ export function ApiTransactions({
   const page = Math.max(0, Number(navigation.values.get("apiPage")) || 0);
   const setPage = (v: number) => navigation.update({ apiPage: v });
   const filters: PortalFilters = Object.fromEntries(
-    Object.keys(emptyFilters).map((key) => [key, navigation.values.get(`api_${key}`) || ""]),
+    Object.keys(emptyFilters).map((key) => [
+      key,
+      navigation.values.get(`api_${key}`) ??
+        (key === "orderReference" ? navigation.values.get("api_clientReference") : null) ??
+        "",
+    ]),
   ) as unknown as PortalFilters;
   const filterKey = JSON.stringify(filters);
   const setFilters = (v: PortalFilters) =>
     navigation.update({
       ...Object.fromEntries(Object.entries(v).map(([key, value]) => [`api_${key}`, value || null])),
+      api_clientReference: null,
       apiPage: 0,
     });
   const mobile = useMobileLayout();
@@ -146,10 +152,10 @@ export function ApiTransactions({
         <label>
           {uiText("Merchant reference")}
           <input
-            value={draft.clientReference}
-            onChange={(e) => update("clientReference", e.target.value)}
+            value={draft.orderReference}
+            onChange={(e) => update("orderReference", e.target.value)}
             maxLength={128}
-            placeholder={uiText("Exact client reference")}
+            placeholder={uiText("Exact order reference")}
           />
         </label>
         <label>
@@ -292,7 +298,7 @@ export function ApiTransactions({
                             {tx.fondekaReference}
                           </button>
                           <small className="table-subtitle">
-                            {tx.clientReference || uiText("No merchant reference")}
+                            {tx.orderReference || uiText("No merchant reference")}
                           </small>
                         </td>
                         <td>
@@ -337,7 +343,7 @@ export function ApiTransactions({
               {history.data.content.map(({ requestId, transaction: tx, createdAt }) => (
                 <MobileRecord
                   key={requestId}
-                  title={tx.clientReference || tx.fondekaReference}
+                  title={tx.orderReference || tx.fondekaReference}
                   subtitle={tx.fondekaReference}
                   meta={`${tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection")} · ${date(createdAt)}`}
                   amount={money(tx.amount, tx.currency)}
@@ -523,12 +529,14 @@ export function TransactionDetail({
                   uiText("Direction"),
                   tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection"),
                 ],
-                [uiText("Merchant reference"), tx.clientReference || "—"],
+                [uiText("Fondeka reference"), tx.fondekaReference],
+                [uiText("Merchant reference"), tx.orderReference || "—"],
                 [uiText("Integration"), detail.data?.apiKeyName || "—"],
                 [uiText("Accepted"), date(detail.data?.createdAt)],
                 [uiText("Last updated"), date(detail.data?.updatedAt)],
-                [uiText("Gross amount"), money(tx.grossAmount, tx.currency)],
+                [uiText("Net amount"), money(tx.amount, tx.currency)],
                 [uiText("Fee"), money(tx.fee, tx.currency)],
+                [uiText("Gross amount"), money(tx.grossAmount, tx.currency)],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt>{key}</dt>

@@ -77,7 +77,7 @@ Content-Type: application/json
   "currency": "USD",
   "paymentMethodName": "MPESA_KENYA",
   "accountRef": "+254707371664",
-  "clientReference": "order-unapproved-001"
+  "orderReference": "order-unapproved-001"
 }
 ```
 

@@ -9,7 +9,7 @@ import { useWorkspace } from "./workspace-provider";
 import { Empty, ErrorState, Loading, Modal, Pagination } from "./ui";
 import { useQuery } from "@/lib/use-query";
 import { request } from "@/lib/data";
-import { label, money } from "@/lib/format";
+import { date, label, money } from "@/lib/format";
 import { SandboxFundingClient } from "@/lib/sandbox-funding";
 import { SandboxConversionClient } from "@/lib/sandbox-conversion";
 import { ConversionRecovery, SandboxConversionDialog } from "./sandbox-conversion";
@@ -465,7 +465,7 @@ function WalletLedger({
                   <div>
                     <strong>{label(entry.kind)}</strong>
                     <small>
-                      #{entry.sequence} · {new Date(entry.createdAt).toLocaleString()}
+                      #{entry.sequence} · {date(entry.createdAt)}
                     </small>
                   </div>
                   <strong className={entry.amount > 0 ? "wallet-credit" : ""}>
