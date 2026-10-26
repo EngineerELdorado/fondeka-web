@@ -12562,14 +12562,18 @@ button.detail-row:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.training-module-title small {
-  color: var(--muted);
-  font-size: var(--text-xs);
+.training-module-title > .badge {
+  flex-shrink: 0;
 }
 .training-move {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 5px;
+}
+.training-move > .text-button {
+  margin-right: auto;
 }
 .training-module ol {
   margin: 4px 0 0;
@@ -12594,6 +12598,10 @@ button.detail-row:hover {
   overflow-wrap: anywhere;
 }
 .training-module li small {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
   width: 100%;
   color: var(--muted);
   font-size: var(--text-xs);

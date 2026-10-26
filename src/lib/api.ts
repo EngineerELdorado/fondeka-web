@@ -114,10 +114,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         device = await proof(device["X-Device-Session"]);
         continue;
       }
-      if (response.status === 401) clearQueryCache();
+      // A freshly renewed proof was already tried. Keep the view mounted so its error can
+      // be shown instead of verification remounting it and starting the same read again.
+      const renewedProofRejected = attempt > 0 && mayRetryDeviceRead(init.method || "GET", code);
+      if (response.status === 401 && !renewedProofRejected) clearQueryCache();
       if (isDeviceError(code)) {
-        clearDeviceSession();
-        window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
+        if (!renewedProofRejected) {
+          clearDeviceSession();
+          window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
+        }
       } else if (response.status === 401)
         window.dispatchEvent(new Event("fondeka:session-expired"));
       else if (needsBusinessToolsRecovery(response.status, code, path)) {

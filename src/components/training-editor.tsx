@@ -27,6 +27,16 @@ const draftOf = (data: TrainingCurriculum): Module[] =>
     materials: module.materials.map((material) => ({ ...material, key: material.id! })),
   }));
 
+function TrainingPublicationBadge({ published }: { published: boolean }) {
+  const { t } = useI18n();
+  return (
+    <span className={`badge ${published ? "green" : "amber"}`}>
+      <span aria-hidden="true" />
+      {published ? t("Published", "Publié") : t("Draft", "Brouillon")}
+    </span>
+  );
+}
+
 type EditorProps = { productId: number; onClose: () => void; onProductSettings: () => void };
 export function TrainingEditor({ productId, onClose, onProductSettings }: EditorProps) {
   const { accountKey } = useWorkspace();
@@ -351,9 +361,7 @@ function CurriculumWorkspace({
                   <strong>{lesson.title}</strong>
                   <p>{lesson.description}</p>
                   <p>{lesson.fileName || lesson.linkUrl}</p>
-                  <small>
-                    {lesson.published ? t("Published", "Publié") : t("Draft", "Brouillon")}
-                  </small>
+                  <TrainingPublicationBadge published={lesson.published} />
                 </div>
               ))}
             </section>
@@ -377,9 +385,27 @@ function CurriculumWorkspace({
                 <strong>
                   {index + 1}. {item.title || t("Untitled module", "Module sans titre")}
                 </strong>
-                <small>{item.published ? t("Published", "Publié") : t("Draft", "Brouillon")}</small>
+                <TrainingPublicationBadge published={item.published} />
               </button>
               <div className="training-move">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy || uploading}
+                  aria-label={`${item.published ? t("Move module to draft", "Remettre le module en brouillon") : t("Publish module", "Publier le module")} : ${item.title || t("Untitled module", "Module sans titre")}`}
+                  onClick={() => {
+                    setModules((rows) =>
+                      rows.map((row) =>
+                        row.key === item.key ? { ...row, published: !row.published } : row,
+                      ),
+                    );
+                    setSelected({ module: item.key });
+                  }}
+                >
+                  {item.published
+                    ? t("Move to draft", "Remettre en brouillon")
+                    : t("Publish module", "Publier le module")}
+                </button>
                 <button
                   type="button"
                   className="icon-button"
@@ -410,10 +436,8 @@ function CurriculumWorkspace({
                     >
                       {lesson.title || t("Untitled material", "Ressource sans titre")}
                       <small>
-                        {lesson.type} ·{" "}
-                        {lesson.published && item.published
-                          ? t("Published", "Publié")
-                          : t("Draft", "Brouillon")}
+                        {lesson.type}
+                        <TrainingPublicationBadge published={lesson.published && item.published} />
                       </small>
                     </button>
                   </li>
@@ -444,10 +468,15 @@ function CurriculumWorkspace({
                   : t("Add your first module", "Ajoutez votre premier module")}
               </h2>
               <p>
-                {t(
-                  "Add a module, then add its files or links. New content is published by default; turn off Published to keep it in draft.",
-                  "Ajoutez un module, puis ses fichiers ou liens. Le nouveau contenu est publié par défaut ; décochez Publié pour le conserver en brouillon.",
-                )}
+                {modules.length
+                  ? t(
+                      "Select a module or material to edit it. To publish a draft module, choose Publish module beside it, then Save curriculum.",
+                      "Sélectionnez un module ou une ressource pour le modifier. Pour publier un module en brouillon, choisissez Publier le module à côté de celui-ci, puis Enregistrer le programme.",
+                    )
+                  : t(
+                      "Add a module, then add its files or links. New modules and materials are marked for publication by default; save the curriculum to apply your changes.",
+                      "Ajoutez un module, puis ses fichiers ou liens. Les nouveaux modules et ressources sont cochés pour publication par défaut ; enregistrez le programme pour appliquer vos modifications.",
+                    )}
               </p>
               {!modules.length && (
                 <button
@@ -504,8 +533,16 @@ function CurriculumWorkspace({
                       : patchModule({ published: event.target.checked })
                   }
                 />
-                {t("Published", "Publié")}
+                {material
+                  ? t("Publish this material", "Publier cette ressource")
+                  : t("Publish this module", "Publier ce module")}
               </label>
+              <p className="muted">
+                {t(
+                  "Save the curriculum to apply publication changes. Learners only see published materials inside published modules.",
+                  "Enregistrez le programme pour appliquer les changements de publication. Les apprenants voient uniquement les ressources publiées dans des modules publiés.",
+                )}
+              </p>
               {material ? (
                 <>
                   {!module.published && (
