@@ -163,8 +163,6 @@ const descriptionsFr: Record<string, Record<string, string>> = {
       "Téléphone international du payeur pour un encaissement mobile money, ou téléphone/adresse crypto du bénéficiaire pour un décaissement. Facultatif pour un encaissement crypto.",
     amount:
       "Montant fiat dans currency, jamais une quantité de jetons. EXCLUSIVE demande le net ; INCLUSIVE demande le brut. Deux décimales maximum.",
-    orderReference:
-      "Votre référence de commande ou de facture, renvoyée dans le paiement et le webhook. Ce n’est pas une clé d’idempotence.",
     currency:
       "Code de la devise fiat de règlement ou du portefeuille débité. La disponibilité dépend de la route configurée.",
     feeApplicationMode:
@@ -182,7 +180,6 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     action: "Indique si ce paiement est un encaissement ou un décaissement de l’API Business.",
     amount:
       "Montant fiat net après frais. Pour un encaissement terminé, c’est le crédit net réel du portefeuille ; avant confirmation, c’est le devis accepté.",
-    orderReference: "Référence de commande ou de facture fournie par votre intégration.",
     cryptoDetails:
       "Instructions de l’encaissement crypto ou destination du décaissement. Ce champ est omis pour le mobile money ou tant que les instructions ne sont pas disponibles.",
     currency: "Devise fiat utilisée pour amount, grossAmount et fee.",
@@ -194,8 +191,6 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     grossAmount:
       "Montant fiat brut, frais inclus, débité pour un décaissement. Pour un encaissement terminé, c’est le brut réellement reçu.",
     fee: "Frais fiat totaux, toutes composantes incluses. grossAmount = amount + fee.",
-    fondekaReference:
-      "Référence opaque Fondeka à conserver exactement pour consulter le paiement. Ne déduisez pas l’environnement de son format.",
     service: "Service Fondeka auquel appartient ce paiement : BUSINESS_API pour cette ressource.",
     status:
       "ACCEPTED : en file d’attente d’exécution. PROCESSING : exécution commencée ou résultat fournisseur/rapprochement indéterminé. COMPLETED : succès confirmé. FAILED : échec confirmé, y compris annulation ou expiration. Poursuivez le suivi de la même référence pour ACCEPTED et PROCESSING.",
@@ -313,7 +308,22 @@ const parameterDescriptionsFr: Record<string, string> = {
   size: "Nombre d’écritures par page, entre 1 et 100, avec 20 par défaut.",
 };
 
-const catalogFieldDefinitions: Record<string, Record<string, readonly [string, string]>> = {
+const orderReferenceDefinition = [
+  "Your own order or transaction reference. Use it to find this payment in your system. Fondeka returns it in payment responses and webhooks; it is separate from Idempotency-Key.",
+  "Votre propre référence de commande ou de transaction. Elle vous permet de retrouver ce paiement dans votre système. Fondeka la renvoie dans les réponses et les webhooks ; elle est distincte de la clé Idempotency-Key.",
+] as const;
+
+const fieldDefinitions: Record<string, Record<string, readonly [string, string]>> = {
+  BusinessApiTransactionRequest: {
+    orderReference: orderReferenceDefinition,
+  },
+  BusinessApiTransactionResource: {
+    orderReference: orderReferenceDefinition,
+    fondekaReference: [
+      "Fondeka’s reference for this transaction. Use it to check the transaction’s status with Fondeka at /transactions/{reference}. Preserve it exactly and use the same Business and environment.",
+      "La référence attribuée par Fondeka à cette transaction. Utilisez-la pour consulter son statut auprès de Fondeka via /transactions/{reference}. Conservez sa valeur exacte et utilisez le même Business et le même environnement.",
+    ],
+  },
   BusinessApiErrorCatalogResource: {
     environment: [
       "The Business API environment described by this catalog.",
@@ -421,11 +431,10 @@ export function guideFieldDescription(
   language: string,
   example?: GuideExample,
 ): { text: string; language: "en" | "fr" } {
-  const catalogDefinition =
-    field.component && catalogFieldDefinitions[field.component]?.[field.name];
-  if (catalogDefinition)
+  const definition = field.component && fieldDefinitions[field.component]?.[field.name];
+  if (definition)
     return {
-      text: catalogDefinition[language === "fr" ? 1 : 0],
+      text: definition[language === "fr" ? 1 : 0],
       language: language === "fr" ? "fr" : "en",
     };
   if (example?.incoming && field.path === "data.status")

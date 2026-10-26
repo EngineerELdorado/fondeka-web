@@ -134,8 +134,8 @@ const lookup: GuideExample = {
   fields: [
     field(
       "fondekaReference",
-      "Save fondekaReference exactly and use it in /transactions/{reference}. The URL parameter name is unchanged.",
-      "Conservez fondekaReference telle quelle et utilisez-la dans /transactions/{reference}. Le nom du paramètre de l’URL reste inchangé.",
+      "Fondeka provides this reference so you can check the transaction’s status on Fondeka. Save it exactly and use it in /transactions/{reference}.",
+      "Fondeka vous fournit cette référence pour consulter le statut de la transaction chez Fondeka. Conservez-la telle quelle et utilisez-la dans /transactions/{reference}.",
       "response",
     ),
     field(

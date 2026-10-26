@@ -32,8 +32,8 @@ export function ApiGuideConfirmation({
       to: "Fondeka",
       badge: "GET",
       description: t(
-        "Use fondekaReference from the payment response in the lookup URL.",
-        "Utilisez fondekaReference de la réponse du paiement dans l’URL de consultation.",
+        "Use fondekaReference from the payment response in the lookup URL to check the transaction’s status with Fondeka.",
+        "Utilisez fondekaReference de la réponse du paiement dans l’URL de consultation pour vérifier le statut de la transaction chez Fondeka.",
       ),
     },
     {
