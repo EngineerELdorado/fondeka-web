@@ -138,8 +138,8 @@ export function ApiGuideErrors({
         {activeStage === "request"
           ? t("Immediate HTTP rejection · errorCode", "Refus HTTP immédiat · errorCode")
           : t(
-              "HTTP 202 accepts the payment. Later failures appear in failureCode, through polling and webhooks.",
-              "HTTP 202 accepte le paiement. Les échecs ultérieurs apparaissent dans failureCode, par consultation ou webhook.",
+              "HTTP 202 accepts the payment. Read resultingStatus: FAILED reports a failureCode; PROCESSING remains unresolved with no terminal webhook.",
+              "HTTP 202 accepte le paiement. Consultez resultingStatus : FAILED fournit un failureCode ; PROCESSING reste indéterminé sans webhook final.",
             )}
       </p>
       <label className="guide-error-search">
@@ -267,32 +267,77 @@ export function ApiGuideErrors({
                   <div>
                     <dt>{t("Payment status", "État du paiement")}</dt>
                     <dd>
-                      <code className="failure">{active.resultingStatus}</code>
+                      <code className={active.resultingStatus === "FAILED" ? "failure" : "pending"}>
+                        {active.resultingStatus}
+                      </code>
                     </dd>
                   </div>
-                  <div>
-                    <dt>
-                      <code>failureCode</code>
-                    </dt>
-                    <dd>
-                      <code>{active.errorCode}</code>
-                    </dd>
-                  </div>
+                  {active.resultingStatus === "FAILED" && (
+                    <div>
+                      <dt>
+                        <code>failureCode</code>
+                      </dt>
+                      <dd>
+                        <code>{active.errorCode}</code>
+                      </dd>
+                    </div>
+                  )}
                 </dl>
                 <p>
-                  {t(
-                    "HTTP 200 means the lookup succeeded. The returned payment has FAILED in this simulation.",
-                    "HTTP 200 signifie que la consultation a réussi. Le paiement retourné est FAILED dans cette simulation.",
-                  )}
+                  {active.resultingStatus === "FAILED"
+                    ? t(
+                        "HTTP 200 means the lookup succeeded. The returned payment has FAILED in this simulation.",
+                        "HTTP 200 signifie que la consultation a réussi. Le paiement retourné est FAILED dans cette simulation.",
+                      )
+                    : t(
+                        "HTTP 200 means the lookup succeeded. This fixture stays PROCESSING while awaiting confirmations. Poll the same reference with backoff.",
+                        "HTTP 200 signifie que la consultation a réussi. Ce scénario reste PROCESSING en attendant les confirmations. Espacez les consultations de la même référence.",
+                      )}
                 </p>
               </li>
             </ol>
           )}
           {!("httpStatus" in active) && (
             <p className="guide-error-webhook-note">
+              {active.resultingStatus === "FAILED"
+                ? t(
+                    "The signed failed-payment webhook reports the same final status and failureCode. ACCEPTED and PROCESSING do not generate terminal events. Worker timing means you may not observe every intermediate state.",
+                    "Le webhook signé d’échec de paiement indique le même état final et le même failureCode. ACCEPTED et PROCESSING ne génèrent pas d’événement final. Selon la vitesse du traitement, certaines étapes intermédiaires peuvent ne pas être observées.",
+                  )
+                : t(
+                    "No completed/failed webhook or failureCode is produced. There is no resolve-pending simulation endpoint; use a fresh intent to test a separate terminal outcome.",
+                    "Aucun webhook de réussite ou d’échec ni failureCode n’est produit. Aucun endpoint ne permet de résoudre cette attente simulée ; utilisez une nouvelle intention pour tester un résultat final distinct.",
+                  )}
+            </p>
+          )}
+          {!("httpStatus" in active) && (
+            <p>
+              {endpoint.path.endsWith("/payouts")
+                ? active.resultingStatus === "PROCESSING"
+                  ? t(
+                      "The original virtual gross debit stays reserved. There is no automatic refund.",
+                      "Le débit brut virtuel d’origine reste réservé. Aucun remboursement automatique n’a lieu.",
+                    )
+                  : t(
+                      "Acceptance debits the virtual gross amount once. Failure refunds it once only when the refund policy saved at acceptance permits it. Check PAYOUT_DEBIT and any linked PAYOUT_REFUND in the sandbox wallet entries; the payment response has no refund flag.",
+                      "L’acceptation débite une fois le montant brut virtuel. L’échec le rembourse une seule fois si la politique enregistrée à l’acceptation le permet. Vérifiez PAYOUT_DEBIT et tout PAYOUT_REFUND associé dans les écritures sandbox ; la réponse du paiement n’a pas d’indicateur de remboursement.",
+                    )
+                : active.resultingStatus === "PROCESSING"
+                  ? t(
+                      "The collection receives no wallet credit while confirmations remain pending.",
+                      "L’encaissement ne crédite pas le portefeuille tant que les confirmations restent en attente.",
+                    )
+                  : t(
+                      "A failed collection credits nothing to the wallet.",
+                      "Un encaissement échoué ne crédite pas le portefeuille.",
+                    )}
+            </p>
+          )}
+          {active.errorCode === "CRYPTO_INVOICE_EXPIRED" && (
+            <p>
               {t(
-                "The signed failed-payment webhook reports the same final status and failureCode. ACCEPTED and PROCESSING do not generate terminal events. Worker timing means you may not observe every intermediate state.",
-                "Le webhook signé d’échec de paiement indique le même état final et le même failureCode. ACCEPTED et PROCESSING ne génèrent pas d’événement final. Selon la vitesse du traitement, certaines étapes intermédiaires peuvent ne pas être observées.",
+                "cryptoDetails.expiresAt matches the scheduled sandbox expiry. The final backend status remains authoritative. These instructions are unpayable fixtures; never send real crypto to them.",
+                "cryptoDetails.expiresAt correspond à l’expiration sandbox prévue. L’état final du backend fait foi. Ces instructions sont des données de test non payables ; n’y envoyez jamais de vraies cryptos.",
               )}
             </p>
           )}
@@ -341,8 +386,8 @@ export function ApiGuideErrors({
                 "Un refus immédiat simulé ne crée aucun paiement, ne modifie aucun portefeuille et ne réserve aucune clé d’idempotence.",
               )
             : t(
-                "Keep the original idempotency key and processing code when retrying an accepted payment. A different failure or payload needs a new intent and key. Failed collections credit nothing; check wallet records or contact support to confirm a payout refund.",
-                "Conservez la clé d’idempotence et le code de traitement d’origine pour relancer un paiement accepté. Un autre échec ou corps nécessite une nouvelle intention et une nouvelle clé. Un encaissement échoué ne crédite rien ; consultez les écritures du portefeuille ou l’assistance pour confirmer le remboursement d’un décaissement.",
+                "Retry an accepted payment with its original idempotency key, normalized payload and processing code. Changing the code or payload on that key returns 409 IDEMPOTENCY_CONFLICT. A separate outcome needs a fresh intent and key. Replays create no extra debit, credit, refund or terminal event.",
+                "Relancez un paiement accepté avec sa clé d’idempotence, son contenu normalisé et son code de traitement d’origine. Modifier le code ou le contenu avec cette clé renvoie 409 IDEMPOTENCY_CONFLICT. Un résultat distinct nécessite une nouvelle intention et une nouvelle clé. Les relances ne créent aucun débit, crédit, remboursement ou événement final supplémentaire.",
               )}
         </p>
       )}

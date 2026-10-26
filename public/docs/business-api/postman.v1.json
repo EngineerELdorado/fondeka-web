@@ -71,7 +71,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/error-codes",
-        "description": "Read endpoint-specific HTTP request errors and supported asynchronous payment failure simulations. The authenticated key determines the environment. X-Simulate-Error-Code selects either an immediate request rejection or a deferred payment failure. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider."
+        "description": "Read endpoint-specific HTTP request errors and supported asynchronous payment outcomes. The authenticated key determines the environment. X-Simulate-Error-Code selects an immediate request rejection, a deferred payment failure, or a crypto confirmation hold that remains PROCESSING without a terminal webhook. Check resultingStatus, paymentMethodTypes and the operation before selecting a scenario. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider."
       },
       "event": [
         {

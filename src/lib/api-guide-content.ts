@@ -381,6 +381,12 @@ export const apiGuideTracks: GuideTrack[] = [
           ["Fiat settlement", "Règlement fiat"],
         ],
         example: paymentExample(false, true),
+        resources: [
+          {
+            file: "crypto-sandbox-simulations.md",
+            label: ["Crypto sandbox simulations", "Simulations crypto en sandbox"],
+          },
+        ],
         tips: [
           [
             "An external invoice never spends the merchant’s own crypto balance.",
@@ -480,6 +486,12 @@ export const apiGuideTracks: GuideTrack[] = [
           ["Crypto address", "Adresse crypto"],
         ],
         example: paymentExample(true, true),
+        resources: [
+          {
+            file: "crypto-sandbox-simulations.md",
+            label: ["Crypto sandbox simulations", "Simulations crypto en sandbox"],
+          },
+        ],
         tips: [
           [
             "Wrong-network transfers can be unrecoverable. LIVE method/network availability and payout eligibility must be confirmed.",
@@ -697,8 +709,8 @@ export const apiGuideTracks: GuideTrack[] = [
     id: "testing",
     title: ["Practice the difficult outcomes", "Entraînez-vous aux cas difficiles"],
     summary: [
-      "Test failures and retries with virtual funds before going live.",
-      "Testez échecs et relances avec des fonds virtuels avant la production.",
+      "Test failures, pending confirmations and retries with virtual funds before going live.",
+      "Testez les échecs, confirmations en attente et relances avec des fonds virtuels avant la production.",
     ],
     icon: "test",
     tone: "amber",
@@ -721,8 +733,8 @@ export const apiGuideTracks: GuideTrack[] = [
         id: "scenarios",
         title: ["Choose an endpoint error", "Choisissez une erreur de l’endpoint"],
         summary: [
-          "Use a new logical intent when changing a processing failure. Accepted retries preserve the original code.",
-          "Créez une nouvelle intention pour changer d’échec de traitement. Les relances acceptées conservent le code d’origine.",
+          "Use a new logical intent when changing a processing outcome. Accepted retries preserve the original code.",
+          "Créez une nouvelle intention pour changer de résultat de traitement. Les relances acceptées conservent le code d’origine.",
         ],
         flow: [
           ["Error code", "Code d’erreur"],
@@ -741,6 +753,96 @@ export const apiGuideTracks: GuideTrack[] = [
             intent,
           ],
         },
+      },
+      {
+        id: "crypto-collection-scenarios",
+        title: ["Test a crypto collection", "Testez un encaissement crypto"],
+        summary: [
+          "Choose invoice expiry, an unavailable network or pending confirmations from this operation’s CRYPTO processingErrors. Read resultingStatus before testing.",
+          "Choisissez l’expiration de facture, un réseau indisponible ou des confirmations en attente parmi les processingErrors CRYPTO de cette opération. Consultez resultingStatus avant le test.",
+        ],
+        flow: [
+          ["SANDBOX request", "Requête SANDBOX"],
+          ["ACCEPTED → PROCESSING", "ACCEPTED → PROCESSING"],
+          ["Failed or still pending", "Échec ou attente persistante"],
+        ],
+        example: {
+          ...paymentExample(false, true),
+          fields: [
+            field(
+              "X-Simulate-Error-Code",
+              "Select a supported CRYPTO processing condition from this endpoint’s error catalog. No provider or blockchain is called.",
+              "Sélectionnez une condition de traitement CRYPTO prise en charge dans le catalogue d’erreurs de cet endpoint. Aucun fournisseur ni blockchain n’est contacté.",
+              "header",
+            ),
+            intent,
+          ],
+        },
+        tips: [
+          [
+            "CRYPTO_INVOICE_EXPIRED ends FAILED with no wallet credit. cryptoDetails.expiresAt matches the scheduled sandbox deadline; the final backend status is authoritative.",
+            "CRYPTO_INVOICE_EXPIRED finit FAILED sans crédit au portefeuille. cryptoDetails.expiresAt correspond à l’échéance sandbox prévue ; l’état final du backend fait foi.",
+          ],
+          [
+            "CRYPTO_CONFIRMATIONS_PENDING stays PROCESSING with no credit, failureCode or terminal webhook. Poll with backoff. There is no resolve-pending endpoint; use a fresh intent for a separate terminal test.",
+            "CRYPTO_CONFIRMATIONS_PENDING reste PROCESSING sans crédit, failureCode ni webhook final. Espacez les consultations. Aucun endpoint ne résout cette attente ; utilisez une nouvelle intention pour un test final distinct.",
+          ],
+          [
+            "Sandbox payment instructions are unpayable fixtures. Never send real crypto to them. These scenarios do not simulate partial or overpaid settlement amounts.",
+            "Les instructions sandbox sont des données de test non payables. N’y envoyez jamais de vraies cryptos. Ces scénarios ne simulent pas les montants de règlement partiels ou excédentaires.",
+          ],
+        ],
+        resources: [
+          {
+            file: "crypto-sandbox-simulations.md",
+            label: ["Crypto sandbox simulations", "Simulations crypto en sandbox"],
+          },
+        ],
+      },
+      {
+        id: "crypto-payout-scenarios",
+        title: ["Test a crypto payout", "Testez un décaissement crypto"],
+        summary: [
+          "Use a configured method and network, a destination and enough virtual funds for the gross debit. Choose a compatible payout condition from the current catalog.",
+          "Utilisez un moyen et un réseau configurés, une destination et un solde virtuel suffisant pour le débit brut. Choisissez une condition compatible avec le décaissement dans le catalogue actuel.",
+        ],
+        flow: [
+          ["Virtual gross debit", "Débit brut virtuel"],
+          ["Sandbox processing", "Traitement sandbox"],
+          ["Inspect state and ledger", "Vérifier état et écritures"],
+        ],
+        example: {
+          ...paymentExample(true, true),
+          fields: [
+            field(
+              "X-Simulate-Error-Code",
+              "Test CRYPTO_ADDRESS_INVALID, CRYPTO_NETWORK_UNAVAILABLE, CRYPTO_TRANSFER_REJECTED or CRYPTO_CONFIRMATIONS_PENDING only when advertised for this operation.",
+              "Testez CRYPTO_ADDRESS_INVALID, CRYPTO_NETWORK_UNAVAILABLE, CRYPTO_TRANSFER_REJECTED ou CRYPTO_CONFIRMATIONS_PENDING uniquement si le catalogue les annonce pour cette opération.",
+              "header",
+            ),
+            intent,
+          ],
+        },
+        tips: [
+          [
+            "CRYPTO_TRANSFER_REJECTED fails before broadcast. Acceptance debits the virtual gross amount once; failure refunds it once only if the policy saved at acceptance permits it. Check PAYOUT_DEBIT and any linked PAYOUT_REFUND.",
+            "CRYPTO_TRANSFER_REJECTED échoue avant diffusion. L’acceptation débite une fois le brut virtuel ; l’échec le rembourse une seule fois si la politique enregistrée à l’acceptation le permet. Vérifiez PAYOUT_DEBIT et tout PAYOUT_REFUND associé.",
+          ],
+          [
+            "CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING and keeps the original gross debit reserved, with no automatic refund or terminal webhook. Never treat an unresolved payout as a failed transfer.",
+            "CRYPTO_CONFIRMATIONS_PENDING reste PROCESSING et conserve le débit brut d’origine réservé, sans remboursement automatique ni webhook final. Ne considérez jamais un décaissement non résolu comme un transfert échoué.",
+          ],
+          [
+            "Authentication, ownership, access, route, amount and wallet checks still apply. Unsupported operation/payment-type combinations return 400 INVALID_TEST_ERROR_CODE before acceptance.",
+            "Les contrôles d’authentification, de propriété, d’accès, de route, de montant et de portefeuille restent applicables. Une combinaison opération/type de paiement non prise en charge renvoie 400 INVALID_TEST_ERROR_CODE avant acceptation.",
+          ],
+        ],
+        resources: [
+          {
+            file: "crypto-sandbox-simulations.md",
+            label: ["Crypto sandbox simulations", "Simulations crypto en sandbox"],
+          },
+        ],
       },
       {
         id: "fund",

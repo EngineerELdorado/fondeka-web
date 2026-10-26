@@ -201,7 +201,20 @@ function SimulationHeaderHelp({
         entry.errorCode ===
           (example.paymentKind === "MOBILE_MONEY" && example.path.endsWith("/collections")
             ? "PAYMENT_NOT_APPROVED"
-            : "PROVIDER_UNAVAILABLE"),
+            : example.paymentKind === "CRYPTO"
+              ? example.path.endsWith("/collections")
+                ? "CRYPTO_INVOICE_EXPIRED"
+                : "CRYPTO_TRANSFER_REJECTED"
+              : "PROVIDER_UNAVAILABLE") &&
+        entry.resultingStatus === "FAILED",
+    );
+  const pending =
+    endpoint &&
+    processingErrorsFor(endpoint, example.paymentKind).find(
+      (entry) =>
+        entry.simulatable &&
+        entry.errorCode === "CRYPTO_CONFIRMATIONS_PENDING" &&
+        entry.resultingStatus === "PROCESSING",
     );
   const canShowExamples =
     !data.error &&
@@ -230,8 +243,8 @@ function SimulationHeaderHelp({
       </code>
       <p>
         {t(
-          "Each error marked simulatable: true can be tested. Copy its simulationValue into the X-Simulate-Error-Code header. This tells SANDBOX which test error to produce.",
-          "Chaque erreur marquée simulatable: true peut être testée. Copiez sa simulationValue dans l’en-tête X-Simulate-Error-Code pour indiquer à SANDBOX quelle erreur de test produire.",
+          "Choose an entry with simulatable: true whose paymentMethodTypes includes your payment type. Copy its simulationValue into X-Simulate-Error-Code. Read resultingStatus: an accepted simulation can fail or remain PROCESSING.",
+          "Choisissez une entrée avec simulatable: true dont paymentMethodTypes contient votre type de paiement. Copiez simulationValue dans X-Simulate-Error-Code. Consultez resultingStatus : une simulation acceptée peut échouer ou rester PROCESSING.",
         )}
       </p>
       <button type="button" className="text-button" onClick={onViewErrors}>
@@ -271,10 +284,20 @@ function SimulationHeaderHelp({
                       "This tests a customer who does not approve the mobile-money prompt on their phone.",
                       "Ce test simule un client qui ne valide pas la demande mobile money sur son téléphone.",
                     )
-                  : t(
-                      "This tests a payment that the provider cannot process.",
-                      "Ce test simule un paiement que le fournisseur ne peut pas traiter.",
-                    )}
+                  : processing.errorCode === "CRYPTO_INVOICE_EXPIRED"
+                    ? t(
+                        "This tests an unpaid crypto invoice that expires. Its expiresAt matches the scheduled sandbox expiry; the final backend status remains authoritative.",
+                        "Ce test simule une facture crypto impayée qui expire. Son expiresAt correspond à l’expiration sandbox prévue ; l’état final du backend fait foi.",
+                      )
+                    : processing.errorCode === "CRYPTO_TRANSFER_REJECTED"
+                      ? t(
+                          "This tests a crypto payout definitively rejected before broadcast. A refund depends on the policy saved at acceptance; inspect the sandbox wallet entries.",
+                          "Ce test simule un décaissement crypto définitivement refusé avant diffusion. Le remboursement dépend de la politique enregistrée à l’acceptation ; consultez les écritures du portefeuille sandbox.",
+                        )
+                      : t(
+                          "This tests a payment that the provider cannot process.",
+                          "Ce test simule un paiement que le fournisseur ne peut pas traiter.",
+                        )}
               </p>
               <ol>
                 <li>
@@ -307,6 +330,34 @@ function SimulationHeaderHelp({
               </code>
             </section>
           )}
+          {pending?.simulationValue && (
+            <section>
+              <h5>
+                {t(
+                  "Example: confirmations stay pending",
+                  "Exemple : les confirmations restent en attente",
+                )}
+              </h5>
+              <code>X-Simulate-Error-Code: {pending.simulationValue}</code>
+              <p>
+                {t(
+                  "HTTP 202 accepts the payment as ACCEPTED. A worker pass changes it to PROCESSING, where this fixture stays. No failureCode or terminal webhook is produced. Poll the same reference with backoff; use a fresh intent to test another outcome.",
+                  "HTTP 202 accepte le paiement avec l’état ACCEPTED. Un passage du traitement le met en PROCESSING, où ce scénario reste. Aucun failureCode ni webhook final n’est produit. Espacez les consultations de la même référence ; utilisez une nouvelle intention pour tester un autre résultat.",
+                )}
+              </p>
+              <p>
+                {example.path.endsWith("/payouts")
+                  ? t(
+                      "The original virtual gross debit remains reserved, without an automatic refund.",
+                      "Le débit brut virtuel d’origine reste réservé, sans remboursement automatique.",
+                    )
+                  : t(
+                      "The collection receives no wallet credit while confirmations remain pending.",
+                      "L’encaissement ne crédite pas le portefeuille tant que les confirmations restent en attente.",
+                    )}
+              </p>
+            </section>
+          )}
         </div>
       )}
       {setup?.environment !== "SANDBOX" && (
@@ -323,6 +374,14 @@ function SimulationHeaderHelp({
           "Pour un test de paiement normal, omettez cet en-tête. N’envoyez pas SUCCESS ou PENDING : ce ne sont pas des codes d’erreur. Une valeur vide ou non prise en charge renvoie HTTP 400 avec INVALID_TEST_ERROR_CODE. LIVE ignore l’en-tête.",
         )}
       </p>
+      {example.paymentKind === "CRYPTO" && (
+        <p>
+          {t(
+            "Use a configured crypto method and network with the normal fiat amount and currency. Payouts also need accountRef and enough virtual funds for the gross debit. No provider or blockchain is called; sandbox instructions are unpayable fixtures. Never send real crypto to them.",
+            "Utilisez un moyen crypto et un réseau configurés avec le montant et la devise fiat habituels. Les décaissements exigent aussi accountRef et un solde virtuel suffisant pour le débit brut. Aucun fournisseur ni blockchain n’est contacté ; les instructions sandbox sont des données de test non payables. N’y envoyez jamais de vraies cryptos.",
+          )}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,5 +1,9 @@
 # Contract changelog
 
+## 1.3.0 — 2026-10-26 — Crypto sandbox processing outcomes
+
+`X-Simulate-Error-Code` gains crypto-specific invoice expiry, invalid destination address, pre-transfer network failure, rejected transfer and pending-confirmation fixtures on the existing collection/payout endpoints. Merchant/portal error catalogs advertise compatible payment method types and operation-specific codes. Read `resultingStatus`: `CRYPTO_CONFIRMATIONS_PENDING` follows ACCEPTED → PROCESSING, retains any payout debit and emits no terminal webhook. Definite failures follow existing polling/webhook/refund policy, with no provider or blockchain calls. Generic simulations, normal payload/access validation, idempotency, LIVE header ignoring and historical sandbox scenarios remain unchanged. Apply `20261126_business_api_crypto_simulations.sql` and deploy matching web/worker builds before using new values. See [the crypto simulation guide](crypto-sandbox-simulations.md).
+
 ## 2026-10-26 — Shorter API key prefixes
 
 New credentials use `fdk_live_` and `fdk_sandbox_`. All previously issued LIVE (`fdk_biz_live_`, `fdk_biz_`) and SANDBOX (`fdk_biz_sandbox_`, `fdk_biz_test_`) keys remain accepted against their stored hash and environment. Existing integrations do not need to rotate keys. Newly stored display prefixes expose only four secret characters, and admin masking supports every issued format. Webhook signing secrets keep `whsec_`. Published sandbox examples and Postman accept the new and older sandbox formats while continuing to reject LIVE keys.

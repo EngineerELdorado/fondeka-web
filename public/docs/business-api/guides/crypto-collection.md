@@ -26,3 +26,5 @@ Save `fondekaReference` and poll the transaction. Invoice creation is asynchrono
 Verify the completion webhook and reconcile `currency` and `amount` against the order. On COMPLETED collections, `amount` is the reconciled net wallet credit; `grossAmount` and `fee` describe the same settlement. Underpayments/overpayments can differ from the initial quote; decide explicitly how your application handles those cases. An unconfirmed invoice or a 202 response does not credit the wallet.
 
 Sandbox crypto instructions and rates are synthetic. Never send real crypto to sandbox addresses. See [testing](../testing.md), [amount semantics](../concepts.md) and [webhooks](../webhooks.md).
+
+`X-Simulate-Error-Code` supports sandbox crypto collections, including `CRYPTO_INVOICE_EXPIRED`, `CRYPTO_NETWORK_UNAVAILABLE` and `CRYPTO_CONFIRMATIONS_PENDING`. See the [crypto simulation contract](../crypto-sandbox-simulations.md) for exact outcomes and supported generic errors.

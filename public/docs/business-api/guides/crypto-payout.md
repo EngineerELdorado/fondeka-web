@@ -22,3 +22,5 @@ With EXCLUSIVE, amount is net fiat before conversion and fees are added to gross
 Save `fondekaReference`, wait for the signed terminal event and poll as needed. Completion does not debit again. A definite failure may refund the original gross debit according to policy; the compact payment object does not expose a refund flag. Reconcile wallet records or contact support if needed. A payment awaiting provider reconciliation remains PROCESSING. Investigate a long-running payment before creating another payout or assuming a refund.
 
 Start with a SANDBOX key and virtual funds; sandbox uses synthetic token quantities and never calls providers. See [testing](../testing.md), [financial lifecycle](../concepts.md), and [webhook verification](../webhooks.md).
+
+`X-Simulate-Error-Code` supports sandbox crypto payouts, including `CRYPTO_ADDRESS_INVALID`, `CRYPTO_NETWORK_UNAVAILABLE`, `CRYPTO_TRANSFER_REJECTED` and `CRYPTO_CONFIRMATIONS_PENDING`. A confirmations-pending payout retains its gross debit and emits no terminal webhook. See the [crypto simulation contract](../crypto-sandbox-simulations.md) for definite-failure refund rules and supported generic errors.

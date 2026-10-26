@@ -13,7 +13,7 @@ export type RequestErrorCode = {
 export type ProcessingErrorCode = {
   errorCode: string;
   description: string;
-  resultingStatus: "FAILED";
+  resultingStatus: "FAILED" | "PROCESSING";
   paymentMethodTypes: string[];
   simulatable: boolean;
   simulationValue?: string | null;
@@ -77,7 +77,7 @@ export function parseApiErrorCatalog(value: unknown, environment: ApiEnvironment
         endpoint.processingErrors.every(
           (error) =>
             errorEntry(error) &&
-            error.resultingStatus === "FAILED" &&
+            (error.resultingStatus === "FAILED" || error.resultingStatus === "PROCESSING") &&
             Array.isArray(error.paymentMethodTypes) &&
             error.paymentMethodTypes.every(code),
         ),
@@ -117,12 +117,19 @@ export function errorCatalogEndpoint(
 export function processingErrorsFor(endpoint: ErrorCatalogEndpoint, kind?: ApiPaymentKind) {
   if (endpoint.method !== "POST" || !/\/(collections|payouts)$/.test(endpoint.path) || !kind)
     return [];
-  return endpoint.processingErrors.filter(
-    (error) =>
-      error.paymentMethodTypes.includes(kind) &&
-      (!/^(PAYMENT_NOT_APPROVED|PAYER_INSUFFICIENT_FUNDS)$/.test(error.errorCode) ||
-        (kind === "MOBILE_MONEY" && endpoint.path.endsWith("/collections"))),
-  );
+  const payout = endpoint.path.endsWith("/payouts");
+  return endpoint.processingErrors.filter((error) => {
+    if (!error.paymentMethodTypes.includes(kind)) return false;
+    if (/^(PAYMENT_NOT_APPROVED|PAYER_INSUFFICIENT_FUNDS)$/.test(error.errorCode))
+      return kind === "MOBILE_MONEY" && !payout;
+    if (error.errorCode.startsWith("CRYPTO_")) {
+      if (kind !== "CRYPTO") return false;
+      if (error.errorCode === "CRYPTO_INVOICE_EXPIRED") return !payout;
+      if (["CRYPTO_ADDRESS_INVALID", "CRYPTO_TRANSFER_REJECTED"].includes(error.errorCode))
+        return payout;
+    }
+    return true;
+  });
 }
 export function simulationHeaders(
   catalog: ApiErrorCatalog | undefined,

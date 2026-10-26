@@ -93,6 +93,12 @@ test("all published guide, source example and contract links resolve within the 
     kind: "file",
     href: "/docs/business-api/openapi.v1.json",
   });
+  assert.deepEqual(businessApiDocLink(crypto, "../crypto-sandbox-simulations.md"), {
+    kind: "file",
+    href: "/docs/business-api/crypto-sandbox-simulations.md",
+  });
+  for (const match of read("crypto-sandbox-simulations.md").matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g))
+    assert.ok(businessApiDocLink(businessApiTopic("testing"), match[1]), match[1]);
 });
 
 test("documentation links cannot escape the reviewed files, run script URLs or expose arbitrary proxy paths", () => {
@@ -116,7 +122,7 @@ test("documentation links cannot escape the reviewed files, run script URLs or e
 });
 
 test("the downloadable reference exposes merchant-only endpoints and keeps JWT administration outside the contract", () => {
-  assert.equal(spec.info.version, "1.2.0");
+  assert.equal(spec.info.version, "1.3.0");
   assert.equal(spec.openapi, "3.0.3");
   assert.equal(spec.servers[0].url, "https://api.fondeka.com");
   assert.equal(Object.keys(spec.paths).length, 9);

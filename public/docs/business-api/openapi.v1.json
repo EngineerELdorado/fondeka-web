@@ -653,7 +653,7 @@
         "type" : "object"
       },
       "ProcessingError" : {
-        "description" : "Failure after HTTP 202 acceptance. Polling and terminal webhooks carry errorCode as failureCode. No provider is called in sandbox.",
+        "description" : "Outcome after HTTP 202 acceptance. Terminal failures carry errorCode as failureCode in polling and webhooks. A PROCESSING outcome remains unresolved and emits no terminal webhook. No provider is called in sandbox.",
         "properties" : {
           "description" : {
             "type" : "string"
@@ -748,7 +748,7 @@
     },
     "description" : "Collect and pay out through mobile money and crypto, settling in account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. The /v1 path is the API major version; info.version versions this documentation contract.",
     "title" : "Fondeka Business API",
-    "version" : "1.2.0"
+    "version" : "1.3.0"
   },
   "openapi" : "3.0.3",
   "paths" : {
@@ -785,7 +785,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "INVALID_DESTINATION",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -1524,13 +1524,34 @@
           "resultingStatus" : "FAILED",
           "simulatable" : true,
           "simulationValue" : "PAYMENT_CANCELLED"
+        }, {
+          "description" : "Sandbox: the crypto invoice expired without receiving payment. Create a new collection and use its new payment instructions.",
+          "errorCode" : "CRYPTO_INVOICE_EXPIRED",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "FAILED",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_INVOICE_EXPIRED"
+        }, {
+          "description" : "Sandbox: the crypto network was unavailable before a transfer could be broadcast. Try again later.",
+          "errorCode" : "CRYPTO_NETWORK_UNAVAILABLE",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "FAILED",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_NETWORK_UNAVAILABLE"
+        }, {
+          "description" : "Sandbox: the crypto payment is awaiting network confirmations. Keep polling its existing reference and do not submit a duplicate payment.",
+          "errorCode" : "CRYPTO_CONFIRMATIONS_PENDING",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "PROCESSING",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/error-codes" : {
       "get" : {
-        "description" : "Read endpoint-specific HTTP request errors and supported asynchronous payment failure simulations. The authenticated key determines the environment. X-Simulate-Error-Code selects either an immediate request rejection or a deferred payment failure. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider.",
+        "description" : "Read endpoint-specific HTTP request errors and supported asynchronous payment outcomes. The authenticated key determines the environment. X-Simulate-Error-Code selects an immediate request rejection, a deferred payment failure, or a crypto confirmation hold that remains PROCESSING without a terminal webhook. Check resultingStatus, paymentMethodTypes and the operation before selecting a scenario. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider.",
         "operationId" : "getErrorCodes",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -1544,7 +1565,7 @@
             "type" : "integer"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -1608,6 +1629,27 @@
                           "resultingStatus" : "FAILED",
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_CANCELLED"
+                        }, {
+                          "description" : "Sandbox: the crypto invoice expired without receiving payment. Create a new collection and use its new payment instructions.",
+                          "errorCode" : "CRYPTO_INVOICE_EXPIRED",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "FAILED",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_INVOICE_EXPIRED"
+                        }, {
+                          "description" : "Sandbox: the crypto network was unavailable before a transfer could be broadcast. Try again later.",
+                          "errorCode" : "CRYPTO_NETWORK_UNAVAILABLE",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "FAILED",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_NETWORK_UNAVAILABLE"
+                        }, {
+                          "description" : "Sandbox: the crypto payment is awaiting network confirmations. Keep polling its existing reference and do not submit a duplicate payment.",
+                          "errorCode" : "CRYPTO_CONFIRMATIONS_PENDING",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "PROCESSING",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
                         } ],
                         "requestErrors" : [ {
                           "description" : "Invalid fields, JSON, required headers or unsupported values.",
@@ -1790,6 +1832,34 @@
                           "resultingStatus" : "FAILED",
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_CANCELLED"
+                        }, {
+                          "description" : "Sandbox: the payout address is invalid for the selected crypto network. Check the address and network together before retrying.",
+                          "errorCode" : "CRYPTO_ADDRESS_INVALID",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "FAILED",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_ADDRESS_INVALID"
+                        }, {
+                          "description" : "Sandbox: the crypto network was unavailable before a transfer could be broadcast. Try again later.",
+                          "errorCode" : "CRYPTO_NETWORK_UNAVAILABLE",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "FAILED",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_NETWORK_UNAVAILABLE"
+                        }, {
+                          "description" : "Sandbox: the crypto payout was rejected before broadcast. Check the destination and network before retrying.",
+                          "errorCode" : "CRYPTO_TRANSFER_REJECTED",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "FAILED",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_TRANSFER_REJECTED"
+                        }, {
+                          "description" : "Sandbox: the crypto payment is awaiting network confirmations. Keep polling its existing reference and do not submit a duplicate payment.",
+                          "errorCode" : "CRYPTO_CONFIRMATIONS_PENDING",
+                          "paymentMethodTypes" : [ "CRYPTO" ],
+                          "resultingStatus" : "PROCESSING",
+                          "simulatable" : true,
+                          "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
                         } ],
                         "requestErrors" : [ {
                           "description" : "Invalid fields, JSON, required headers or unsupported values.",
@@ -2969,7 +3039,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "INVALID_DESTINATION",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -3764,8 +3834,36 @@
           "resultingStatus" : "FAILED",
           "simulatable" : true,
           "simulationValue" : "PAYMENT_CANCELLED"
+        }, {
+          "description" : "Sandbox: the payout address is invalid for the selected crypto network. Check the address and network together before retrying.",
+          "errorCode" : "CRYPTO_ADDRESS_INVALID",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "FAILED",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_ADDRESS_INVALID"
+        }, {
+          "description" : "Sandbox: the crypto network was unavailable before a transfer could be broadcast. Try again later.",
+          "errorCode" : "CRYPTO_NETWORK_UNAVAILABLE",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "FAILED",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_NETWORK_UNAVAILABLE"
+        }, {
+          "description" : "Sandbox: the crypto payout was rejected before broadcast. Check the destination and network before retrying.",
+          "errorCode" : "CRYPTO_TRANSFER_REJECTED",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "FAILED",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_TRANSFER_REJECTED"
+        }, {
+          "description" : "Sandbox: the crypto payment is awaiting network confirmations. Keep polling its existing reference and do not submit a duplicate payment.",
+          "errorCode" : "CRYPTO_CONFIRMATIONS_PENDING",
+          "paymentMethodTypes" : [ "CRYPTO" ],
+          "resultingStatus" : "PROCESSING",
+          "simulatable" : true,
+          "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_ADDRESS_INVALID", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_TRANSFER_REJECTED", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/convert" : {
@@ -3796,7 +3894,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -4339,7 +4437,7 @@
             "type" : "integer"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -4792,7 +4890,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -5339,7 +5437,7 @@
             "type" : "integer"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -5768,7 +5866,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",
@@ -6190,7 +6288,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code to accept HTTP 202 then fail asynchronously with failureCode in polling/webhooks. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
+          "description" : "SANDBOX only. Select a requestErrors code for an immediate HTTP rejection without side effects, or a processingErrors code for an accepted asynchronous outcome. Read paymentMethodTypes and resultingStatus: terminal failures expose failureCode in polling/webhooks; CRYPTO_CONFIRMATIONS_PENDING remains PROCESSING with no terminal webhook or payout refund. Real authentication, ownership and access checks run first. Blank, unknown or unsupported codes return 400 INVALID_TEST_ERROR_CODE. Omit for normal success. LIVE credentials ignore any value, regardless of server profile.",
           "example" : "RATE_LIMITED",
           "in" : "header",
           "name" : "X-Simulate-Error-Code",

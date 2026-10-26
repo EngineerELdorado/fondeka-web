@@ -16,11 +16,7 @@ export function CredentialEnvironmentNotice({ environment }: { environment: ApiE
       <div className="credential-environment-heading">
         <Icon size={18} aria-hidden="true" />
         <strong>{environment}</strong>
-        <span>
-          {sandbox
-            ? t("Test payments", "Paiements de test")
-            : t("Real payments", "Paiements réels")}
-        </span>
+        {!sandbox && <span>{t("Real payments", "Paiements réels")}</span>}
       </div>
       <p>
         {sandbox

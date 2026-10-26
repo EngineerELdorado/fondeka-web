@@ -292,7 +292,7 @@ const parameterDescriptionsFr: Record<string, string> = {
   "Idempotency-Key":
     "Clé obligatoire par intention logique. Réutilisez-la avec un contenu identique pour les nouvelles tentatives ; un contenu différent provoque un conflit 409.",
   "X-Simulate-Error-Code":
-    "Cet en-tête facultatif provoque une erreur de test en SANDBOX pour vérifier comment votre intégration la gère. LIVE ignore cet en-tête.",
+    "Cet en-tête facultatif simule un refus de requête ou un résultat après acceptation en SANDBOX. Choisissez un code annoncé pour l’opération et le type de paiement ; resultingStatus indique FAILED ou PROCESSING. LIVE ignore cet en-tête.",
   "X-Fondeka-Event-Id":
     "Identifiant stable de l’événement, identique à id dans le corps. Utilisez-le pour dédupliquer les livraisons.",
   "X-Fondeka-Timestamp":
@@ -449,8 +449,8 @@ export function guideFieldDescription(
     return {
       text:
         language === "fr"
-          ? "Cet en-tête facultatif provoque une erreur de test en SANDBOX pour vérifier comment votre intégration la gère. LIVE ignore cet en-tête."
-          : "Use this optional header to make a SANDBOX test return an error, so you can check how your integration handles it. LIVE ignores this header.",
+          ? parameterDescriptionsFr["X-Simulate-Error-Code"]
+          : "Use this optional header to simulate a request rejection or an outcome after acceptance in SANDBOX. Choose a code advertised for the operation and payment type; resultingStatus identifies FAILED or PROCESSING. LIVE ignores this header.",
       language: language === "fr" ? "fr" : "en",
     };
   if (example?.paymentKind === "MOBILE_MONEY" && field.name === "cryptoDetails")

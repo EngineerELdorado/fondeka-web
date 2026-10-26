@@ -56,7 +56,7 @@ test("catalog parsing validates environment, header, error stages and distinct o
       endpoints: [
         {
           ...collection,
-          processingErrors: [{ ...collection.processingErrors[0], resultingStatus: "PROCESSING" }],
+          processingErrors: [{ ...collection.processingErrors[0], resultingStatus: "UNKNOWN" }],
         },
       ],
     },
@@ -109,6 +109,139 @@ test("processing errors are payment-only and approval/payer-balance fixtures rem
     ),
     [],
   );
+});
+
+test("crypto catalog outcomes remain operation-specific and include persistent PROCESSING", () => {
+  const expected = [
+    [
+      collection,
+      ["CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING"],
+    ],
+    [
+      payout,
+      [
+        "CRYPTO_ADDRESS_INVALID",
+        "CRYPTO_NETWORK_UNAVAILABLE",
+        "CRYPTO_TRANSFER_REJECTED",
+        "CRYPTO_CONFIRMATIONS_PENDING",
+      ],
+    ],
+  ] as const;
+  for (const [endpoint, codes] of expected) {
+    const entries = processingErrorsFor(endpoint, "CRYPTO");
+    assert.deepEqual(
+      entries
+        .filter((entry) => entry.errorCode.startsWith("CRYPTO_"))
+        .map((entry) => entry.errorCode),
+      codes,
+    );
+    for (const code of [
+      "INVALID_DESTINATION",
+      "PROVIDER_UNAVAILABLE",
+      "PAYMENT_EXPIRED",
+      "PAYMENT_CANCELLED",
+    ])
+      assert.ok(entries.some((entry) => entry.errorCode === code));
+    const pending = entries.find((entry) => entry.errorCode === "CRYPTO_CONFIRMATIONS_PENDING")!;
+    assert.equal(pending.resultingStatus, "PROCESSING");
+    assert.deepEqual(
+      simulationHeaders(
+        catalog,
+        endpoint,
+        { stage: "processing", errorCode: pending.errorCode },
+        "CRYPTO",
+      ),
+      {
+        "X-Simulate-Error-Code": pending.simulationValue,
+      },
+    );
+    assert.ok(
+      processingErrorsFor(endpoint, "MOBILE_MONEY").every(
+        (entry) => !entry.errorCode.startsWith("CRYPTO_"),
+      ),
+    );
+  }
+  const combined = [...collection.processingErrors, ...payout.processingErrors].map((entry) => ({
+    ...entry,
+    paymentMethodTypes: ["CRYPTO", "MOBILE_MONEY"],
+  }));
+  for (const [endpoint, codes] of expected) {
+    const mixed = { ...endpoint, processingErrors: combined };
+    const allowed = new Set(codes);
+    assert.ok(
+      processingErrorsFor(mixed, "CRYPTO")
+        .filter((entry) => entry.errorCode.startsWith("CRYPTO_"))
+        .every((entry) => allowed.has(entry.errorCode as (typeof codes)[number])),
+    );
+    assert.ok(
+      processingErrorsFor(mixed, "MOBILE_MONEY").every(
+        (entry) => !entry.errorCode.startsWith("CRYPTO_"),
+      ),
+    );
+  }
+});
+
+test("older catalogs still parse and new crypto codes are unavailable unless advertised", () => {
+  const previous = {
+    ...collection,
+    processingErrors: collection.processingErrors.filter(
+      (entry) => !entry.errorCode.startsWith("CRYPTO_"),
+    ),
+  };
+  const older = parseApiErrorCatalog({ ...response, endpoints: [previous] }, "SANDBOX");
+  assert.deepEqual(
+    simulationHeaders(
+      older,
+      previous,
+      { stage: "processing", errorCode: "CRYPTO_CONFIRMATIONS_PENDING" },
+      "CRYPTO",
+    ),
+    {},
+  );
+  for (const endpoint of [collection, payout])
+    assert.deepEqual(
+      simulationHeaders(
+        catalog,
+        endpoint,
+        {
+          stage: "processing",
+          errorCode:
+            endpoint === collection ? "CRYPTO_TRANSFER_REJECTED" : "CRYPTO_INVOICE_EXPIRED",
+        },
+        "CRYPTO",
+      ),
+      {},
+    );
+});
+
+test("crypto examples retain fiat pricing, destinations and the same accepted intent on pending retries", () => {
+  for (const [id, endpoint] of [
+    ["crypto-collection", collection],
+    ["crypto-payout", payout],
+  ] as const) {
+    const example = guideTrack(id).lessons[0].example!;
+    const body = guideRequestBody(spec, example) as Record<string, unknown>;
+    assert.equal(body.amount, 10);
+    assert.equal(body.currency, "USD");
+    assert.equal(body.paymentMethodName, "USDT");
+    assert.equal(body.networkName, "TRC20");
+    if (endpoint === payout) assert.equal(typeof body.accountRef, "string");
+    const headers = {
+      ...simulationHeaders(
+        catalog,
+        endpoint,
+        { stage: "processing", errorCode: "CRYPTO_CONFIRMATIONS_PENDING" },
+        "CRYPTO",
+      ),
+      "Idempotency-Key": "original-accepted-crypto-intent",
+    };
+    const curl = contractCurl(spec, example, body, headers);
+    assert.match(curl, /X-Simulate-Error-Code: CRYPTO_CONFIRMATIONS_PENDING/);
+    assert.match(curl, /Idempotency-Key: original-accepted-crypto-intent/);
+    assert.equal(curl, contractCurl(spec, example, body, headers));
+    assert.equal(Object.hasOwn(body, "failureCode"), false);
+    assert.doesNotMatch(contractCurl(spec, example, body), /X-Simulate-Error-Code/);
+  }
 });
 
 test("simulation uses the returned value only when the environment, endpoint and entry permit it", () => {
@@ -199,6 +332,15 @@ test("the fictional demo returns matching LIVE/SANDBOX catalogs and rejects fore
       environment,
     );
     assert.equal(result.simulationEnabled, environment === "SANDBOX");
+    const crypto = result.endpoints.find(
+      (endpoint) => endpoint.operationId === "createCollection",
+    )!;
+    const pending = processingErrorsFor(crypto, "CRYPTO").find(
+      (entry) => entry.errorCode === "CRYPTO_CONFIRMATIONS_PENDING",
+    )!;
+    assert.equal(pending.resultingStatus, "PROCESSING");
+    assert.equal(pending.simulatable, environment === "SANDBOX");
+    assert.equal(pending.simulationValue, environment === "SANDBOX" ? pending.errorCode : null);
     assert.ok(
       result.endpoints
         .filter((endpoint) => endpoint.path.includes("/sandbox-wallets/"))

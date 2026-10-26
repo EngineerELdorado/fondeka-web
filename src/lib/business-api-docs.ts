@@ -51,6 +51,7 @@ export const businessApiFiles = [
   "openapi.v1.json",
   "postman.v1.json",
   "errors.md",
+  "crypto-sandbox-simulations.md",
   "examples/curl/quickstart.sh",
   "examples/node/client.mjs",
   "examples/node/webhook.mjs",

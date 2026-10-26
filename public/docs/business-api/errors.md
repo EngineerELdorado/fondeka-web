@@ -27,7 +27,7 @@ The key determines LIVE or SANDBOX. The response contains:
 | `endpoints[].available` | Sandbox wallet operations are unavailable to LIVE keys. |
 | `endpoints[].additionalRequestErrorsPossible` | LIVE payment policies/configuration may return additional errors. Keep fallback handling for unknown codes. |
 | `endpoints[].requestErrors` | Immediate errors with `httpStatus`, `errorCode`, `description`, `howToTest`, `simulatable` and `simulationValue`. |
-| `endpoints[].processingErrors` | Deferred sandbox payment fixtures with `errorCode`, `description`, `resultingStatus`, `paymentMethodTypes`, `simulatable` and `simulationValue`. The terminal payment uses this code as `failureCode`. |
+| `endpoints[].processingErrors` | Deferred sandbox payment fixtures with `errorCode`, `description`, `resultingStatus`, `paymentMethodTypes`, `simulatable` and `simulationValue`. Terminal failures use this code as `failureCode`; a PROCESSING fixture has no terminal webhook or failure fields. |
 
 Only select entries with `simulatable: true`. Submit their `simulationValue` unchanged in the advertised header. An endpoint has no processing errors unless it starts a collection or payout. The catalog describes supported sandbox processing fixtures; LIVE provider failure coverage is not exhaustive and failure details may be absent.
 
@@ -95,10 +95,17 @@ Content-Type: application/json
 | `PROVIDER_UNAVAILABLE` | Collection/payout; mobile money or crypto | FAILED; simulated provider could not process payment |
 | `PAYMENT_EXPIRED` | Collection/payout; mobile money or crypto | FAILED; expired before completion |
 | `PAYMENT_CANCELLED` | Collection/payout; mobile money or crypto | FAILED; cancelled before completion |
+| `CRYPTO_INVOICE_EXPIRED` | Crypto collection | FAILED; unpaid invoice expired |
+| `CRYPTO_ADDRESS_INVALID` | Crypto payout | FAILED; address rejected before transfer |
+| `CRYPTO_NETWORK_UNAVAILABLE` | Crypto collection/payout | FAILED; network unavailable before submission/transfer |
+| `CRYPTO_TRANSFER_REJECTED` | Crypto payout | FAILED; transfer rejected before broadcast |
+| `CRYPTO_CONFIRMATIONS_PENDING` | Crypto collection/payout | PROCESSING; no terminal webhook, credit or automatic refund |
 
 These cases never call a provider or send an actual phone prompt. Collections credit nothing when they fail. Payouts must have sufficient virtual funds at acceptance, debit gross including fees, and refund once when the snapshotted sandbox policy permits. Verify linked sandbox wallet entries; failure alone does not guarantee a refund, and the compact payment response has no refund flag. `INSUFFICIENT_FUNDS` is an immediate merchant-wallet error; `PAYER_INSUFFICIENT_FUNDS` is a distinct deferred customer-payment failure.
 
 Use the same idempotency key and same processing code to retry an accepted intent. Changing its code or normalized payload returns HTTP 409 `IDEMPOTENCY_CONFLICT`; use a fresh key for a different test. An invalid method/type combination returns HTTP 400 `INVALID_TEST_ERROR_CODE` before acceptance.
+
+For crypto examples, pending-confirmation behavior and portal selector integration, see [crypto sandbox simulations](crypto-sandbox-simulations.md). A pending-confirmation payout retains its gross debit; an unresolved chain outcome must not be treated as a definite failure or automatic refund.
 
 ## Header rules
 
