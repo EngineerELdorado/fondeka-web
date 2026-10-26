@@ -4,7 +4,7 @@ set -euo pipefail
 : "${FONDEKA_API_KEY:?Set a sandbox API key}"
 : "${FONDEKA_BUSINESS_ID:?Set your Business ID}"
 : "${FONDEKA_INTENT:?Set a unique intent once, then preserve it on retries}"
-[[ "$FONDEKA_API_KEY" == fdk_biz_test_* ]] || { echo 'Sandbox key required' >&2; exit 1; }
+[[ "$FONDEKA_API_KEY" == fdk_biz_sandbox_* || "$FONDEKA_API_KEY" == fdk_biz_test_* ]] || { echo 'Sandbox key required' >&2; exit 1; }
 [[ "$FONDEKA_BUSINESS_ID" =~ ^[1-9][0-9]*$ && "$FONDEKA_INTENT" =~ ^[A-Za-z0-9_.:-]{1,80}$ ]] || exit 1
 base="${FONDEKA_BASE_URL:-https://api.fondeka.com}"
 python3 - "$base" <<'PY'
@@ -19,7 +19,7 @@ python3 - "$wallets" <<'PY'
 import sys,json
 w=json.loads(sys.argv[1]);assert len(w)==1 and w[0]['environment']=='SANDBOX','SANDBOX not confirmed; no write sent'
 PY
-# This response is acceptance only. Copy reference, then use GET below until terminal.
+# This response is acceptance only. Copy fondekaReference, then use GET below until terminal.
 curl --fail-with-body --silent --show-error --max-time 30 -X POST "$api/collections" \
   -H "X-API-Key: $FONDEKA_API_KEY" -H "Idempotency-Key: $FONDEKA_INTENT:collection" \
   -H 'Content-Type: application/json' \

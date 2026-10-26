@@ -148,6 +148,12 @@ export function contractCurl(
     ...(body === undefined ? [] : [`  --data '${JSON.stringify(body, null, 2)}'`]),
   ].join(" \\\n");
 }
+export const verifiedWebhookCompatibilityExample = [
+  "// Only after raw-body signature verification and envelope validation.",
+  "const fondekaReference = event.data.fondekaReference ?? event.data.reference;",
+  "const fee = event.data.fee ?? event.data.allFees;",
+].join("\n");
+
 export const paymentStateGroups: {
   states: string[];
   note: GuideCopy;
@@ -180,8 +186,8 @@ export const paymentStateGroups: {
   {
     states: ["FAILED"],
     note: [
-      "Confirmed failure includes cancellation and expiry. Read failureMessage/failureCode for details. For payouts, inspect refunded separately; failure does not guarantee a refund.",
-      "L’échec confirmé inclut annulation et expiration. Consultez failureMessage/failureCode. Pour les décaissements, vérifiez refunded séparément ; l’échec ne garantit pas un remboursement.",
+      "Confirmed failure includes cancellation and expiry. Read failureMessage/failureCode for details. For payouts, check wallet records or contact support; failure does not guarantee a refund.",
+      "L’échec confirmé inclut annulation et expiration. Consultez failureMessage/failureCode. Pour les décaissements, consultez les écritures du portefeuille ou l’assistance ; l’échec ne garantit pas un remboursement.",
     ],
     tone: "failure",
   },

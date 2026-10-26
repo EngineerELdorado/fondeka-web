@@ -115,6 +115,7 @@ test("documentation links cannot escape the reviewed files, run script URLs or e
 });
 
 test("the downloadable reference exposes merchant-only endpoints and keeps JWT administration outside the contract", () => {
+  assert.equal(spec.info.version, "1.1.0");
   assert.equal(spec.openapi, "3.0.3");
   assert.equal(spec.servers[0].url, "https://api.fondeka.com");
   assert.equal(Object.keys(spec.paths).length, 9);
@@ -127,6 +128,69 @@ test("the downloadable reference exposes merchant-only endpoints and keeps JWT a
     assert.equal(allowedProxyRoute(path.slice(1), "POST"), false);
   }
   assert.ok(!/admin-api|customer-api/.test(JSON.stringify(spec.paths)));
+});
+
+test("the published payment snapshots use only compact fields and preserve lookup parameter names", () => {
+  const schema = spec.components.schemas.BusinessApiTransactionResource;
+  assert.deepEqual(
+    Object.keys(schema.properties).sort(),
+    [
+      "action",
+      "amount",
+      "clientReference",
+      "cryptoDetails",
+      "currency",
+      "environment",
+      "failureCode",
+      "failureMessage",
+      "fee",
+      "fondekaReference",
+      "grossAmount",
+      "service",
+      "status",
+    ].sort(),
+  );
+  const examples = [
+    spec.paths["/business-api/v1/businesses/{businessId}/collections"].post.responses[202].content[
+      "*/*"
+    ].examples.sandboxAccepted.value,
+    spec.paths["/business-api/v1/businesses/{businessId}/payouts"].post.responses[202].content[
+      "*/*"
+    ].examples.sandboxAccepted.value,
+    spec.paths["/business-api/v1/businesses/{businessId}/transactions/{reference}"].get
+      .responses[200].content["*/*"].examples.sandbox.value,
+    spec.components.callbacks.TerminalPaymentEvent["https://merchant.example/fondeka/webhooks"].post
+      .requestBody.content["application/json"].examples.completedCollection.value.data,
+  ];
+  for (const payment of examples) {
+    for (const key of schema.required) assert.ok(Object.hasOwn(payment, key), key);
+    assert.equal(payment.grossAmount, payment.amount + payment.fee);
+    for (const removed of [
+      "reference",
+      "allFees",
+      "internalFeeAmount",
+      "externalFeeAmount",
+      "businessId",
+      "transactionId",
+      "refunded",
+      "settlementAmount",
+      "settlementNet",
+    ])
+      assert.equal(Object.hasOwn(payment, removed), false, removed);
+    assert.equal(Object.hasOwn(payment, "cryptoDetails"), false);
+  }
+  const lookup =
+    spec.paths["/business-api/v1/businesses/{businessId}/transactions/{reference}"].get;
+  assert.ok(
+    lookup.parameters.some(
+      (parameter: { name: string; in: string }) =>
+        parameter.in === "path" && parameter.name === "reference",
+    ),
+  );
+  assert.match(lookup.description, /Use fondekaReference/);
+  const collection = spec.paths["/business-api/v1/businesses/{businessId}/collections"].post;
+  for (const code of ["BUSINESS_API_LIVE_PAYMENTS_DISABLED", "FX_ROUTE_UNAVAILABLE"])
+    assert.ok(collection["x-simulatable-error-codes"].includes(code));
 });
 
 test("the sandbox Postman download has no saved API key and retains sandbox/intent guards", () => {

@@ -85,6 +85,26 @@ test("demo API history paginates and filters directions, exact references, and c
     "/customer-api/businesses/1/api-transactions?page=1&size=10",
   );
   assert.equal(first.totalElements, 12);
+  const reference = first.content[0].transaction.fondekaReference;
+  const exact = await demoRequest<Page<ApiTransaction>>(
+    `/customer-api/businesses/1/api-transactions?reference=${encodeURIComponent(reference)}`,
+  );
+  assert.equal(exact.content.length, 1);
+  assert.equal(exact.content[0].transaction.fondekaReference, reference);
+  for (const row of first.content) {
+    assert.ok(Number.isInteger(row.apiKeyId));
+    assert.equal(row.transaction.service, "BUSINESS_API");
+    for (const removed of [
+      "reference",
+      "allFees",
+      "businessId",
+      "transactionId",
+      "settlementAmount",
+      "settlementNet",
+      "refunded",
+    ])
+      assert.equal(Object.hasOwn(row.transaction, removed), false, removed);
+  }
   assert.equal(second.content.length, 2);
   assert.notEqual(first.content[0].requestId, second.content[0].requestId);
   const filtered = await demoRequest<Page<ApiTransaction>>(
@@ -96,5 +116,6 @@ test("demo API history paginates and filters directions, exact references, and c
     "/customer-api/businesses/1/api-transactions/TXDEMO8414",
   );
   assert.equal(unresolved.transaction.status, "PROCESSING");
-  assert.equal(unresolved.transaction.refunded, false);
+  assert.equal(Object.hasOwn(unresolved.transaction, "refunded"), false);
+  assert.equal(unresolved.transaction.fee, 0.5);
 });

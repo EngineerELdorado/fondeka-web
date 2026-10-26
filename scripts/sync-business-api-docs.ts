@@ -36,7 +36,12 @@ async function publicationFile(directory: string, file: string, portalCopy = fal
       .replace(
         "[the portal status contract](../business-api-web-portal-payment-statuses.md)",
         "[payment states](concepts.md)",
-      ),
+      )
+      .replace(
+        "[portal credential contract](../business-api-credential-management.md)",
+        "[credential setup](quickstart.md)",
+      )
+      .replace(" See [compatibility rollout](../business-tools-bundle-compatibility.md).", ""),
   );
 }
 type Release = {

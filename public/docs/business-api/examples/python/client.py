@@ -12,7 +12,7 @@ class Client:
         if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path or (parsed.scheme!='https' and not(parsed.scheme=='http' and parsed.hostname in ('localhost','127.0.0.1','::1'))):
             raise ValueError('Use HTTPS or HTTP loopback for local development.')
         self.key=env.get('FONDEKA_API_KEY',''); self.business=env.get('FONDEKA_BUSINESS_ID',''); self.intent=env.get('FONDEKA_INTENT','')
-        if not self.key.startswith('fdk_biz_test_'): raise ValueError('This example requires a sandbox key.')
+        if not self.key.startswith(('fdk_biz_sandbox_','fdk_biz_test_')): raise ValueError('This example requires a sandbox key.')
         if not re.fullmatch(r'[1-9][0-9]*',self.business): raise ValueError('Set FONDEKA_BUSINESS_ID.')
         if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,80}',self.intent): raise ValueError('Set FONDEKA_INTENT once per logical run; preserve it on retries.')
         self.http=urllib.request.build_opener(NoRedirect())
@@ -44,10 +44,10 @@ def main():
     if len(wallets)!=1 or wallets[0]['environment']!='SANDBOX': raise RuntimeError('SANDBOX was not confirmed; no write sent.')
     body={'amount':10,'currency':'USD','paymentMethodName':'MPESA_KENYA','accountRef':'+254707371664','clientReference':client.intent,'feeApplicationMode':'EXCLUSIVE'}
     collection=client.request('POST','/collections',body,client.intent+':collection')
-    completed=client.poll(collection['reference']); print('Collection',json.dumps(completed))
+    completed=client.poll(collection['fondekaReference']); print('Collection',json.dumps(completed))
     if completed['status']!='COMPLETED': return
     payout=client.request('POST','/payouts',{**body,'amount':5},client.intent+':payout')
-    print('Payout',json.dumps(client.poll(payout['reference'])))
+    print('Payout',json.dumps(client.poll(payout['fondekaReference'])))
     print('Wallets',json.dumps(client.request('GET','/wallets?currency=USD')))
 
 if __name__=='__main__': main()

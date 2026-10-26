@@ -4,6 +4,8 @@ Collect and send payments through mobile money and crypto, settling in your acco
 
 Merchant requests use a Business-specific `X-API-Key`.
 
+New API keys start with `fdk_biz_live_` or `fdk_biz_sandbox_`. Existing `fdk_biz_` LIVE and `fdk_biz_test_` SANDBOX keys remain valid. The stored credential determines its environment; changing the prefix does not switch it. See the [credential setup](quickstart.md) for generation, masking and webhook configuration.
+
 | Start here | What you will build |
 | --- | --- |
 | [Quickstart](quickstart.md) | Your first collection, verified webhook and payout |

@@ -10,7 +10,7 @@ Use the single optional `X-Simulate-Error-Code` header. Pick an entry from the e
 
 Omit the header for normal sandbox success. Blank, unknown or unsupported codes return HTTP 400 `INVALID_TEST_ERROR_CODE`. LIVE credentials ignore every value regardless of Spring profile. Use the same processing code and idempotency key for retries; a different code with an accepted key returns 409 `IDEMPOTENCY_CONFLICT`. Real authorization, payload and wallet rules still apply.
 
-Failed payouts, including canceled/expired scenarios, refund their gross debit when the snapshotted sandbox refund policy permits it. Always inspect `refunded`; account for policy changes and historical simulations separately. Existing status-only sandbox payments created before virtual wallets were introduced do not gain retroactive wallet effects.
+Failed payouts, including canceled/expired scenarios, refund their gross debit when the snapshotted sandbox refund policy permits it. Check sandbox wallet history for the linked `PAYOUT_REFUND`; the compact payment response has no refund flag. Account for policy changes and historical simulations separately. Existing status-only sandbox payments created before virtual wallets were introduced do not gain retroactive wallet effects.
 
 ## Fund and convert virtual wallets
 

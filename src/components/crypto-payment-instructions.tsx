@@ -2,8 +2,7 @@
 
 import { Copy, ExternalLink } from "lucide-react";
 import { date, safeLink } from "@/lib/format";
-import type { PaymentTransaction } from "@/lib/business-tools";
-import type { ApiEnvironment } from "@/lib/types";
+import type { ApiEnvironment, ApiTransaction } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
 import type { PaymentLanguage } from "@/lib/business-tools-ui";
 
@@ -12,7 +11,7 @@ export function CryptoPaymentInstructions({
   environment = "LIVE",
   language = "en",
 }: {
-  details: NonNullable<PaymentTransaction["cryptoDetails"]>;
+  details: NonNullable<ApiTransaction["transaction"]["cryptoDetails"]>;
   environment?: ApiEnvironment;
   language?: PaymentLanguage;
 }) {
@@ -58,11 +57,11 @@ function PayableCryptoInstructions({
   details,
   language,
 }: {
-  details: NonNullable<PaymentTransaction["cryptoDetails"]>;
+  details: NonNullable<ApiTransaction["transaction"]["cryptoDetails"]>;
   language: PaymentLanguage;
 }) {
   const crypto = details;
-  const invoice = safeLink(crypto.invoiceUrl);
+  const invoice = safeLink(crypto.invoiceUrl ?? undefined);
   const { notify } = useWorkspace();
   const fr = language === "fr";
   async function copy(value: string) {
@@ -103,7 +102,7 @@ function PayableCryptoInstructions({
               ? new Intl.DateTimeFormat("fr", { dateStyle: "medium" }).format(
                   new Date(crypto.expiresAt),
                 )
-              : date(crypto.expiresAt)}
+              : date(crypto.expiresAt ?? undefined)}
           </dd>
         </div>
         {crypto.exchangeRate != null && (

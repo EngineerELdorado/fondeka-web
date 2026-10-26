@@ -133,9 +133,9 @@ const lookup: GuideExample = {
   path: `${base}/transactions/{reference}`,
   fields: [
     field(
-      "reference",
-      "Save this opaque value exactly. Use it to poll the existing payment.",
-      "Conservez cette valeur opaque telle quelle pour consulter le paiement existant.",
+      "fondekaReference",
+      "Save fondekaReference exactly and use it in /transactions/{reference}. The URL parameter name is unchanged.",
+      "Conservez fondekaReference telle quelle et utilisez-la dans /transactions/{reference}. Le nom du paramètre de l’URL reste inchangé.",
       "response",
     ),
     field(
@@ -158,8 +158,8 @@ const collectionEvent: GuideExample = {
     ),
     field(
       "data",
-      "Check Business, both environments, reference, status, currency and settlement before fulfillment.",
-      "Vérifiez le Business, les deux environnements, la référence, l’état, la devise et le règlement avant livraison.",
+      "Use your Business webhook secret. Check both environments, fondekaReference, status, currency and amount before fulfillment.",
+      "Utilisez le secret webhook de votre Business. Vérifiez les deux environnements, fondekaReference, le statut, la devise et amount avant livraison.",
     ),
   ],
 };
@@ -339,8 +339,8 @@ export const apiGuideTracks: GuideTrack[] = [
         confirmation: confirmationExamples(true),
         check: {
           question: [
-            "FAILED + refunded:false. What does this mean?",
-            "FAILED + refunded:false. Qu’est-ce que cela signifie ?",
+            "A payout is FAILED. Is its wallet refund confirmed?",
+            "Un décaissement est FAILED. Son remboursement est-il confirmé ?",
           ],
           answers: [
             ["The wallet has been refunded", "Le portefeuille a été remboursé"],
@@ -351,8 +351,8 @@ export const apiGuideTracks: GuideTrack[] = [
           ],
           correct: 1,
           explanation: [
-            "Only refunded confirms the refund. Failure status alone cannot.",
-            "Seul refunded confirme le remboursement. L’état d’échec ne suffit pas.",
+            "Check wallet records or contact support to confirm the refund. Failure status alone cannot.",
+            "Consultez les écritures du portefeuille ou l’assistance pour confirmer le remboursement. L’état d’échec ne suffit pas.",
           ],
         },
       },
@@ -392,8 +392,8 @@ export const apiGuideTracks: GuideTrack[] = [
         id: "instructions",
         title: ["Invoice instructions", "Instructions de facture"],
         summary: [
-          "cryptoDetails can initially be null. Refresh the existing reference; do not create a second invoice.",
-          "cryptoDetails peut être null au départ. Actualisez la référence existante ; ne créez pas une seconde facture.",
+          "cryptoDetails is omitted until instructions are ready. Refresh the existing fondekaReference; do not create a second invoice.",
+          "cryptoDetails est omis tant que les instructions ne sont pas prêtes. Actualisez fondekaReference ; ne créez pas une seconde facture.",
         ],
         flow: [
           ["Reference", "Référence"],
@@ -406,12 +406,12 @@ export const apiGuideTracks: GuideTrack[] = [
           fields: [
             field(
               "cryptoDetails",
-              "Nullable while invoice creation is queued. Once available, use the exact returned address, network, token amount and expiry.",
-              "Peut être null pendant la création de facture. Utilisez ensuite l’adresse, le réseau, le montant crypto et l’expiration exacts retournés.",
+              "Omitted while invoice creation is queued. Once available, use the exact returned address, network, token amount and expiry.",
+              "Omis pendant la création de facture. Utilisez ensuite l’adresse, le réseau, le montant crypto et l’expiration exacts retournés.",
               "response",
             ),
             field(
-              "settlementNet",
+              "amount",
               "Reconcile actual confirmed net settlement. Underpayments and overpayments can change this amount.",
               "Rapprochez le règlement net réel confirmé. Un paiement insuffisant ou excédentaire peut modifier ce montant.",
               "response",
@@ -449,8 +449,8 @@ export const apiGuideTracks: GuideTrack[] = [
         confirmation: confirmationExamples(false, true),
         tips: [
           [
-            "Use settlementNet in the confirmed currency. Crypto underpayments or overpayments can differ from the initial quote.",
-            "Utilisez settlementNet dans la devise confirmée. Un paiement crypto insuffisant ou excédentaire peut différer du devis initial.",
+            "Use amount in the confirmed currency for the completed collection’s net credit. Compare it with the original order amount; crypto underpayments or overpayments can differ from the quote.",
+            "Utilisez amount dans la devise confirmée pour le crédit net de l’encaissement terminé. Comparez-le au montant de commande initial ; un paiement crypto insuffisant ou excédentaire peut différer du devis.",
           ],
         ],
         check: completionCheck,
@@ -575,26 +575,20 @@ export const apiGuideTracks: GuideTrack[] = [
           fields: [
             field(
               "amount",
-              "The quoted net fiat amount. EXCLUSIVE requests net; INCLUSIVE requests gross and deducts fees.",
-              "Le montant fiat net coté. EXCLUSIVE demande le net ; INCLUSIVE demande le brut et déduit les frais.",
+              "Net fiat amount after fees. A completed collection shows the actual wallet credit; before completion, this is the accepted quote.",
+              "Montant fiat net après frais. Pour un encaissement terminé, c’est le crédit réel du portefeuille ; avant confirmation, c’est le devis accepté.",
               "response",
             ),
             field(
-              "allFees",
-              "internalFeeAmount + externalFeeAmount, in the payment’s fiat currency. Read current backend values.",
-              "internalFeeAmount + externalFeeAmount, dans la devise fiat du paiement. Lisez les valeurs actuelles du backend.",
+              "fee",
+              "One combined fee in the payment’s fiat currency. grossAmount = amount + fee.",
+              "Les frais totaux dans la devise fiat du paiement. grossAmount = amount + fee.",
               "response",
             ),
             field(
               "grossAmount",
-              "Quoted net plus fees. Accepted payouts reserve/debit this amount once.",
-              "Net coté plus frais. Les décaissements acceptés réservent/débitent ce montant une fois.",
-              "response",
-            ),
-            field(
-              "settlementNet",
-              "Actual net collection credit after confirmation. Crypto under/overpayment can differ from the initial quote.",
-              "Crédit net réel d’encaissement après confirmation. Un paiement crypto peut différer du devis initial.",
+              "Net amount plus fee. Accepted payouts reserve/debit this amount once; completed collections show the reconciled gross.",
+              "Montant net plus frais. Les décaissements acceptés réservent/débitent ce montant une fois ; les encaissements terminés indiquent le brut réel.",
               "response",
             ),
           ],
@@ -618,8 +612,8 @@ export const apiGuideTracks: GuideTrack[] = [
             "Les encaissements créditent après confirmation. Les décaissements réservent/débitent le brut à l’acceptation, jamais une seconde fois à la confirmation.",
           ],
           [
-            "FAILED includes cancellation/expiry; inspect refunded separately. PROCESSING includes unresolved provider/manual review: keep the reference and do not automatically replace.",
-            "FAILED inclut annulation/expiration ; vérifiez refunded séparément. PROCESSING inclut les rapprochements fournisseur/manuels non résolus : conservez la référence, sans remplacement automatique.",
+            "FAILED includes cancellation/expiry; check wallet records or support for refunds. PROCESSING includes unresolved provider/manual review: keep fondekaReference and do not automatically replace.",
+            "FAILED inclut annulation/expiration ; vérifiez les écritures du portefeuille ou contactez l’assistance pour les remboursements. PROCESSING inclut les rapprochements fournisseur/manuels non résolus : conservez fondekaReference, sans remplacement automatique.",
           ],
         ],
         check: completionCheck,

@@ -167,35 +167,32 @@ export interface ApiKey {
 export type BusinessApiPaymentStatus = "ACCEPTED" | "PROCESSING" | "COMPLETED" | "FAILED";
 export interface ApiTransaction {
   requestId: number;
+  apiKeyId: number;
   apiKeyName: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
   transaction: {
-    businessId?: number;
-    transactionId?: number | null;
-    environment?: ApiEnvironment;
+    environment: ApiEnvironment;
     failureCode?: string;
     failureMessage?: string;
-    reference: string;
-    clientReference?: string;
+    fondekaReference: string;
+    clientReference?: string | null;
     status: BusinessApiPaymentStatus;
-    amount?: number;
-    currency?: string;
-    action?: string;
-    grossAmount?: number;
-    allFees?: number;
-    settlementAmount?: number | null;
-    settlementNet?: number | null;
-    refunded?: boolean;
+    amount: number;
+    currency: string;
+    service: "BUSINESS_API";
+    action: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT";
+    grossAmount: number;
+    fee: number;
     cryptoDetails?: {
-      address?: string;
-      cryptoCurrency?: string;
-      network?: string;
-      amountInCrypto?: number;
-      exchangeRate?: number;
-      exchangeRateCurrency?: string;
-      invoiceUrl?: string;
-      expiresAt?: string;
+      address?: string | null;
+      cryptoCurrency?: string | null;
+      network?: string | null;
+      amountInCrypto?: number | null;
+      exchangeRate?: number | null;
+      exchangeRateCurrency?: string | null;
+      invoiceUrl?: string | null;
+      expiresAt?: string | null;
     } | null;
   };
 }

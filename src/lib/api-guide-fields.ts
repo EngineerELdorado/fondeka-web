@@ -180,37 +180,30 @@ const descriptionsFr: Record<string, Record<string, string>> = {
   },
   BusinessApiTransactionResource: {
     action: "Indique si ce paiement est un encaissement ou un décaissement de l’API Business.",
-    allFees: "Total des frais internes et des frais du fournisseur, dans currency.",
-    amount: "Montant fiat net du devis, après déduction des frais.",
-    businessId: "Business ID associé à la clé API qui a créé le paiement.",
+    amount:
+      "Montant fiat net après frais. Pour un encaissement terminé, c’est le crédit net réel du portefeuille ; avant confirmation, c’est le devis accepté.",
     clientReference: "Référence de commande ou de facture fournie par votre intégration.",
     cryptoDetails:
-      "Instructions de l’encaissement crypto ou destination du décaissement. Peut être null pendant la création de la facture, et pour le mobile money.",
-    currency: "Devise fiat utilisée pour les montants, frais et valeurs de règlement du paiement.",
+      "Instructions de l’encaissement crypto ou destination du décaissement. Ce champ est omis pour le mobile money ou tant que les instructions ne sont pas disponibles.",
+    currency: "Devise fiat utilisée pour amount, grossAmount et fee.",
     environment: "Environnement déterminé par la clé API, et non par l’URL.",
-    externalFeeAmount: "Part des frais du fournisseur externe, dans currency.",
     failureCode:
       "Code sûr décrivant un échec de paiement, lorsqu’il est disponible. Ce n’est pas un code d’erreur HTTP.",
     failureMessage:
       "Message d’échec affichable lorsqu’il est fourni. Sa présence n’est pas garantie pour chaque résultat.",
     grossAmount:
-      "Montant fiat brut du devis, frais inclus. Pour un décaissement, c’est le montant débité du portefeuille.",
-    internalFeeAmount: "Part des frais Fondeka, dans currency.",
-    reference:
-      "Référence opaque à conserver exactement pour consulter le paiement. Ne déduisez pas l’environnement de son format.",
-    refunded:
-      "Indique si le débit du décaissement a été remboursé. Un statut FAILED ne prouve pas que le remboursement a eu lieu.",
+      "Montant fiat brut, frais inclus, débité pour un décaissement. Pour un encaissement terminé, c’est le brut réellement reçu.",
+    fee: "Frais fiat totaux, toutes composantes incluses. grossAmount = amount + fee.",
+    fondekaReference:
+      "Référence opaque Fondeka à conserver exactement pour consulter le paiement. Ne déduisez pas l’environnement de son format.",
     service: "Service Fondeka auquel appartient ce paiement : BUSINESS_API pour cette ressource.",
-    settlementAmount:
-      "Montant fiat brut réellement rapproché. Un paiement crypto inférieur ou supérieur au devis peut modifier cette valeur.",
-    settlementNet: "Montant fiat net réellement crédité pour un encaissement confirmé.",
     status:
       "ACCEPTED : en file d’attente d’exécution. PROCESSING : exécution commencée ou résultat fournisseur/rapprochement indéterminé. COMPLETED : succès confirmé. FAILED : échec confirmé, y compris annulation ou expiration. Poursuivez le suivi de la même référence pour ACCEPTED et PROCESSING.",
   },
   BusinessApiWebhookEvent: {
     createdAt:
       "Date de création de l’instantané de l’événement, différente de l’horodatage d’une tentative de livraison.",
-    data: "Instantané complet du paiement au moment de l’événement. Vérifiez notamment le Business, l’environnement, la référence, le statut et le règlement.",
+    data: "Instantané du paiement au moment de l’événement. Vérifiez l’environnement, fondekaReference, le statut, la devise et les montants. Utilisez le secret webhook de votre Business.",
     environment:
       "Doit correspondre à l’environnement attendu par votre intégration et à data.environment.",
     id: "Identifiant stable de l’événement, également fourni dans X-Fondeka-Event-Id. Dédupliquez cette valeur lors des nouvelles tentatives.",
@@ -313,7 +306,7 @@ const parameterDescriptionsFr: Record<string, string> = {
     "Signature HMAC créée avec le secret webhook de la clé, et non avec la clé API. Vérifiez-la sur les octets bruts exacts.",
   businessId: "Business ID associé à votre clé API. Une clé d’un autre Business est refusée.",
   reference:
-    "Référence opaque du paiement renvoyée lors de l’envoi, dans le même Business et le même environnement.",
+    "Valeur fondekaReference renvoyée lors de l’envoi, dans le même Business et le même environnement. Le paramètre de l’URL reste nommé reference.",
   currency:
     "Code de devise fiat, normalisé en majuscules. Pour la liste des portefeuilles, omettez ce filtre pour tous les retourner.",
   page: "Index de page à partir de zéro ; la première page est 0.",
@@ -455,8 +448,8 @@ export function guideFieldDescription(
     return {
       text:
         language === "fr"
-          ? "Ce champ vaut null pour les paiements mobile money."
-          : "This field is null for mobile-money payments.",
+          ? "Ce champ est omis pour les paiements mobile money."
+          : "This field is omitted for mobile-money payments.",
       language: language === "fr" ? "fr" : "en",
     };
   if (example && field.location === "body" && field.name === "accountRef") {

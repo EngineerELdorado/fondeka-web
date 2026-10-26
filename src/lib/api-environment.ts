@@ -35,8 +35,14 @@ export function assertKeyEnvironment(keys: ApiKey[], expected: ApiEnvironment) {
         !key ||
         typeof key.keyPrefix !== "string" ||
         apiEnvironment(key.environment) !== expected ||
-        !key.keyPrefix.startsWith(expected === "SANDBOX" ? "fdk_biz_test_" : "fdk_biz_") ||
-        (expected === "LIVE" && key.keyPrefix.startsWith("fdk_biz_test_")),
+        (expected === "SANDBOX"
+          ? !["fdk_biz_sandbox_", "fdk_biz_test_"].some((prefix) =>
+              key.keyPrefix.startsWith(prefix),
+            )
+          : !key.keyPrefix.startsWith("fdk_biz_") ||
+            ["fdk_biz_sandbox_", "fdk_biz_test_"].some((prefix) =>
+              key.keyPrefix.startsWith(prefix),
+            )),
     )
   )
     throw new Error(
@@ -53,10 +59,9 @@ export function assertTransactionEnvironment(
     );
   if (
     !tx ||
-    apiEnvironment(tx.environment) !== expected ||
-    (expected === "SANDBOX"
-      ? tx.transactionId != null || !tx.reference.startsWith("SBX")
-      : tx.reference.startsWith("SBX"))
+    tx.environment !== expected ||
+    typeof tx.fondekaReference !== "string" ||
+    !tx.fondekaReference
   )
     throw new Error(
       "This activity does not match the selected API environment. Refresh or contact support.",

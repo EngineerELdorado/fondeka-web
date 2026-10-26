@@ -79,19 +79,48 @@ test("mismatched environments cannot be displayed as selected activity or creden
   assert.throws(() =>
     assertKeyEnvironment([{ ...live, keyPrefix: "fdk_biz_test_prefix" }], "LIVE"),
   );
+  assert.doesNotThrow(() =>
+    assertKeyEnvironment(
+      [{ ...live, environment: "LIVE", keyPrefix: "fdk_biz_live_prefix" }],
+      "LIVE",
+    ),
+  );
+  for (const prefix of ["fdk_biz_sandbox_", "fdk_biz_test_"]) {
+    const sandboxKey = { ...live, environment: "SANDBOX" as const, keyPrefix: prefix + "prefix" };
+    assert.doesNotThrow(() => assertKeyEnvironment([sandboxKey], "SANDBOX"));
+    assert.throws(() => assertKeyEnvironment([sandboxKey], "LIVE"));
+    assert.throws(() => assertKeyEnvironment([{ ...sandboxKey, environment: "LIVE" }], "LIVE"));
+  }
   const sandbox: ApiTransaction["transaction"] = {
-    reference: "SBX001",
-    transactionId: null,
+    fondekaReference: "opaque-payment-001",
     environment: "SANDBOX",
     status: "PROCESSING",
+    amount: 10,
+    grossAmount: 10.3,
+    fee: 0.3,
+    currency: "USD",
+    service: "BUSINESS_API",
+    action: "BUSINESS_API_COLLECTION",
   };
   assert.doesNotThrow(() => assertTransactionEnvironment(sandbox, "SANDBOX"));
   assert.throws(() => assertTransactionEnvironment(sandbox, "LIVE"));
-  assert.throws(() => assertTransactionEnvironment({ ...sandbox, transactionId: 123 }, "SANDBOX"));
-  assert.throws(() => assertTransactionEnvironment({ ...sandbox, environment: "LIVE" }, "LIVE"));
+  assert.throws(() =>
+    assertTransactionEnvironment({ ...sandbox, fondekaReference: "" }, "SANDBOX"),
+  );
+  assert.throws(() =>
+    assertTransactionEnvironment(
+      { ...sandbox, environment: undefined } as unknown as ApiTransaction["transaction"],
+      "LIVE",
+    ),
+  );
   assert.doesNotThrow(() =>
     assertTransactionEnvironment(
-      { reference: "TX001", status: "COMPLETED", transactionId: 123 },
+      {
+        ...sandbox,
+        environment: "LIVE",
+        fondekaReference: "SBX-looking-but-opaque",
+        status: "COMPLETED",
+      },
       "LIVE",
     ),
   );
@@ -110,12 +139,13 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
       (row) =>
         row.transaction.environment === "SANDBOX" &&
         !Object.hasOwn(row.transaction, "transactionId") &&
-        row.transaction.allFees === 0,
+        row.transaction.fee === 0,
     ),
   );
   assert.ok(
     live.content.every(
-      (row) => row.transaction.environment === "LIVE" && row.transaction.reference.startsWith("TX"),
+      (row) =>
+        row.transaction.environment === "LIVE" && row.transaction.fondekaReference.startsWith("TX"),
     ),
   );
   const crypto = sandbox.content.find((row) => row.transaction.cryptoDetails)?.transaction
@@ -125,20 +155,22 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
   assert.equal(crypto?.exchangeRate, 1);
   assert.equal(crypto?.exchangeRateCurrency, "USD");
   const detail = await demoRequest<ApiTransaction>(
-    apiTransactionPath(1, sandbox.content[0].transaction.reference, "SANDBOX"),
+    apiTransactionPath(1, sandbox.content[0].transaction.fondekaReference, "SANDBOX"),
   );
   assert.equal(Object.hasOwn(detail.transaction, "transactionId"), false);
   await assert.rejects(
-    demoRequest(apiTransactionPath(1, detail.transaction.reference, "LIVE")),
+    demoRequest(apiTransactionPath(1, detail.transaction.fondekaReference, "LIVE")),
     /not found/,
   );
   await assert.rejects(
-    demoRequest(apiTransactionPath(1, live.content[0].transaction.reference, "SANDBOX")),
+    demoRequest(apiTransactionPath(1, live.content[0].transaction.fondekaReference, "SANDBOX")),
     /not found/,
   );
   const keys = await demoRequest<ApiKey[]>(apiKeysPath(1, "SANDBOX"));
   assert.ok(
-    keys.every((key) => key.environment === "SANDBOX" && key.keyPrefix.startsWith("fdk_biz_test_")),
+    keys.every(
+      (key) => key.environment === "SANDBOX" && key.keyPrefix.startsWith("fdk_biz_sandbox_"),
+    ),
   );
   const filtered = await demoRequest<Page<ApiTransaction>>(
     `/customer-api/businesses/1/api-transactions?${portalQuery({ ...emptyFilters, action: "BUSINESS_API_PAYOUT", status: "FAILED" }, 0, "SANDBOX")}`,

@@ -140,11 +140,7 @@ export function ApiTransactions({
             value={draft.reference}
             onChange={(e) => update("reference", e.target.value)}
             maxLength={128}
-            placeholder={
-              environment === "SANDBOX"
-                ? uiText("Exact SBX reference")
-                : uiText("Exact TX reference")
-            }
+            placeholder="fondekaReference"
           />
         </label>
         <label>
@@ -287,10 +283,13 @@ export function ApiTransactions({
                           <button
                             className="table-name text-button"
                             onClick={() =>
-                              setSelected({ businessId: business.id, reference: tx.reference })
+                              setSelected({
+                                businessId: business.id,
+                                reference: tx.fondekaReference,
+                              })
                             }
                           >
-                            {tx.reference}
+                            {tx.fondekaReference}
                           </button>
                           <small className="table-subtitle">
                             {tx.clientReference || uiText("No merchant reference")}
@@ -317,9 +316,12 @@ export function ApiTransactions({
                         <td>
                           <button
                             className="icon-button"
-                            aria-label={uiText("View transaction") + " " + tx.reference}
+                            aria-label={uiText("View transaction") + " " + tx.fondekaReference}
                             onClick={() =>
-                              setSelected({ businessId: business.id, reference: tx.reference })
+                              setSelected({
+                                businessId: business.id,
+                                reference: tx.fondekaReference,
+                              })
                             }
                           >
                             <ArrowUpRight size={16} />
@@ -335,8 +337,8 @@ export function ApiTransactions({
               {history.data.content.map(({ requestId, transaction: tx, createdAt }) => (
                 <MobileRecord
                   key={requestId}
-                  title={tx.clientReference || tx.reference}
-                  subtitle={tx.reference}
+                  title={tx.clientReference || tx.fondekaReference}
+                  subtitle={tx.fondekaReference}
                   meta={`${tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection")} · ${date(createdAt)}`}
                   amount={money(tx.amount, tx.currency)}
                   badge={<ApiPaymentBadge status={tx.status} />}
@@ -347,7 +349,9 @@ export function ApiTransactions({
                       <ArrowDownLeft size={20} />
                     )
                   }
-                  onClick={() => setSelected({ businessId: business.id, reference: tx.reference })}
+                  onClick={() =>
+                    setSelected({ businessId: business.id, reference: tx.fondekaReference })
+                  }
                 />
               ))}
             </div>
@@ -411,7 +415,7 @@ export function TransactionDetail({
   const status = !error ? tx?.status : undefined;
   const pending = isPendingBusinessApiPayment(status);
   useEffect(() => {
-    // Reopening/returning also checks for refunds posted after the terminal snapshot.
+    // Refresh the current payment snapshot when reopening or returning to the page.
     const revalidate = () => {
       if (document.visibilityState === "visible") void refresh();
     };
@@ -524,12 +528,7 @@ export function TransactionDetail({
                 [uiText("Accepted"), date(detail.data?.createdAt)],
                 [uiText("Last updated"), date(detail.data?.updatedAt)],
                 [uiText("Gross amount"), money(tx.grossAmount, tx.currency)],
-                [uiText("Fees"), money(tx.allFees, tx.currency)],
-                [uiText("Settlement net"), money(tx.settlementNet, tx.currency)],
-                [
-                  environment === "SANDBOX" ? uiText("Virtual refund posted") : uiText("Refunded"),
-                  tx.refunded === true ? uiText("Yes") : tx.refunded === false ? uiText("No") : "—",
-                ],
+                [uiText("Fee"), money(tx.fee, tx.currency)],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt>{key}</dt>
@@ -537,8 +536,12 @@ export function TransactionDetail({
                 </div>
               ))}
             </dl>
-            {tx.status === "FAILED" && (tx.failureMessage || tx.failureCode) && (
-              <p className="info-box">{tx.failureMessage || tx.failureCode}</p>
+            {tx.status === "FAILED" && (
+              <p className="info-box">
+                {tx.failureMessage ||
+                  tx.failureCode ||
+                  uiText("Payment unsuccessful. No failure details are available.")}
+              </p>
             )}
             {tx.status === "ACCEPTED" && (
               <div className="info-box">

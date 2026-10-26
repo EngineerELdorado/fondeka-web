@@ -1,8 +1,14 @@
 # Amounts, wallets and payment states
 
+## Live-payment availability
+
+New LIVE collections and payouts require Fondeka to enable live API payments. Before launch or during a pause, new LIVE intents return HTTP 403 with `errorCode: BUSINESS_API_LIVE_PAYMENTS_DISABLED`; use SANDBOX for integration testing. Existing accepted payments continue processing, and their status reads, idempotent replays and webhooks remain available. A launch rejection does not consume the idempotency key. The gate applies to LIVE credentials in every server profile, including local development.
+
 ## Financial ownership
 
-An API key belongs to one Business. The Business's owning account owns the LIVE fiat wallets. Multiple Businesses under that account share those balances; their credentials, payments and idempotency scopes remain separate. Sandbox wallets are isolated virtual account wallets, also shared by that account's Businesses. Sandbox activity never appears as a real financial transaction in normal customer transaction history.
+An API key belongs to one Business. The Business's owning account owns the LIVE fiat wallets. Multiple Businesses under that account share those balances; their credentials, payments and idempotency scopes remain separate. Sandbox wallets are isolated virtual account wallets, also shared by that account's Businesses.
+
+Business API payments are excluded from the client app's general transaction history and detail routes (`/customer-api/transactions`), including LIVE payments. Read them through the merchant API or the portal's dedicated `/customer-api/businesses/{businessId}/api-transactions` routes, with the appropriate environment. LIVE payments remain real financial transactions and are included in admin reporting and applicable loan-eligibility rules. SANDBOX payments remain in separate tables: they do not appear in admin transaction views and do not contribute to financial reports, analytics, real balances or loan eligibility. Sandbox history and virtual balances remain available through the dedicated sandbox/portal APIs.
 
 ## Fiat and crypto amounts
 
@@ -12,14 +18,17 @@ Request `amount` and `currency` always describe fiat, even for a crypto method. 
 
 | Field | Meaning |
 | --- | --- |
-| `amount` | Quoted net fiat amount |
-| `internalFeeAmount` | Fondeka fee component |
-| `externalFeeAmount` | External fee component |
-| `allFees` | Sum of fee components |
-| `grossAmount` | Quoted net plus all fees; payout wallet debit |
-| `settlementAmount` | Reconciled gross settlement |
-| `settlementNet` | Reconciled net credited by a completed collection |
-| `refunded` | Whether a payout debit has actually been refunded |
+| `fondekaReference` | Opaque Fondeka payment identifier; use it in the existing `/transactions/{reference}` path |
+| `clientReference` | Your optional order/invoice correlation value |
+| `service`, `action` | BUSINESS_API and the collection/payout operation |
+| `amount` | Net fiat amount; quote before completion, reconciled wallet credit for a completed collection |
+| `fee` | One consolidated fee, without internal/provider components |
+| `grossAmount` | `amount + fee`; payout wallet debit, or reconciled gross for a completed collection |
+| `currency`, `environment`, `status` | Fiat denomination, LIVE/SANDBOX and public payment state |
+| `cryptoDetails` | Crypto instructions only when available; omitted for mobile money and while queued |
+| `failureCode`, `failureMessage` | Optional sanitized failure details when available |
+
+The payment object omits Business/financial transaction IDs, fee splits, duplicate settlement fields and the refund flag. The Business is selected by the authenticated key and request path. Never use an internal numeric transaction ID for payment lookup.
 
 EXCLUSIVE requests net and adds fees. INCLUSIVE requests gross and deducts fees. For example, with total fees of 0.30, EXCLUSIVE amount 10 produces net 10/gross 10.30; INCLUSIVE amount 10 produces gross 10/net 9.70. Actual LIVE percentages, flat fees, minimums and rounding depend on the route. An omitted/null mode uses the applicable route default; sandbox defaults to EXCLUSIVE.
 
@@ -27,7 +36,7 @@ For LIVE EXCLUSIVE collections, tariff bands are selected using the gross amount
 
 Internal/admin USD reporting for Business API payments retains up to 18 decimal places using the acceptance-time exchange rate. Aggregate those decimal values before rounding for display. Merchant payment fields above remain in the transaction's actual fiat currency.
 
-Crypto under/overpayments can produce settlement values different from the original quote. Use confirmed `settlementNet` for reconciliation and your own order-fulfillment rules for amount mismatches.
+Crypto under/overpayments can produce different settlement from the original quote. On COMPLETED collections, `amount`, `grossAmount` and `fee` show that reconciled settlement; use `amount` and `currency` for your order-fulfillment amount checks. Before completion these fields remain the accepted quote. No accepted quote, wallet posting or provider request is repriced by this response projection.
 
 ## Lifecycle and wallet effects
 
@@ -36,11 +45,11 @@ Crypto under/overpayments can produce settlement values different from the origi
 | `ACCEPTED` | API submission is queued for execution; preserve its reference and poll with backoff |
 | `PROCESSING` | Execution started or a provider/reconciliation outcome remains unresolved; poll with backoff and await the terminal event |
 | `COMPLETED` | Reconcile success; completed collections credit net once, completed payouts do not debit again |
-| `FAILED` | Reconcile failure, including cancellation or expiration; inspect `refunded` for payouts |
+| `FAILED` | Reconcile failure, including cancellation or expiration; never infer a payout refund from status |
 
 These are the only four payment statuses in both LIVE and SANDBOX, including the authenticated portal's payment snapshots. A new HTTP `202 Accepted` intent returns a payment with `status: "ACCEPTED"`; an idempotent replay returns its current state. Both ACCEPTED and PROCESSING are pending states; PENDING is not a separate public value. A payment awaiting reconciliation remains PROCESSING until its result is established. Keep its reference and original idempotency key; contact support if it remains unresolved rather than creating another payment automatically.
 
-An accepted payout debits/reserves gross immediately. A completed collection credits only after payment confirmation. Failed/canceled payouts can require manual refunds when automatic refund policy is disabled; the status alone does not promise a refund. Webhooks are immutable snapshots; GET shows later refund updates. Unknown outcomes retain reserved payout funds until reconciliation.
+An accepted payout debits/reserves gross immediately. A completed collection credits only after payment confirmation. Failed/canceled payouts can require manual refunds when automatic refund policy is disabled; the status alone does not promise a refund. The compact payment object does not expose a refund flag. Reconcile wallet records or contact support for an uncertain refund; do not create a replacement payout automatically. Webhooks remain immutable snapshots. Unknown outcomes retain reserved payout funds until reconciliation.
 
 ## Request identity and retries
 

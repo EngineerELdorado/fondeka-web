@@ -51,6 +51,27 @@ test("sandbox credential creation uses an explicit immutable environment and val
   );
   assert.throws(() => parseIssuedCredentials({ ...sandbox, credential: { id: 9 } }, "SANDBOX"));
 });
+test("issued credentials accept new and legacy keys only in their stored environment", () => {
+  for (const [environment, prefixes] of [
+    ["LIVE", ["fdk_biz_live_", "fdk_biz_"]],
+    ["SANDBOX", ["fdk_biz_sandbox_", "fdk_biz_test_"]],
+  ] as const) {
+    for (const prefix of prefixes) {
+      const issued = {
+        credential: { id: 9, environment },
+        apiKey: prefix + "a".repeat(43),
+        webhookSecret: "whsec_" + "b".repeat(43),
+      };
+      assert.equal(parseIssuedCredentials(issued, environment), issued);
+      assert.throws(() =>
+        parseIssuedCredentials(issued, environment === "LIVE" ? "SANDBOX" : "LIVE"),
+      );
+      assert.throws(() =>
+        parseIssuedCredentials({ ...issued, apiKey: prefix + "a".repeat(42) }, environment),
+      );
+    }
+  }
+});
 test("credential form rejects blank, oversized and insecure destinations", () => {
   for (const name of ["", " ", "x".repeat(101)])
     assert.throws(() => credentialPayload(name, "https://merchant.example/hooks"));

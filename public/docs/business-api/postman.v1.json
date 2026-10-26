@@ -53,7 +53,7 @@
         "type": "text/javascript",
         "exec": [
           "const key=pm.variables.get(\"apiKey\") || \"\";",
-          "if (!key.startsWith(\"fdk_biz_test_\")) { pm.execution.skipRequest(); throw new Error(\"This example collection accepts sandbox keys only.\"); }",
+          "if (![\"fdk_biz_sandbox_\", \"fdk_biz_test_\"].some(prefix => key.startsWith(prefix))) { pm.execution.skipRequest(); throw new Error(\"This example collection accepts sandbox keys only.\"); }",
           "if (!pm.variables.get(\"intent\") || pm.variables.get(\"intent\")===\"CHANGE_ME_ONCE_PER_LOGICAL_RUN\") { pm.execution.skipRequest(); throw new Error(\"Set intent to a unique value; keep it unchanged on retries.\"); }"
         ]
       }
@@ -80,7 +80,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -106,7 +106,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -149,7 +149,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -192,7 +192,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -235,7 +235,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -252,7 +252,7 @@
           }
         ],
         "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/transactions/{{reference}}",
-        "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded."
+        "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Use fondekaReference from submission; the URL path is unchanged. Crypto payment instructions are omitted until available. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund."
       },
       "event": [
         {
@@ -261,7 +261,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -304,7 +304,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -347,7 +347,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -386,7 +386,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -429,7 +429,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }
@@ -455,7 +455,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
-              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.reference) pm.collectionVariables.set(\"reference\",body.reference); }"
+              "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
             ]
           }
         }

@@ -20,6 +20,7 @@ import {
   publishedExample,
   resolveGuideSchema,
   paymentStateGroups,
+  verifiedWebhookCompatibilityExample,
   type GuideSpec,
 } from "@/lib/api-guide-contract";
 import type { GuideExample } from "@/lib/api-guide-content";
@@ -547,15 +548,15 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
     {
       title: t("Verify the signature", "Vérifiez la signature"),
       description: t(
-        "Use the signing secret with HMAC-SHA256 over timestamp + '.' + exact raw bytes. Check freshness (±300s) and compare in constant time.",
-        "Utilisez le secret de signature avec HMAC-SHA256 sur timestamp + '.' + les octets bruts exacts. Vérifiez la fraîcheur (±300 s) et comparez en temps constant.",
+        "Select the signing secret from trusted key configuration. Use HMAC-SHA256 over timestamp + '.' + exact raw bytes. Check freshness (±300s) and compare in constant time before parsing or normalizing.",
+        "Choisissez le secret dans la configuration fiable de la clé. Utilisez HMAC-SHA256 sur timestamp + '.' + les octets bruts exacts. Vérifiez la fraîcheur (±300 s) et comparez en temps constant avant d’analyser ou de normaliser.",
       ),
     },
     {
       title: t("Validate the event", "Validez l’événement"),
       description: t(
-        "Match the header/body event ID, Business, both environments, reference, status, currency and settlement.",
-        "Comparez l’identifiant d’événement en-tête/corps, le Business, les deux environnements, la référence, l’état, la devise et le règlement.",
+        "Match the header/body event ID, both environments, fondekaReference, status, currency and amount. Match the reference to an order owned by this key’s integration; no Business ID is included in data.",
+        "Comparez l’identifiant d’événement en-tête/corps, les deux environnements, fondekaReference, le statut, la devise et amount. Rattachez la référence à une commande de l’intégration de cette clé ; data ne contient pas de Business ID.",
       ),
     },
     {
@@ -651,6 +652,26 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
           </ol>
         </section>
       </div>
+      <details className="guide-optional-check">
+        <summary>
+          {t("Older queued webhook events", "Anciens événements webhook en attente")}
+          <ChevronDown size={14} aria-hidden="true" />
+        </summary>
+        <p>
+          {t(
+            "Saved events keep their original bytes on retries. Existing integrations may still receive an older payment schema. Allow that schema during envelope validation, then normalize these fields only after verifying the raw-body signature. Current API responses return only the compact fields. Never replace a missing fee with zero.",
+            "Les nouvelles tentatives conservent les octets d’origine des événements enregistrés. Une intégration existante peut donc recevoir l’ancien schéma. Acceptez ce schéma lors de la validation de l’enveloppe, puis normalisez ces champs uniquement après vérification de la signature du corps brut. Les réponses API actuelles contiennent uniquement les champs compacts. Ne remplacez jamais des frais absents par zéro.",
+          )}
+        </p>
+        <GuideCodeCard
+          title={t("Verified event compatibility", "Compatibilité d’un événement vérifié")}
+          code={verifiedWebhookCompatibilityExample}
+          caption={t(
+            "Receiver compatibility only. Keep the signed raw body unchanged for verification and durable storage.",
+            "Compatibilité du récepteur uniquement. Conservez le corps brut signé inchangé pour la vérification et le stockage durable.",
+          )}
+        />
+      </details>
     </div>
   );
 }
@@ -930,8 +951,8 @@ function EndpointContent({
             caption={
               showResponseStructure
                 ? t(
-                    "Full response structure with field types, not payment values. cryptoDetails may initially be null; refresh the same reference until invoice instructions are available.",
-                    "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails peut être null au départ ; actualisez la même référence jusqu’à réception des instructions de facture.",
+                    "Full response structure with field types, not payment values. cryptoDetails is optional and omitted until instructions are ready; keep polling the same fondekaReference. Older snapshots may contain null.",
+                    "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails est facultatif et omis tant que les instructions ne sont pas prêtes ; poursuivez le suivi de la même fondekaReference. D’anciens instantanés peuvent contenir null.",
                   )
                 : simulatedRejection
                   ? t(

@@ -35,6 +35,11 @@ The authenticated web portal catalog returns the same metadata. The [OpenAPI ref
 
 ## Immediate rejection
 
+`400 PAYMENT_METHOD_UNAVAILABLE` also covers a winning route that lacks its required local provider mapping. `400 FX_ROUTE_UNAVAILABLE` means an active currency or usable conversion rate is missing for that route. Both reject before payment acceptance and payout reservation; choose another method/currency or ask support to check configuration. SANDBOX can simulate either code from the error catalog without invoking a provider.
+
+
+`403 BUSINESS_API_LIVE_PAYMENTS_DISABLED` means Fondeka has not enabled new LIVE API payments, or has paused their acceptance. Use SANDBOX for testing and wait for live availability before submitting a new live intent. No payment was accepted and the key is not consumed by this rejection. Previously accepted payments remain readable/replayable and continue to settle and deliver webhooks. Sandbox can simulate this code through `X-Simulate-Error-Code` on collections and payouts.
+
 For a sandbox payout, add:
 
 ```http
@@ -62,7 +67,7 @@ For a customer who does not approve mobile money collection:
 
 ```http
 POST /business-api/v1/businesses/42/collections
-X-API-Key: fdk_biz_test_<secret>
+X-API-Key: fdk_biz_sandbox_<secret>
 Idempotency-Key: order-unapproved-001
 X-Simulate-Error-Code: PAYMENT_NOT_APPROVED
 Content-Type: application/json
@@ -91,7 +96,7 @@ Content-Type: application/json
 | `PAYMENT_EXPIRED` | Collection/payout; mobile money or crypto | FAILED; expired before completion |
 | `PAYMENT_CANCELLED` | Collection/payout; mobile money or crypto | FAILED; cancelled before completion |
 
-These cases never call a provider or send an actual phone prompt. Collections credit nothing when they fail. Payouts must have sufficient virtual funds at acceptance, debit gross including fees, and refund once when the snapshotted sandbox policy permits. Inspect `refunded`; failure alone does not guarantee a refund. `INSUFFICIENT_FUNDS` is an immediate merchant-wallet error; `PAYER_INSUFFICIENT_FUNDS` is a distinct deferred customer-payment failure.
+These cases never call a provider or send an actual phone prompt. Collections credit nothing when they fail. Payouts must have sufficient virtual funds at acceptance, debit gross including fees, and refund once when the snapshotted sandbox policy permits. Verify linked sandbox wallet entries; failure alone does not guarantee a refund, and the compact payment response has no refund flag. `INSUFFICIENT_FUNDS` is an immediate merchant-wallet error; `PAYER_INSUFFICIENT_FUNDS` is a distinct deferred customer-payment failure.
 
 Use the same idempotency key and same processing code to retry an accepted intent. Changing its code or normalized payload returns HTTP 409 `IDEMPOTENCY_CONFLICT`; use a fresh key for a different test. An invalid method/type combination returns HTTP 400 `INVALID_TEST_ERROR_CODE` before acceptance.
 

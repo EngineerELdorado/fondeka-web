@@ -341,8 +341,8 @@ export function ApiGuideErrors({
                 "Un refus immédiat simulé ne crée aucun paiement, ne modifie aucun portefeuille et ne réserve aucune clé d’idempotence.",
               )
             : t(
-                "Keep the original idempotency key and processing code when retrying an accepted payment. A different failure or payload needs a new intent and key. Failed collections credit nothing; failed payouts require checking refunded separately.",
-                "Conservez la clé d’idempotence et le code de traitement d’origine pour relancer un paiement accepté. Un autre échec ou corps nécessite une nouvelle intention et une nouvelle clé. Un encaissement échoué ne crédite rien ; pour un décaissement, vérifiez refunded séparément.",
+                "Keep the original idempotency key and processing code when retrying an accepted payment. A different failure or payload needs a new intent and key. Failed collections credit nothing; check wallet records or contact support to confirm a payout refund.",
+                "Conservez la clé d’idempotence et le code de traitement d’origine pour relancer un paiement accepté. Un autre échec ou corps nécessite une nouvelle intention et une nouvelle clé. Un encaissement échoué ne crédite rien ; consultez les écritures du portefeuille ou l’assistance pour confirmer le remboursement d’un décaissement.",
               )}
         </p>
       )}

@@ -31,10 +31,10 @@ test("Business API accepts and filters all four statuses distinctly in either en
       assert.ok(filtered.content.every((row) => row.transaction.status === status));
       const payment: ApiTransaction["transaction"] = filtered.content[0].transaction;
       const detail: ApiTransaction = await demoRequest<ApiTransaction>(
-        `/customer-api/businesses/1/api-transactions/${payment.reference}?environment=${environment}`,
+        `/customer-api/businesses/1/api-transactions/${payment.fondekaReference}?environment=${environment}`,
       );
       assert.equal(detail.transaction.status, status);
-      assert.equal(detail.transaction.reference, payment.reference);
+      assert.equal(detail.transaction.fondekaReference, payment.fondekaReference);
       assertTransactionEnvironment(detail.transaction, environment);
     }
     assert.equal(
@@ -59,7 +59,11 @@ test("legacy internal statuses are rejected rather than normalized independently
     assert.throws(
       () =>
         assertTransactionEnvironment(
-          { reference: "TX001", status } as ApiTransaction["transaction"],
+          {
+            fondekaReference: "TX001",
+            environment: "LIVE",
+            status,
+          } as ApiTransaction["transaction"],
           "LIVE",
         ),
       /outdated Business API/,
@@ -81,10 +85,10 @@ test("expiry is a failure reason and a failed payout never implies refunded", as
   );
   const expired = all.content.find((row) => row.transaction.failureCode === "EXPIRED")!;
   assert.equal(expired.transaction.status, "FAILED");
-  assert.equal(expired.transaction.refunded, false);
+  assert.equal(Object.hasOwn(expired.transaction, "refunded"), false);
   const payout = all.content.find(
     (row) =>
       row.transaction.action === "BUSINESS_API_PAYOUT" && row.transaction.status === "FAILED",
   )!;
-  assert.equal(payout.transaction.refunded, false);
+  assert.equal(Object.hasOwn(payout.transaction, "refunded"), false);
 });

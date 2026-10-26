@@ -6,7 +6,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
-export function verify({raw,timestamp,signature,eventId,secret,businessId,environment='SANDBOX',now=Math.floor(Date.now()/1000)}) {
+// Select this key's signing secret from trusted Business configuration, never from event data.
+export function verify({raw,timestamp,signature,eventId,secret,environment='SANDBOX',now=Math.floor(Date.now()/1000)}) {
   if(!secret || !/^[0-9]{1,12}$/.test(timestamp || '') || Math.abs(now-Number(timestamp))>300 || !/^v1=[a-f0-9]{64}$/.test(signature || '')) throw new Error('Invalid webhook authentication');
   const expected=createHmac('sha256',secret).update(timestamp+'.').update(raw).digest();
   if(!timingSafeEqual(expected,Buffer.from(signature.slice(3),'hex'))) throw new Error('Invalid webhook authentication');
@@ -14,7 +15,8 @@ export function verify({raw,timestamp,signature,eventId,secret,businessId,enviro
   const action=event.data?.action==='BUSINESS_API_COLLECTION'?'collection':event.data?.action==='BUSINESS_API_PAYOUT'?'payout':null;
   if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(event.id || '') || event.id!==eventId || !action || !['COMPLETED','FAILED'].includes(event.data?.status)
       || event.type!==`business_api.${action}.${event.data.status.toLowerCase()}` || event.environment!==environment || event.data.environment!==environment
-      || String(event.data.businessId)!==String(businessId)) throw new Error('Unexpected webhook envelope or ownership');
+      || event.data.service!=='BUSINESS_API' || typeof event.data.fondekaReference!=='string'
+      || !event.data.fondekaReference.trim()) throw new Error('Unexpected webhook envelope');
   return event;
 }
 
@@ -22,7 +24,7 @@ export function start(env=process.env) {
   const secret=env.FONDEKA_WEBHOOK_SECRET,businessId=env.FONDEKA_BUSINESS_ID;
   const environment=env.FONDEKA_EXPECTED_ENV || 'SANDBOX';
   if(!secret || !/^[1-9][0-9]*$/.test(businessId || '') || !['SANDBOX','LIVE'].includes(environment)) throw new Error('Set webhook secret, Business ID and expected environment.');
-  const file=env.FONDEKA_EVENT_STORE || join(tmpdir(),'fondeka-example-webhooks.jsonl');
+  const file=env.FONDEKA_EVENT_STORE || join(tmpdir(),`fondeka-example-webhooks-${businessId}-${environment}.jsonl`);
   const seen=new Map();
   try {for(const line of readFileSync(file,'utf8').split('\n').filter(Boolean)) {const row=JSON.parse(line);seen.set(row.id,row.rawBase64);}}
   catch(error) {if(error.code!=='ENOENT') throw error;}
@@ -32,14 +34,14 @@ export function start(env=process.env) {
     try {
       for await(const chunk of req) {size+=chunk.length;if(size>1048576) {res.writeHead(413).end();return;}chunks.push(chunk);}
       const raw=Buffer.concat(chunks);
-      const event=verify({raw,timestamp:req.headers['x-fondeka-timestamp'],signature:req.headers['x-fondeka-signature'],eventId:req.headers['x-fondeka-event-id'],secret,businessId,environment});
+      const event=verify({raw,timestamp:req.headers['x-fondeka-timestamp'],signature:req.headers['x-fondeka-signature'],eventId:req.headers['x-fondeka-event-id'],secret,environment});
       verified=true;
       const encoded=raw.toString('base64');
       if(seen.has(event.id) && seen.get(event.id)!==encoded) {res.writeHead(409).end();return;}
       if(!seen.has(event.id)) {
         // No await between checking and fsync: single-process duplicate delivery cannot race this insert.
         const fd=openSync(file,'a',0o600);
-        try {appendFileSync(fd,JSON.stringify({id:event.id,rawBase64:encoded})+'\n');fsyncSync(fd);} finally {closeSync(fd);}
+        try {appendFileSync(fd,JSON.stringify({id:event.id,businessId,rawBase64:encoded})+'\n');fsyncSync(fd);} finally {closeSync(fd);}
         seen.set(event.id,encoded);
         console.log('Event durably accepted:',event.id); // Process the inbox asynchronously; do not print secrets/body.
       }

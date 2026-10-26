@@ -1141,7 +1141,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         id: 1,
         businessId: 1,
         name: "Commerce integration",
-        keyPrefix: "fdk_biz_demo7x2",
+        keyPrefix: "fdk_biz_live_demo7x2",
         enabled: true,
         webhookUrl: "https://example.com/webhooks/fondeka",
         createdAt: day(45),
@@ -1160,7 +1160,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         id: 3,
         businessId: 1,
         name: "Sandbox checkout",
-        keyPrefix: "fdk_biz_test_demo4b2",
+        keyPrefix: "fdk_biz_sandbox_demo4b2",
         enabled: true,
         webhookUrl: "https://example.com/webhooks/fondeka-test",
         createdAt: day(2),
@@ -1190,7 +1190,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
             (!params.get("action") || tx.action === params.get("action")) &&
             (!params.get("status") || tx.status === params.get("status")) &&
             (!params.get("currency") || tx.currency === params.get("currency")) &&
-            (!params.get("reference") || tx.reference === params.get("reference")) &&
+            (!params.get("reference") || tx.fondekaReference === params.get("reference")) &&
             (!params.get("clientReference") ||
               tx.clientReference === params.get("clientReference")) &&
             (!params.get("fromDate") ||
@@ -1205,7 +1205,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   } else if (/^\/businesses\/\d+\/api-transactions\/[A-Za-z0-9_-]+$/.test(route)) {
     result = demoTransactions(
       apiEnvironment(url.searchParams.get("environment") ?? undefined),
-    ).find((item) => item.transaction.reference === route.split("/")[4]);
+    ).find((item) => item.transaction.fondekaReference === route.split("/")[4]);
     if (!result) throw new Error("Transaction not found.");
   } else throw new Error("This action is not available in the demo workspace.");
   if (method !== "GET") persist();
@@ -1221,23 +1221,21 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
       const amount = [10, 25, 40, 15, 12, 20][i];
       return {
         requestId: 100 + i,
+        apiKeyId: 3,
         apiKeyName: "Sandbox checkout",
         createdAt: day(i / 4),
         updatedAt: day(i / 4),
         transaction: {
-          businessId: 1,
+          service: "BUSINESS_API",
           environment: "SANDBOX",
-          reference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
+          fondekaReference: `SBX${(i + 1).toString(16).padStart(32, "0")}`,
           clientReference: `sandbox-order-${i + 1}`,
           action: i % 2 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
           status,
           amount,
           currency: "USD",
           grossAmount: amount,
-          allFees: 0,
-          settlementAmount: status === "COMPLETED" ? amount : null,
-          settlementNet: status === "COMPLETED" ? amount : null,
-          refunded: false,
+          fee: 0,
           ...(i === 4
             ? { failureCode: "EXPIRED", failureMessage: "Sandbox simulation: payment expired." }
             : status === "FAILED"
@@ -1256,28 +1254,27 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
                   exchangeRate: 1,
                   exchangeRateCurrency: "USD",
                 }
-              : null,
+              : undefined,
         },
       };
     });
   return Array.from({ length: 12 }, (_, i) => ({
     requestId: i + 1,
+    apiKeyId: i === 8 ? 2 : 1,
     apiKeyName: i === 8 ? "Legacy integration" : "Commerce integration",
     createdAt: day(i / 4),
     updatedAt: day(i / 4),
     transaction: {
-      businessId: 1,
+      service: "BUSINESS_API",
       environment: "LIVE",
-      reference: `TXDEMO${8421 - i}`,
+      fondekaReference: `TXDEMO${8421 - i}`,
       clientReference: `order-${i + 1}`,
       action: i % 3 === 0 ? "BUSINESS_API_PAYOUT" : "BUSINESS_API_COLLECTION",
       status:
         i === 1 ? "ACCEPTED" : i === 4 ? "FAILED" : i === 3 || i === 7 ? "PROCESSING" : "COMPLETED",
       amount: [125, 84, 260][i % 3],
       grossAmount: [125.5, 84.5, 260.5][i % 3],
-      allFees: 0.5,
-      settlementNet: [1, 3, 4, 7].includes(i) ? null : [125, 84, 260][i % 3],
-      refunded: false,
+      fee: 0.5,
       currency: i === 5 ? "EUR" : "USD",
       cryptoDetails:
         i === 2
@@ -1287,7 +1284,7 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
               amountInCrypto: 260,
               address: "DEMO-ADDRESS-NOT-FOR-REAL-PAYMENTS",
             }
-          : null,
+          : undefined,
     },
   }));
 }

@@ -32,8 +32,8 @@ export function ApiGuideConfirmation({
       to: "Fondeka",
       badge: "GET",
       description: t(
-        "You request the current payment state using its reference.",
-        "Vous demandez l’état actuel du paiement avec sa référence.",
+        "Use fondekaReference from the payment response in the lookup URL.",
+        "Utilisez fondekaReference de la réponse du paiement dans l’URL de consultation.",
       ),
     },
     {
@@ -136,12 +136,12 @@ export function ApiGuideConfirmation({
           <p>
             {payout
               ? t(
-                  "Before marking the payout as delivered, match the Business, environment, reference, currency and amounts. HTTP 202 only confirms acceptance.",
-                  "Avant de marquer le décaissement comme livré, vérifiez le Business, l’environnement, la référence, la devise et les montants. HTTP 202 confirme uniquement l’acceptation.",
+                  "Use the credential for your Business. Before marking the payout as delivered, match environment, fondekaReference, currency and amounts. HTTP 202 only confirms acceptance.",
+                  "Utilisez la clé de votre Business. Avant de marquer le décaissement comme livré, vérifiez environment, fondekaReference, currency et les montants. HTTP 202 confirme uniquement l’acceptation.",
                 )
               : t(
-                  "Before fulfillment, match the Business, environment, payment reference, currency and settlement amount. HTTP 202 only confirms acceptance.",
-                  "Avant de livrer, vérifiez le Business, l’environnement, la référence du paiement, la devise et le montant du règlement. HTTP 202 confirme uniquement l’acceptation.",
+                  "Use the credential for your Business. Before fulfillment, match environment, fondekaReference and currency. For a completed collection, amount is the net wallet credit; compare it with the order amount you saved. HTTP 202 only confirms acceptance.",
+                  "Utilisez la clé de votre Business. Avant de livrer, vérifiez environment, fondekaReference et currency. Pour un encaissement terminé, amount est le crédit net du portefeuille ; comparez-le au montant de commande que vous avez conservé. HTTP 202 confirme uniquement l’acceptation.",
                 )}
           </p>
         </div>
@@ -184,11 +184,9 @@ export function ApiGuideConfirmation({
           )}
           {payout && (
             <p>
-              {t("Check", "Vérifiez")}{" "}
-              <code>{mode === "lookup" ? "refunded" : "data.refunded"}</code>.{" "}
               {t(
-                "FAILED alone does not confirm a refund. Lookup returns current state, including a refund after the webhook snapshot. Completion never debits the wallet twice.",
-                "FAILED ne confirme pas à lui seul un remboursement. La consultation retourne l’état actuel, y compris un remboursement postérieur au webhook. La confirmation ne débite jamais le portefeuille deux fois.",
+                "FAILED alone does not confirm a refund. Check wallet records or contact support to confirm it. Completion never debits the wallet twice.",
+                "FAILED ne confirme pas à lui seul un remboursement. Consultez les écritures du portefeuille ou contactez l’assistance pour le vérifier. La confirmation ne débite jamais le portefeuille deux fois.",
               )}
             </p>
           )}

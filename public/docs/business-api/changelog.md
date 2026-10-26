@@ -1,5 +1,31 @@
 # Contract changelog
 
+## 1.1.0 — 2026-10-26 — Compact payment responses
+
+Submission, lookup, new webhook `data` and portal `transaction` snapshots now expose `clientReference`, `fondekaReference`, `amount`, `grossAmount`, one consolidated `fee`, `currency`, `environment`, `service`, `action` and `status`. Crypto instructions and sanitized failure details are included only when available. Internal IDs, fee splits, duplicate settlement fields and the refund flag are omitted.
+
+Clients must rename response reads `reference` → `fondekaReference` and `allFees` → `fee`. Polling URLs and the portal's existing `reference` filter parameter are unchanged. Completed collections use the same money fields for reconciled settlement, including crypto under/overpayments; pending payments show the accepted quote. Financial processing, accepted quotes and wallet postings are unchanged. Already persisted webhook payloads remain immutable on retries; coordinate receiver rollout if consuming older queued events. The documentation/OpenAPI version advances; routes remain `/v1`. Updated SDK walkthroughs, webhook receivers and Postman capture the compact contract.
+
+## 2026-10-26 — Local QA corrections
+
+LIVE payments now reject deterministic missing provider mappings and FX configuration before acceptance or a payout hold. `FX_ROUTE_UNAVAILABLE` is documented and simulatable in SANDBOX. Unknown crypto network IDs return the advertised `404 CRYPTO_NETWORK_NOT_FOUND`. New API crypto collections validate and save the exact cent-denominated USD invoice price and applicable limits; workers and UniPayment minimum checks reuse that accepted snapshot. Genuine partial payments remain subject to minimum checks.
+
+Portal onboarding adds an explicit, idempotent `POST /customer-api/businesses/default` using customer authentication, while GET discovery remains read-only. Business identity alone grants no paid tool access. Per-tool access reads honor the existing optional WEB device bypass and account enforcement overrides. Development PawaPay/Maplerad callbacks now use the durable webhook outbox.
+
+## 2026-10-25 — Credential labels and webhook configuration
+
+New API keys use `fdk_biz_live_` and `fdk_biz_sandbox_` prefixes. Previously issued `fdk_biz_` and `fdk_biz_test_` keys remain valid without rotation; authentication still checks the full key hash and its stored environment. Webhook signing secrets keep `whsec_`. Portal/admin metadata preserves the environment label while keeping existing masking rules.
+
+Key creation and webhook updates now validate HTTPS URL format without resolving DNS. Delivery retains public-address checks before sending and again at connection time, normal TLS verification, disabled redirects and existing retry limits. A URL can be saved before its receiver is deployed; that does not certify delivery readiness. No merchant endpoint schema, payment flow or API version changes.
+
+## 1.0.1 — 2026-10-25
+
+New LIVE API collections and payouts require the global launch switch to be enabled. When disabled, a new intent returns HTTP 403 `BUSINESS_API_LIVE_PAYMENTS_DISABLED` before payment creation; SANDBOX remains available. Existing accepted payments keep their status reads, idempotent replays, processing and webhooks. The error catalog and OpenAPI describe the new rejection, which can be simulated in sandbox. The runtime API remains `/v1`.
+
+## Optional independent API access
+
+The existing all-tools bundle remains the default. Admins can opt accounts into separate tool pricing. True bundle purchases/grants continue to cover API access in either mode; Online Stores or POS-only purchases do not. Existing top-level access/purchase contracts stay available.
+
 ## 2026-10-24 — API acceptance status
 
 Business API responses and portal API transaction views now expose ACCEPTED, PROCESSING, COMPLETED and FAILED. New intents are ACCEPTED while queued, then PROCESSING once execution begins. Retried jobs never return to ACCEPTED, and idempotent POST replays return the current state. Terminal webhook types and wallet effects are unchanged.

@@ -19,7 +19,7 @@ For sandbox, use a SANDBOX key and omit the simulation header for normal success
 
 ## Wait for confirmation
 
-Save `reference` from the 202 response and map it to your invoice. The customer may need to approve a prompt on the phone they are paying with. Poll the transaction and verify its signed terminal webhook. Credit/fulfill your order only after confirmed completion and checking Business, currency and settlement amount. Failed/canceled collections do not credit the wallet.
+Save `fondekaReference` from the 202 response and map it to your invoice. Use it in the unchanged `/transactions/{reference}` lookup URL. The customer may need to approve a prompt on the phone they are paying with. Poll the transaction and verify its signed terminal webhook. Credit/fulfill your order only after confirmed completion and checking the configured Business, currency and completed `amount`. Failed/canceled collections do not credit the wallet.
 
 If submission times out, retry with the original key and unchanged body. If the result remains ACCEPTED or PROCESSING, keep the invoice unresolved and investigate long-running payments before collecting again. Optional `failureCode`/`failureMessage` may provide a customer-facing explanation, but not every failure has one.
 

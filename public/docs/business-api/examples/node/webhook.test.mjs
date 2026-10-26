@@ -9,18 +9,18 @@ import {mkdtemp,readFile,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const secret='example-test-signing-secret',timestamp='1800000000';
-const event={id:'11111111-1111-4111-8111-111111111111',type:'business_api.collection.completed',environment:'SANDBOX',data:{businessId:42,environment:'SANDBOX',action:'BUSINESS_API_COLLECTION',status:'COMPLETED',clientReference:'Facture été'}};
+const event={id:'11111111-1111-4111-8111-111111111111',type:'business_api.collection.completed',environment:'SANDBOX',data:{fondekaReference:'SBX123',service:'BUSINESS_API',environment:'SANDBOX',action:'BUSINESS_API_COLLECTION',status:'COMPLETED',clientReference:'Facture été'}};
 const raw=Buffer.from(JSON.stringify(event,null,2));
 const signature='v1='+createHmac('sha256',secret).update(timestamp+'.').update(raw).digest('hex');
-const args={raw,timestamp,signature,eventId:event.id,secret,businessId:42,now:Number(timestamp)};
+const args={raw,timestamp,signature,eventId:event.id,secret,now:Number(timestamp)};
 test('verify exact raw UTF-8 bytes including whitespace',()=>assert.deepEqual(verify(args),event));
-for(const [name,change] of Object.entries({tampered:{raw:Buffer.from(JSON.stringify(event))},stale:{now:Number(timestamp)+301},future:{now:Number(timestamp)-301},signature:{signature:'v1=00'},header:{eventId:'another-event'},environment:{environment:'LIVE'},business:{businessId:99}})) {
+for(const [name,change] of Object.entries({tampered:{raw:Buffer.from(JSON.stringify(event))},stale:{now:Number(timestamp)+301},future:{now:Number(timestamp)-301},signature:{signature:'v1=00'},header:{eventId:'another-event'},environment:{environment:'LIVE'},businessSecret:{secret:'another-business-key-secret'}})) {
   test(`reject ${name}`,()=>assert.throws(()=>verify({...args,...change})));
 }
 test('walkthrough rejects LIVE and non-loopback cleartext before writes',()=>{
-  const env={FONDEKA_API_KEY:'fdk_biz_test_example',FONDEKA_BUSINESS_ID:'42',FONDEKA_INTENT:'one-intent'};
-  assert.equal(settings(env).business,'42');
-  assert.throws(()=>settings({...env,FONDEKA_API_KEY:'fdk_biz_live_example'}));
+  const env={FONDEKA_API_KEY:'fdk_biz_sandbox_example',FONDEKA_BUSINESS_ID:'42',FONDEKA_INTENT:'one-intent'};
+  for(const key of ['fdk_biz_sandbox_example','fdk_biz_test_example']) assert.equal(settings({...env,FONDEKA_API_KEY:key}).business,'42');
+  for(const key of ['fdk_biz_live_example','fdk_biz_example']) assert.throws(()=>settings({...env,FONDEKA_API_KEY:key}));
   assert.throws(()=>settings({...env,FONDEKA_BASE_URL:'http://merchant.example'}));
 });
 test('HTTP receiver persists before acknowledgment, deduplicates after restart, and retries storage failures',async t=>{

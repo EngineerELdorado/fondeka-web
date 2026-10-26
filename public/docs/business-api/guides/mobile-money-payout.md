@@ -21,6 +21,6 @@ Use a SANDBOX key for tests, with the optional `X-Simulate-Error-Code` header fo
 
 An accepted payout reserves/debits gross immediately; completion does not debit a second time. Save its reference, poll and process the signed terminal event. Do not mark your disbursement paid from the 202 response alone.
 
-For FAILED, inspect `refunded`. Automatic refunds depend on policy; a failed payout with `refunded:false` can require manual refund. GET shows later updates. PROCESSING also covers an unresolved provider submission: retain the payment reference and contact support if it remains unresolved. Reuse the original idempotency key after transport errors; never create a replacement automatically.
+FAILED alone does not guarantee a refund. Automatic refunds depend on policy, and the compact response does not expose a refund flag. Reconcile wallet records or contact support when needed. PROCESSING also covers an unresolved provider submission: retain `fondekaReference` and contact support if it remains unresolved. Reuse the original idempotency key after transport errors; never create a replacement automatically.
 
 See [wallet effects](../concepts.md), [webhooks](../webhooks.md), and the [API reference](../openapi.v1.json).

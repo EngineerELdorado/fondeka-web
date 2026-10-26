@@ -78,13 +78,23 @@ test("crypto response structure retains the entire transaction around the expand
       Object.keys(structure),
       Object.keys(spec.components.schemas.BusinessApiTransactionResource.properties!),
     );
-    assert.equal(structure.reference, "string");
-    assert.equal(structure.businessId, "integer");
+    assert.equal(structure.fondekaReference, "string");
+    assert.equal(structure.fee, "number");
     assert.equal(structure.status, "string");
     assert.equal(structure.amount, "number");
     assert.equal(structure.currency, "string");
-    assert.equal(structure.refunded, "boolean");
-    assert.equal(Object.hasOwn(structure, "transactionId"), false);
+    for (const removed of [
+      "reference",
+      "businessId",
+      "transactionId",
+      "allFees",
+      "internalFeeAmount",
+      "externalFeeAmount",
+      "settlementAmount",
+      "settlementNet",
+      "refunded",
+    ])
+      assert.equal(Object.hasOwn(structure, removed), false, removed);
     const crypto = structure.cryptoDetails as Record<string, unknown>;
     assert.deepEqual(
       Object.keys(crypto),
@@ -97,7 +107,11 @@ test("crypto response structure retains the entire transaction around the expand
       string,
       unknown
     >;
-    assert.equal(published.cryptoDetails, null);
+    assert.equal(Object.hasOwn(published, "cryptoDetails"), false);
+    assert.equal(
+      spec.components.schemas.BusinessApiTransactionResource.required?.includes("cryptoDetails"),
+      false,
+    );
   }
 });
 
@@ -151,7 +165,7 @@ test("each payment page explains exactly its own request payload and keeps its p
   }
 });
 
-test("mobile-money responses explain the null cryptoDetails field without unrelated crypto children", () => {
+test("mobile-money responses explain omitted cryptoDetails without unrelated crypto children", () => {
   for (const id of [
     "mobile-money-collection",
     "mobile-money-payout",
@@ -160,12 +174,12 @@ test("mobile-money responses explain the null cryptoDetails field without unrela
   ]) {
     const example = guideTrack(id).lessons[0].example!;
     const scoped = guidePageFields(fields("BusinessApiTransactionResource"), example);
-    assert.equal(scoped.length, id.startsWith("crypto") ? 27 : 19, id);
+    assert.equal(scoped.length, id.startsWith("crypto") ? 21 : 13, id);
     const confirmation = guideTrack(id).lessons.find(
       (lesson) => lesson.confirmation,
     )!.confirmation!;
     const webhook = guidePageFields(fields("BusinessApiWebhookEvent"), confirmation.webhook);
-    assert.equal(webhook.length, id.startsWith("crypto") ? 32 : 24, id);
+    assert.equal(webhook.length, id.startsWith("crypto") ? 26 : 18, id);
     if (id.startsWith("mobile-money")) {
       assert.ok(!scoped.some((field) => field.path.startsWith("cryptoDetails.")));
       assert.match(
@@ -174,7 +188,7 @@ test("mobile-money responses explain the null cryptoDetails field without unrela
           "en",
           example,
         ).text,
-        /null for mobile-money/,
+        /omitted for mobile-money/,
       );
     }
   }
@@ -207,9 +221,9 @@ test("responses enumerate nullable crypto details, nested wallet objects and eve
       payment.some((field) => field.path === `cryptoDetails.${name}`),
       name,
     );
-  assert.equal(payment.length, 27);
+  assert.equal(payment.length, 21);
   const event = fields("BusinessApiWebhookEvent");
-  assert.equal(event.length, 32);
+  assert.equal(event.length, 26);
   assert.ok(event.some((field) => field.path === "data.cryptoDetails.exchangeRateCurrency"));
   assert.equal(event.find((field) => field.path === "data.status")?.required, true);
   const conversion = fields("Conversion");

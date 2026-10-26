@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import {
   apiGuideTracks,
   apiGuideMenuItems,
@@ -19,6 +20,7 @@ import {
   publishedExample,
   resolveGuideSchema,
   paymentStateGroups,
+  verifiedWebhookCompatibilityExample,
   type GuideSpec,
 } from "../src/lib/api-guide-contract";
 
@@ -31,6 +33,27 @@ const examples = apiGuideTracks.flatMap((track) =>
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
+test("the verified-event compatibility example preserves raw events, zero fees and missing pricing", () => {
+  for (const data of [
+    { fondekaReference: "opaque-new", fee: 0.3 },
+    { reference: "opaque-saved-event", allFees: 0.5 },
+    { fondekaReference: "current-wins", reference: "old", fee: 0, allFees: 5 },
+    { fondekaReference: "missing-fee" },
+  ]) {
+    const event = { data };
+    const raw = JSON.stringify(event);
+    const normalized = runInNewContext(
+      `${verifiedWebhookCompatibilityExample}\n({fondekaReference, fee})`,
+      { event },
+    );
+    assert.equal(
+      normalized.fondekaReference,
+      "fondekaReference" in data ? data.fondekaReference : data.reference,
+    );
+    assert.equal(normalized.fee, "fee" in data ? data.fee : data.allFees);
+    assert.equal(JSON.stringify(event), raw);
+  }
+});
 test("the payment catalog is discoverable before Go live without becoming a lesson or published guide", () => {
   const index = apiGuideMenuItems.findIndex((item) => item.kind === "catalog");
   assert.ok(index >= 0);
@@ -49,7 +72,7 @@ test("guide payloads and explanations use the payment reference and omit interna
     (lesson) => lesson.confirmation,
   )!.confirmation!.lookup;
   assert.match(example.path, /\/transactions\/\{reference\}$/);
-  assert.ok(example.fields.some((field) => field.key === "reference"));
+  assert.ok(example.fields.some((field) => field.key === "fondekaReference"));
 });
 test("visual guides cover every published merchant endpoint without introducing guessed routes", () => {
   assert.deepEqual(
@@ -172,7 +195,7 @@ test("collection confirmation offers current-state lookup and a signed event for
   };
   assert.equal(body.type, "business_api.collection.completed");
   assert.equal(body.environment, current.environment);
-  for (const key of ["reference", "businessId", "status", "currency", "settlementNet"])
+  for (const key of ["fondekaReference", "status", "currency", "amount", "grossAmount", "fee"])
     assert.equal(body.data[key], current[key]);
   assert.equal(body.data.status, "COMPLETED");
   assert.ok(event.parameters?.some((header) => header.name === "X-Fondeka-Signature"));

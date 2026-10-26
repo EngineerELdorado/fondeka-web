@@ -43,21 +43,14 @@
                         "createdAt" : "2026-10-23T12:00:00Z",
                         "data" : {
                           "action" : "BUSINESS_API_COLLECTION",
-                          "allFees" : 0.3,
                           "amount" : 10.0,
-                          "businessId" : 42,
                           "clientReference" : "order-0001",
-                          "cryptoDetails" : null,
                           "currency" : "USD",
                           "environment" : "SANDBOX",
-                          "externalFeeAmount" : 0.2,
+                          "fee" : 0.3,
+                          "fondekaReference" : "SBX00000000000000000000000000000001",
                           "grossAmount" : 10.3,
-                          "internalFeeAmount" : 0.1,
-                          "reference" : "SBX00000000000000000000000000000001",
-                          "refunded" : false,
                           "service" : "BUSINESS_API",
-                          "settlementAmount" : 10.3,
-                          "settlementNet" : 10.0,
                           "status" : "COMPLETED"
                         },
                         "environment" : "SANDBOX",
@@ -289,27 +282,16 @@
         "type" : "object"
       },
       "BusinessApiTransactionResource" : {
-        "description" : "Payment state. All money fields except cryptoDetails are fiat values in currency. HTTP acceptance is not financial completion.",
+        "description" : "Payment state. Money fields are fiat values in currency; completed collections show settled amounts. HTTP acceptance is not financial completion.",
         "properties" : {
           "action" : {
             "enum" : [ "BUSINESS_API_COLLECTION", "BUSINESS_API_PAYOUT" ],
             "type" : "string"
           },
-          "allFees" : {
-            "description" : "Sum of internalFeeAmount and externalFeeAmount.",
-            "example" : 0.3,
-            "type" : "number"
-          },
           "amount" : {
-            "description" : "Quoted net fiat amount, after fees.",
+            "description" : "Net fiat amount after fees. For a completed collection this is the reconciled wallet credit; before completion it is the quote.",
             "example" : 10.0,
             "type" : "number"
-          },
-          "businessId" : {
-            "description" : "Business identified by the authenticated API key.",
-            "example" : 42,
-            "format" : "int64",
-            "type" : "integer"
           },
           "clientReference" : {
             "description" : "Merchant-supplied order/invoice reference.",
@@ -320,11 +302,11 @@
             "allOf" : [ {
               "$ref" : "#/components/schemas/CryptoDetails"
             } ],
-            "description" : "Crypto instructions; null for mobile money or while invoice creation is queued. Token amounts are separate from fiat values.",
+            "description" : "Crypto instructions, omitted for mobile money or while invoice creation is queued. Token amounts are separate from fiat values.",
             "nullable" : true
           },
           "currency" : {
-            "description" : "Fiat denomination for amount/fee/settlement fields.",
+            "description" : "Fiat denomination for amount, grossAmount and fee.",
             "example" : "USD",
             "type" : "string"
           },
@@ -332,11 +314,6 @@
             "description" : "Determined by the API key, not the URL.",
             "enum" : [ "LIVE", "SANDBOX" ],
             "type" : "string"
-          },
-          "externalFeeAmount" : {
-            "description" : "External/provider fee component in currency.",
-            "example" : 0.2,
-            "type" : "number"
           },
           "failureCode" : {
             "description" : "Optional sanitized payment failure code. Not an HTTP request error; do not branch on translated messages.",
@@ -346,38 +323,24 @@
             "description" : "Optional displayable failure message; not guaranteed for every provider/outcome.",
             "type" : "string"
           },
-          "grossAmount" : {
-            "description" : "Quoted gross fiat amount including all fees; payout wallet debit.",
-            "example" : 10.3,
+          "fee" : {
+            "description" : "One consolidated fiat fee, including all fee components. grossAmount = amount + fee.",
+            "example" : 0.3,
             "type" : "number"
           },
-          "internalFeeAmount" : {
-            "description" : "Fondeka fee component in currency.",
-            "example" : 0.1,
-            "type" : "number"
-          },
-          "reference" : {
-            "description" : "Opaque payment reference used for polling. Preserve exactly; do not infer environment from its format.",
+          "fondekaReference" : {
+            "description" : "Opaque Fondeka payment reference used for polling. Preserve exactly; do not infer environment from its format.",
             "example" : "SBX00000000000000000000000000000001",
             "type" : "string"
           },
-          "refunded" : {
-            "description" : "Whether the payout debit has been refunded. FAILED alone does not guarantee a refund.",
-            "type" : "boolean"
+          "grossAmount" : {
+            "description" : "Gross fiat amount including fee; payout wallet debit. Completed collections show reconciled gross.",
+            "example" : 10.3,
+            "type" : "number"
           },
           "service" : {
             "enum" : [ "BUSINESS_API" ],
             "type" : "string"
-          },
-          "settlementAmount" : {
-            "description" : "Reconciled gross fiat settlement; may differ from quote for crypto under/overpayment.",
-            "nullable" : true,
-            "type" : "number"
-          },
-          "settlementNet" : {
-            "description" : "Reconciled net fiat settlement credited for a completed collection.",
-            "nullable" : true,
-            "type" : "number"
           },
           "status" : {
             "description" : "ACCEPTED means queued for execution. PROCESSING means execution has started or the outcome is unresolved. COMPLETED and FAILED are terminal; cancellation/expiry are FAILED. Poll ACCEPTED and PROCESSING with the original reference.",
@@ -385,7 +348,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "action", "allFees", "amount", "businessId", "currency", "environment", "externalFeeAmount", "grossAmount", "internalFeeAmount", "reference", "refunded", "service", "status" ],
+        "required" : [ "action", "amount", "currency", "environment", "fee", "fondekaReference", "grossAmount", "service", "status" ],
         "type" : "object"
       },
       "BusinessApiWebhookEvent" : {
@@ -512,7 +475,7 @@
         "type" : "object"
       },
       "CryptoDetails" : {
-        "description" : "Crypto invoice/destination instructions. May be null while queued or for mobile money. Token fields are distinct from fiat amounts.",
+        "description" : "Crypto invoice/destination instructions, included only when available. Token fields are distinct from fiat amounts.",
         "nullable" : true,
         "properties" : {
           "address" : {
@@ -770,7 +733,7 @@
     },
     "securitySchemes" : {
       "Business API Key" : {
-        "description" : "Secret Business-specific credential. Keep server-side. Obtain through the authenticated Business portal.",
+        "description" : "Secret Business-specific credential. Keep server-side. Obtain through the authenticated Business portal. New LIVE keys use fdk_biz_live_; SANDBOX keys use fdk_biz_sandbox_. Existing fdk_biz_ LIVE and fdk_biz_test_ SANDBOX keys remain accepted. The stored credential environment is authoritative.",
         "in" : "header",
         "name" : "X-API-Key",
         "type" : "apiKey"
@@ -785,7 +748,7 @@
     },
     "description" : "Collect and pay out through mobile money and crypto, settling in account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. The /v1 path is the API major version; info.version versions this documentation contract.",
     "title" : "Fondeka Business API",
-    "version" : "1.0.0"
+    "version" : "1.1.0"
   },
   "openapi" : "3.0.3",
   "paths" : {
@@ -873,21 +836,14 @@
                   "sandboxAccepted" : {
                     "value" : {
                       "action" : "BUSINESS_API_COLLECTION",
-                      "allFees" : 0.3,
                       "amount" : 10.0,
-                      "businessId" : 42,
                       "clientReference" : "order-0001",
-                      "cryptoDetails" : null,
                       "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "externalFeeAmount" : 0.2,
+                      "fee" : 0.3,
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
                       "grossAmount" : 10.3,
-                      "internalFeeAmount" : 0.1,
-                      "reference" : "SBX00000000000000000000000000000001",
-                      "refunded" : false,
                       "service" : "BUSINESS_API",
-                      "settlementAmount" : 10.3,
-                      "settlementNet" : 10.0,
                       "status" : "ACCEPTED"
                     }
                   }
@@ -923,6 +879,16 @@
                     "value" : {
                       "errorCode" : "DESTINATION_REQUIRED",
                       "message" : "The payer phone number or payout destination is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 400,
+                      "statusCode" : 400
+                    }
+                  },
+                  "FX_ROUTE_UNAVAILABLE" : {
+                    "description" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+                    "value" : {
+                      "errorCode" : "FX_ROUTE_UNAVAILABLE",
+                      "message" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 400,
                       "statusCode" : 400
@@ -1027,6 +993,16 @@
                     "value" : {
                       "errorCode" : "BLACKLISTED",
                       "message" : "The owning account is restricted.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "BUSINESS_API_LIVE_PAYMENTS_DISABLED" : {
+                    "description" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+                    "value" : {
+                      "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+                      "message" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -1310,9 +1286,21 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
+            "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+            "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+            "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The configured payment method is unavailable for this operation.",
             "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
             "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
+            "httpStatus" : 400,
+            "simulatable" : false
+          }, {
+            "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+            "errorCode" : "FX_ROUTE_UNAVAILABLE",
+            "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
             "httpStatus" : 400,
             "simulatable" : false
           }, {
@@ -1465,12 +1453,26 @@
             "simulatable" : true,
             "simulationValue" : "BULKHEAD_FULL"
           }, {
+            "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+            "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+            "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED"
+          }, {
             "description" : "The configured payment method is unavailable for this operation.",
             "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
             "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
             "httpStatus" : 400,
             "simulatable" : true,
             "simulationValue" : "PAYMENT_METHOD_UNAVAILABLE"
+          }, {
+            "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+            "errorCode" : "FX_ROUTE_UNAVAILABLE",
+            "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+            "httpStatus" : 400,
+            "simulatable" : true,
+            "simulationValue" : "FX_ROUTE_UNAVAILABLE"
           }, {
             "description" : "A route or collection/payout feature is unavailable.",
             "errorCode" : "WARNING_MESSAGE",
@@ -1523,7 +1525,7 @@
           "simulatable" : true,
           "simulationValue" : "PAYMENT_CANCELLED"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/error-codes" : {
@@ -1726,12 +1728,26 @@
                           "simulatable" : true,
                           "simulationValue" : "BULKHEAD_FULL"
                         }, {
+                          "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+                          "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+                          "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED"
+                        }, {
                           "description" : "The configured payment method is unavailable for this operation.",
                           "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
                           "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
                           "httpStatus" : 400,
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_METHOD_UNAVAILABLE"
+                        }, {
+                          "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+                          "errorCode" : "FX_ROUTE_UNAVAILABLE",
+                          "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+                          "httpStatus" : 400,
+                          "simulatable" : true,
+                          "simulationValue" : "FX_ROUTE_UNAVAILABLE"
                         }, {
                           "description" : "A route or collection/payout feature is unavailable.",
                           "errorCode" : "WARNING_MESSAGE",
@@ -1901,12 +1917,26 @@
                           "simulatable" : true,
                           "simulationValue" : "BULKHEAD_FULL"
                         }, {
+                          "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+                          "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+                          "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED"
+                        }, {
                           "description" : "The configured payment method is unavailable for this operation.",
                           "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
                           "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
                           "httpStatus" : 400,
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_METHOD_UNAVAILABLE"
+                        }, {
+                          "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+                          "errorCode" : "FX_ROUTE_UNAVAILABLE",
+                          "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+                          "httpStatus" : 400,
+                          "simulatable" : true,
+                          "simulationValue" : "FX_ROUTE_UNAVAILABLE"
                         }, {
                           "description" : "A route or collection/payout feature is unavailable.",
                           "errorCode" : "WARNING_MESSAGE",
@@ -2991,21 +3021,14 @@
                   "sandboxAccepted" : {
                     "value" : {
                       "action" : "BUSINESS_API_PAYOUT",
-                      "allFees" : 0.3,
                       "amount" : 10.0,
-                      "businessId" : 42,
                       "clientReference" : "order-0001",
-                      "cryptoDetails" : null,
                       "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "externalFeeAmount" : 0.2,
+                      "fee" : 0.3,
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
                       "grossAmount" : 10.3,
-                      "internalFeeAmount" : 0.1,
-                      "reference" : "SBX00000000000000000000000000000001",
-                      "refunded" : false,
                       "service" : "BUSINESS_API",
-                      "settlementAmount" : 10.3,
-                      "settlementNet" : 10.0,
                       "status" : "ACCEPTED"
                     }
                   }
@@ -3041,6 +3064,16 @@
                     "value" : {
                       "errorCode" : "DESTINATION_REQUIRED",
                       "message" : "The payer phone number or payout destination is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 400,
+                      "statusCode" : 400
+                    }
+                  },
+                  "FX_ROUTE_UNAVAILABLE" : {
+                    "description" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+                    "value" : {
+                      "errorCode" : "FX_ROUTE_UNAVAILABLE",
+                      "message" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 400,
                       "statusCode" : 400
@@ -3175,6 +3208,16 @@
                     "value" : {
                       "errorCode" : "BLACKLISTED",
                       "message" : "The owning account is restricted.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "BUSINESS_API_LIVE_PAYMENTS_DISABLED" : {
+                    "description" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+                    "value" : {
+                      "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+                      "message" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -3464,9 +3507,21 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
+            "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+            "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+            "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The configured payment method is unavailable for this operation.",
             "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
             "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
+            "httpStatus" : 400,
+            "simulatable" : false
+          }, {
+            "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+            "errorCode" : "FX_ROUTE_UNAVAILABLE",
+            "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
             "httpStatus" : 400,
             "simulatable" : false
           }, {
@@ -3638,12 +3693,26 @@
             "simulatable" : true,
             "simulationValue" : "BULKHEAD_FULL"
           }, {
+            "description" : "New LIVE API payments are disabled. Use SANDBOX for testing.",
+            "errorCode" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED",
+            "howToTest" : "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, wait for Fondeka to enable new payments; accepted payments remain readable and replayable.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "BUSINESS_API_LIVE_PAYMENTS_DISABLED"
+          }, {
             "description" : "The configured payment method is unavailable for this operation.",
             "errorCode" : "PAYMENT_METHOD_UNAVAILABLE",
             "howToTest" : "Use an inactive/disabled payment method in a controlled test account.",
             "httpStatus" : 400,
             "simulatable" : true,
             "simulationValue" : "PAYMENT_METHOD_UNAVAILABLE"
+          }, {
+            "description" : "The winning payment route lacks an active settlement/provider currency or usable exchange rate. No payment is accepted or funds held.",
+            "errorCode" : "FX_ROUTE_UNAVAILABLE",
+            "howToTest" : "Simulate FX_ROUTE_UNAVAILABLE in sandbox. Choose another method/currency, or ask support to check the route configuration.",
+            "httpStatus" : 400,
+            "simulatable" : true,
+            "simulationValue" : "FX_ROUTE_UNAVAILABLE"
           }, {
             "description" : "A route or collection/payout feature is unavailable.",
             "errorCode" : "WARNING_MESSAGE",
@@ -3696,7 +3765,7 @@
           "simulatable" : true,
           "simulationValue" : "PAYMENT_CANCELLED"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/convert" : {
@@ -5676,7 +5745,7 @@
     },
     "/business-api/v1/businesses/{businessId}/transactions/{reference}" : {
       "get" : {
-        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Crypto payment instructions may initially be null while invoice creation is queued. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund; inspect refunded.",
+        "description" : "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Use fondekaReference from submission; the URL path is unchanged. Crypto payment instructions are omitted until available. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund.",
         "operationId" : "getTransaction",
         "parameters" : [ {
           "description" : "Business ID associated with this API key. A foreign Business returns 403.",
@@ -5690,7 +5759,7 @@
             "type" : "integer"
           }
         }, {
-          "description" : "Opaque reference returned by payment submission, from the same Business and environment.",
+          "description" : "Opaque fondekaReference returned by payment submission, from the same Business and environment. The URL path is unchanged.",
           "example" : "SBX00000000000000000000000000000001",
           "in" : "path",
           "name" : "reference",
@@ -5716,21 +5785,14 @@
                   "sandbox" : {
                     "value" : {
                       "action" : "BUSINESS_API_COLLECTION",
-                      "allFees" : 0.3,
                       "amount" : 10.0,
-                      "businessId" : 42,
                       "clientReference" : "order-0001",
-                      "cryptoDetails" : null,
                       "currency" : "USD",
                       "environment" : "SANDBOX",
-                      "externalFeeAmount" : 0.2,
+                      "fee" : 0.3,
+                      "fondekaReference" : "SBX00000000000000000000000000000001",
                       "grossAmount" : 10.3,
-                      "internalFeeAmount" : 0.1,
-                      "reference" : "SBX00000000000000000000000000000001",
-                      "refunded" : false,
                       "service" : "BUSINESS_API",
-                      "settlementAmount" : 10.3,
-                      "settlementNet" : 10.0,
                       "status" : "COMPLETED"
                     }
                   }

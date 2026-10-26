@@ -23,7 +23,9 @@ export function parseIssuedCredentials(
     apiEnvironment(credential.environment) !== environment ||
     typeof row.apiKey !== "string" ||
     !(
-      environment === "SANDBOX" ? /^fdk_biz_test_[A-Za-z0-9_-]{43}$/ : /^fdk_biz_[A-Za-z0-9_-]{43}$/
+      environment === "SANDBOX"
+        ? /^fdk_biz_(?:sandbox|test)_[A-Za-z0-9_-]{43}$/
+        : /^fdk_biz_(?:live_)?[A-Za-z0-9_-]{43}$/
     ).test(row.apiKey) ||
     typeof row.webhookSecret !== "string" ||
     !/^whsec_[A-Za-z0-9_-]{43}$/.test(row.webhookSecret)

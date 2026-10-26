@@ -2,7 +2,8 @@
 import hashlib, hmac, json, os, re, sqlite3, tempfile, time, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-def verify(raw,timestamp,signature,event_id,secret,business_id,environment='SANDBOX',now=None):
+# Select the key's secret from trusted Business configuration, never from the body.
+def verify(raw,timestamp,signature,event_id,secret,environment='SANDBOX',now=None):
     now=time.time() if now is None else now
     if not secret or not re.fullmatch(r'[0-9]{1,12}',timestamp or '') or abs(now-int(timestamp))>300 or not re.fullmatch(r'v1=[a-f0-9]{64}',signature or ''):
         raise ValueError('Invalid webhook authentication')
@@ -13,15 +14,15 @@ def verify(raw,timestamp,signature,event_id,secret,business_id,environment='SAND
     data=event['data']
     uuid.UUID(event['id'])
     operation={'BUSINESS_API_COLLECTION':'collection','BUSINESS_API_PAYOUT':'payout'}.get(data.get('action'))
-    if event['id']!=event_id or not operation or data.get('status') not in ('COMPLETED','FAILED') or event.get('type')!='business_api.'+operation+'.'+data['status'].lower() or event.get('environment')!=environment or data.get('environment')!=environment or str(data.get('businessId'))!=str(business_id):
-        raise ValueError('Unexpected webhook envelope or ownership')
+    if event['id']!=event_id or not operation or data.get('status') not in ('COMPLETED','FAILED') or event.get('type')!='business_api.'+operation+'.'+data['status'].lower() or event.get('environment')!=environment or data.get('environment')!=environment or data.get('service')!='BUSINESS_API' or not isinstance(data.get('fondekaReference'),str) or not data['fondekaReference'].strip():
+        raise ValueError('Unexpected webhook envelope')
     return event
 
 def main():
     secret=os.environ['FONDEKA_WEBHOOK_SECRET']; business_id=os.environ['FONDEKA_BUSINESS_ID']
     environment=os.environ.get('FONDEKA_EXPECTED_ENV','SANDBOX')
     if not secret or not re.fullmatch(r'[1-9][0-9]*',business_id) or environment not in ('SANDBOX','LIVE'): raise ValueError('Invalid receiver settings')
-    filename=os.environ.get('FONDEKA_EVENT_STORE',os.path.join(tempfile.gettempdir(),'fondeka-example-webhooks.sqlite'))
+    filename=os.environ.get('FONDEKA_EVENT_STORE',os.path.join(tempfile.gettempdir(),f'fondeka-example-webhooks-{business_id}-{environment}.sqlite'))
     fd=os.open(filename,os.O_CREAT|os.O_WRONLY,0o600); os.close(fd)
     with sqlite3.connect(filename) as db:
         db.execute('CREATE TABLE IF NOT EXISTS inbox(id TEXT PRIMARY KEY,raw_body BLOB NOT NULL,received_at INTEGER NOT NULL)')
@@ -34,7 +35,7 @@ def main():
                 size=int(self.headers.get('Content-Length','0'))
                 if size<=0 or size>1048576: self.send_error(413); return
                 raw=self.rfile.read(size)
-                event=verify(raw,self.headers.get('X-Fondeka-Timestamp'),self.headers.get('X-Fondeka-Signature'),self.headers.get('X-Fondeka-Event-Id'),secret,business_id,environment)
+                event=verify(raw,self.headers.get('X-Fondeka-Timestamp'),self.headers.get('X-Fondeka-Signature'),self.headers.get('X-Fondeka-Event-Id'),secret,environment)
             except (ValueError,KeyError,TypeError): self.send_error(400,'Webhook not accepted'); return
             try:
                 with sqlite3.connect(filename) as db:

@@ -4,7 +4,7 @@ This walkthrough collects 10 USD in sandbox, verifies a terminal webhook, then s
 
 ## 1. Prepare your Business
 
-Sign in to the Fondeka Business portal. Obtain your Business ID and activate Business Tools access if required. You need an HTTPS webhook destination on public port 443 before issuing a key. It cannot be a private/localhost address, contain URL credentials/fragments, or rely on redirects.
+Sign in to the Fondeka Business portal. Obtain your Business ID and activate Business Tools if required: the default bundle covers API access; in separate pricing mode, buy the API tool or a full bundle. Supply an HTTPS webhook URL with port omitted or 443 and without URL credentials/fragments. You can issue credentials before its DNS or receiver is ready: saving checks URL format without resolving DNS. To receive events, deploy a reachable public HTTPS destination with valid TLS; private/localhost destinations and redirects cannot be used for delivery.
 
 Prepare your public HTTPS proxy or development tunnel and use its `/fondeka/webhooks` URL when creating a **SANDBOX** credential in the portal. Save the API key and webhook signing secret when shown; they cannot be retrieved later. Then start the receiver below with that signing secret before submitting payments. Do not put either secret into frontend code, shared Postman values or source control.
 
@@ -54,7 +54,7 @@ Content-Type: application/json
 {"amount":10,"currency":"USD","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","clientReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
-The first response is `202 Accepted`, usually with a non-terminal status and an opaque `reference`. Preserve the reference and poll `GET /business-api/v1/businesses/{businessId}/transactions/{reference}`. A polling timeout is not a failed payment. Continue later using the same reference, and preserve the original idempotency key if retrying submission.
+The first response is `202 Accepted`, usually with a non-terminal status and an opaque `fondekaReference`. Preserve its value and poll the unchanged `GET /business-api/v1/businesses/{businessId}/transactions/{reference}` URL. Fees appear as one `fee`; there are no internal IDs or fee splits. A polling timeout is not a failed payment. Continue later using the same Fondeka reference, and preserve the original idempotency key if retrying submission.
 
 ## 5. Verify the result
 
