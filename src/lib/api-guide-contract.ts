@@ -108,11 +108,13 @@ const paymentSnippetFieldOrder = [
   "currency",
   "status",
 ];
-/** Presentation only: keep contract values and optional fields, without changing source payloads. */
-export function orderGuidePaymentSnippet(value: unknown): unknown {
+/** Format guide examples with an illustrative reference, without changing source payloads. */
+export function guidePaymentSnippet(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   if ("fondekaReference" in value) {
-    const fields = value as Record<string, unknown>;
+    const fields = { ...(value as Record<string, unknown>) };
+    if (fields.service === "BUSINESS_API" && typeof fields.fondekaReference === "string")
+      fields.fondekaReference = "TX683195274026";
     return Object.fromEntries([
       ...paymentSnippetFieldOrder
         .filter((key) => Object.hasOwn(fields, key))
@@ -120,7 +122,7 @@ export function orderGuidePaymentSnippet(value: unknown): unknown {
       ...Object.entries(fields).filter(([key]) => !paymentSnippetFieldOrder.includes(key)),
     ]);
   }
-  if ("data" in value) return { ...value, data: orderGuidePaymentSnippet(value.data) };
+  if ("data" in value) return { ...value, data: guidePaymentSnippet(value.data) };
   return value;
 }
 /** Use the DRC mobile-money example throughout the portal's JSON and cURL snippets. */

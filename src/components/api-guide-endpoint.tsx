@@ -17,7 +17,7 @@ import {
   guideMedia,
   guideOperation,
   guideRequestBody,
-  orderGuidePaymentSnippet,
+  guidePaymentSnippet,
   publishedExample,
   resolveGuideSchema,
   paymentStateGroups,
@@ -585,7 +585,7 @@ export function WebhookEventGuide({ spec, example }: { spec: GuideSpec; example:
       </p>
       <GuideCodeCard
         title={t("Webhook event body", "Corps de l’événement webhook")}
-        code={JSON.stringify(orderGuidePaymentSnippet(event), null, 2)}
+        code={JSON.stringify(guidePaymentSnippet(event), null, 2)}
         selectedKey={active?.path}
         caption={t("Published OpenAPI event example", "Exemple d’événement OpenAPI publié")}
       >
@@ -941,7 +941,7 @@ function EndpointContent({
             code={
               showResponseStructure
                 ? JSON.stringify(
-                    orderGuidePaymentSnippet(guideSchemaStructure(spec, responseMedia?.schema)),
+                    guidePaymentSnippet(guideSchemaStructure(spec, responseMedia?.schema)),
                     null,
                     2,
                   )
@@ -950,7 +950,7 @@ function EndpointContent({
                       "No response body is published for this status.",
                       "Aucun corps de réponse n’est publié pour cet état.",
                     )
-                  : JSON.stringify(orderGuidePaymentSnippet(displayedResponse), null, 2)
+                  : JSON.stringify(guidePaymentSnippet(displayedResponse), null, 2)
             }
             selectedKey={scope === "response" ? activeField?.path : undefined}
             caption={
