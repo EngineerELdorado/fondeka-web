@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   apiCatalogPath,
+  catalogFeeCurrency,
   catalogMethodsFor,
   catalogMethodSelectable,
   catalogNetworksFor,
@@ -72,6 +73,18 @@ test("catalog parsing preserves exact identifiers, foreign countries, metadata a
     { ...catalog, paymentMethods: [catalog.paymentMethods[0], catalog.paymentMethods[0]] },
   ])
     assert.throws(() => parseApiCatalog(invalid));
+});
+
+test("fees follow the mobile-money currency while crypto token units stay separate from fiat fees", () => {
+  const mobile = catalog.paymentMethods[0];
+  for (const paymentCurrency of ["CDF", "USD", "EUR", "KES", "XOF", "XAF"])
+    assert.equal(catalogFeeCurrency({ ...mobile, paymentCurrency }), paymentCurrency);
+  assert.equal(catalogFeeCurrency({ ...mobile, paymentCurrency: " cdf " }), "CDF");
+  for (const paymentCurrency of [null, "", "USDT", "USD&environment=LIVE"])
+    assert.equal(catalogFeeCurrency({ ...mobile, paymentCurrency }), "USD");
+  for (const paymentCurrency of ["BTC", "ETH", "SOL", "USDT", "USDC", "EURC"])
+    assert.equal(catalogFeeCurrency({ ...catalog.paymentMethods[1], paymentCurrency }), "USD");
+  assert.equal(catalogFeeCurrency(undefined), "USD");
 });
 
 test("inactive identifiers stay available for sandbox testing but are hidden in LIVE", () => {

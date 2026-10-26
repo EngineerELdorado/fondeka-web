@@ -55,9 +55,14 @@ const method: ApiCatalogMethod = {
   networkNames: [],
   fees,
 };
-const render = (selected = method, environment: "LIVE" | "SANDBOX" = "LIVE", payout = false) =>
+const render = (
+  selected = method,
+  environment: "LIVE" | "SANDBOX" = "LIVE",
+  payout = false,
+  currency = "USD",
+) =>
   renderToStaticMarkup(
-    createElement(ApiCatalogFees, { method: selected, environment, payout, currency: "USD" }),
+    createElement(ApiCatalogFees, { method: selected, environment, payout, currency }),
   );
 
 test("catalog fees validate environment, action bases, currency, ranges and combined expressions", () => {
@@ -137,11 +142,27 @@ test("fee explanations use simple inclusive and exclusive examples", () => {
   const html = render();
   assert.match(html, /EXCLUSIVE/);
   assert.match(html, /adds fees on top/);
-  assert.match(html, /add 0.50 USD in fees/);
-  assert.match(html, /total is 10.50 USD/);
+  assert.match(html, /enter 100 USD, add 4.50 USD in fees/);
+  assert.match(html, /total is 104.50 USD/);
   assert.match(html, /INCLUSIVE/);
-  assert.match(html, /9.50 USD is left/);
+  assert.match(html, /enter 100 USD, take out 5 USD in fees/);
+  assert.match(html, /95 USD is left/);
   assert.doesNotMatch(html, /lower bound|upper bound|funding history|net with EXCLUSIVE/);
+});
+
+test("both examples use 100 in every currency and select their own applicable collection tier", () => {
+  for (const currency of ["USD", "CDF", "EUR", "KES", "XOF", "XAF"]) {
+    const example = catalogFeeExample({ ...fees.collection, currency })!;
+    assert.equal(example.currency, currency);
+    assert.deepEqual(example.exclusive, { amount: 100, fee: 4.5, total: 104.5 });
+    assert.deepEqual(example.inclusive, { amount: 100, fee: 5, net: 95 });
+  }
+  const payout = catalogFeeExample({
+    ...fees.collection,
+    rangeAmountBasis: "REQUEST_AMOUNT",
+  })!;
+  assert.deepEqual(payout.exclusive, { amount: 100, fee: 5, total: 105 });
+  assert.deepEqual(payout.inclusive, { amount: 100, fee: 5, net: 95 });
 });
 
 test("examples follow the selected tariff, currency, minimum and actual collection band", () => {
@@ -157,8 +178,12 @@ test("examples follow the selected tariff, currency, minimum and actual collecti
   ];
   const example = catalogFeeExample(selected)!;
   assert.equal(example.currency, "CDF");
-  assert.deepEqual(example.exclusive, { amount: 10, fee: 1.2, total: 11.2 });
-  assert.deepEqual(example.inclusive, { amount: 10, fee: 1.2, net: 8.8 });
+  assert.deepEqual(example.exclusive, { amount: 100, fee: 5.5, total: 105.5 });
+  assert.deepEqual(example.inclusive, { amount: 100, fee: 5.5, net: 94.5 });
+  selected.ranges[0].fee!.minimum = { percentage: 2, flatFee: 10 };
+  const minimum = catalogFeeExample(selected)!;
+  assert.deepEqual(minimum.exclusive, { amount: 100, fee: 12, total: 112 });
+  assert.deepEqual(minimum.inclusive, { amount: 100, fee: 12, net: 88 });
   selected.ranges = [
     {
       minAmount: 0,
@@ -167,9 +192,7 @@ test("examples follow the selected tariff, currency, minimum and actual collecti
       fee: { percentage: 5, flatFee: 0, minimum: null },
     },
   ];
-  const band = catalogFeeExample(selected)!;
-  assert.ok(band.exclusive.total < 10.01);
-  assert.ok(band.inclusive.amount < 10.01);
+  assert.equal(catalogFeeExample(selected), undefined);
   selected.status = "PARTIAL";
   selected.ranges = [
     { minAmount: 0, maxAmountExclusive: 100, available: false, fee: null },
@@ -180,9 +203,7 @@ test("examples follow the selected tariff, currency, minimum and actual collecti
       fee: { percentage: 5, flatFee: 0, minimum: null },
     },
   ];
-  const narrow = catalogFeeExample(selected)!;
-  assert.ok(narrow.exclusive.total >= 100 && narrow.exclusive.total < 100.01);
-  assert.ok(narrow.inclusive.amount >= 100 && narrow.inclusive.amount < 100.01);
+  assert.equal(catalogFeeExample(selected), undefined);
   assert.equal(catalogFeeExample(fees.payout), undefined);
   assert.equal(catalogFeeExample(undefined), undefined);
   selected.ranges = [
@@ -194,6 +215,24 @@ test("examples follow the selected tariff, currency, minimum and actual collecti
     },
   ];
   assert.equal(catalogFeeExample(selected), undefined);
+});
+
+test("fee headings, ranges, flat fees and examples all use the returned method-currency tariff", () => {
+  const selected = structuredClone(method);
+  selected.paymentCurrency = "CDF";
+  selected.fees!.collection.currency = "CDF";
+  const html = render(selected, "LIVE", false, "CDF");
+  assert.match(html, />CDF</);
+  assert.match(html, /100.01 CDF/);
+  assert.match(html, /4% \+ 0.50 CDF/);
+  assert.match(html, /enter 100 CDF, add 4.50 CDF in fees/);
+  assert.match(html, /total is 104.50 CDF/);
+  assert.doesNotMatch(html, /USD/);
+
+  // Never relabel old USD prices while the CDF catalog is still loading or unavailable.
+  const stale = render(method, "LIVE", false, "CDF");
+  assert.match(stale, /Pricing unavailable/);
+  assert.doesNotMatch(stale, /Example:|5%|4%|USD/);
 });
 
 test("missing tariffs and partial bands are unavailable, while explicit zero fees are free", () => {

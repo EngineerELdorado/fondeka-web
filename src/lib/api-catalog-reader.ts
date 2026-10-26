@@ -43,7 +43,11 @@ export class ApiCatalogReader {
     const controller = new AbortController();
     const pending = { controller, key, task: Promise.resolve() };
     this.pending = pending;
-    this.publish({ key, loading: true });
+    this.publish({
+      key,
+      loading: true,
+      data: this.state.key === key ? this.state.data : undefined,
+    });
     pending.task = Promise.resolve().then(async () => {
       if (controller.signal.aborted) return;
       try {

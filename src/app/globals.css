@@ -10826,25 +10826,6 @@ button.detail-row:hover {
 .api-catalog-context > button {
   margin-left: auto;
 }
-.api-catalog-fee-currency {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  font-size: var(--text-sm);
-  color: var(--secondary);
-}
-.api-catalog-context .api-catalog-fee-currency {
-  margin: 0 0 0 auto;
-}
-.api-catalog-fee-currency select {
-  width: auto;
-  min-height: 36px;
-  max-width: 110px;
-  padding-block: 5px;
-}
 .api-catalog-fees {
   margin: 18px 0;
   padding: 16px 0;
@@ -11034,6 +11015,19 @@ button.detail-row:hover {
   font-weight: 550;
   overflow-wrap: anywhere;
 }
+.api-catalog-country-flag {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 16px;
+  line-height: 1;
+}
 .api-catalog-country-group h4 code {
   font-size: var(--text-xs);
   color: var(--muted);
@@ -11081,18 +11075,34 @@ button.detail-row:hover {
   color: var(--catalog-color);
   font-size: var(--text-sm);
 }
-.api-catalog-method-identity {
-  display: inline-flex;
+.api-catalog-method-label {
+  display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
   min-width: 0;
+}
+.api-catalog-method-label strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.api-catalog-method-currency {
+  flex: 0 0 auto;
+}
+@container (max-width: 340px) {
+  .api-catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .api-catalog-crypto-logo {
   display: block;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
   object-fit: contain;
   color: var(--catalog-color);
 }
@@ -11119,17 +11129,33 @@ button.detail-row:hover {
 .api-catalog-selection-icon {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: var(--surface);
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
   color: var(--catalog-color);
-  box-shadow: var(--shadow);
-  margin-bottom: 14px;
+}
+.api-catalog-selection-icon > .api-catalog-crypto-logo {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 .api-catalog-selection h3 {
   margin-bottom: 8px;
   font-size: var(--text-lg);
+}
+.api-catalog-selected-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.api-catalog-selection .api-catalog-selected-heading {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }
 .api-catalog-selected-heading {
   display: flex;
@@ -11137,14 +11163,24 @@ button.detail-row:hover {
   flex-wrap: wrap;
   gap: 8px 12px;
 }
+.api-catalog-selected-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .api-catalog-selected-country {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: var(--secondary);
-  font-size: var(--text-sm);
-  font-weight: 450;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--catalog-color) 25%, var(--line));
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--catalog-color);
+  font-size: var(--text-control);
+  font-weight: 600;
+  line-height: 1.4;
   letter-spacing: normal;
+  overflow-wrap: anywhere;
 }
 .api-catalog-selection p,
 .api-catalog-footnote {

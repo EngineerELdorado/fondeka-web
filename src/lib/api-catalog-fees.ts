@@ -23,71 +23,34 @@ export type CatalogFees = {
 /** Teaching examples only: never use these figures as a payment quote or charge. */
 export function catalogFeeExample(schedule: CatalogFeeSchedule | undefined) {
   if (!schedule || schedule.status === "UNAVAILABLE") return;
+  const amount = 100;
   const cents = (value: number) => Math.round(value * 100) / 100;
+  let exclusive: { amount: number; fee: number; total: number } | undefined;
+  let inclusive: { amount: number; fee: number; net: number } | undefined;
   for (const range of schedule.ranges) {
     if (!range.available || !range.fee) continue;
     const rule = range.fee;
     const expressions = [rule, ...(rule.minimum ? [rule.minimum] : [])];
-    const feeFor = (amount: number) => {
-      const raw = Math.max(
-        ...expressions.map((fee) => (amount * fee.percentage) / 100 + fee.flatFee),
-      );
-      const rounded = cents(raw);
-      // Do not turn a small nonzero tariff into an apparently free example.
-      return Number.isFinite(rounded) && (rounded > 0 || raw === 0) ? rounded : undefined;
-    };
+    const raw = Math.max(
+      ...expressions.map((fee) => (amount * fee.percentage) / 100 + fee.flatFee),
+    );
+    const fee = cents(raw);
+    // Do not turn a small nonzero tariff into an apparently free example.
+    if (!Number.isFinite(fee) || (fee === 0 && raw !== 0)) continue;
     const inBand = (amount: number) =>
       amount >= range.minAmount &&
       (range.maxAmountExclusive === null || amount < range.maxAmountExclusive);
-    const targets = [
-      10,
-      100,
-      1000,
-      1,
-      0.1,
-      0.01,
-      range.minAmount + 10,
-      range.minAmount + 0.01,
-      ...(range.maxAmountExclusive === null
-        ? []
-        : [(range.minAmount + range.maxAmountExclusive) / 2, range.maxAmountExclusive - 0.01]),
-    ];
-    const candidates = [
-      ...targets,
-      ...targets.map(
-        (gross) =>
-          Math.floor(
-            Math.min(
-              ...expressions.map((fee) => (gross - fee.flatFee) / (1 + fee.percentage / 100)),
-            ) * 100,
-          ) / 100,
-      ),
-    ]
-      .map(cents)
-      .filter((amount) => amount > 0 && Number.isSafeInteger(Math.round(amount * 100)));
-    const exclusiveFor = (amount: number) => {
-      const fee = feeFor(amount);
-      if (fee === undefined) return;
-      const total = cents(amount + fee);
-      return inBand(schedule.rangeAmountBasis === "GROSS_AMOUNT" ? total : amount)
-        ? { amount, fee, total }
-        : undefined;
-    };
-    const inclusiveFor = (amount: number) => {
-      const fee = feeFor(amount);
-      if (fee === undefined) return;
-      const net = cents(amount - fee);
-      return inBand(amount) && net > 0 ? { amount, fee, net } : undefined;
-    };
-    for (const amount of candidates) {
-      const exclusive = exclusiveFor(amount),
-        inclusive = inclusiveFor(amount);
-      if (exclusive && inclusive) return { exclusive, inclusive, currency: schedule.currency };
-    }
-    const exclusive = candidates.map(exclusiveFor).find((value) => value !== undefined);
-    const inclusive = candidates.map(inclusiveFor).find((value) => value !== undefined);
-    if (exclusive && inclusive) return { exclusive, inclusive, currency: schedule.currency };
+    const total = cents(amount + fee);
+    const net = cents(amount - fee);
+    if (
+      !exclusive &&
+      Number.isFinite(total) &&
+      inBand(schedule.rangeAmountBasis === "GROSS_AMOUNT" ? total : amount)
+    )
+      exclusive = { amount, fee, total };
+    if (!inclusive && inBand(amount) && net > 0) inclusive = { amount, fee, net };
   }
+  if (exclusive && inclusive) return { exclusive, inclusive, currency: schedule.currency };
 }
 
 const record = (value: unknown): value is Record<string, unknown> =>

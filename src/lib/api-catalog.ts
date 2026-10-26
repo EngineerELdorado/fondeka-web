@@ -27,6 +27,16 @@ export type ApiCatalog = {
   cryptoNetworks: ApiCatalogNetwork[];
 };
 
+export const defaultCatalogCurrency = "USD";
+
+/** Crypto method currencies are tokens; the fee catalog only accepts fiat currencies. */
+export function catalogFeeCurrency(method?: ApiCatalogMethod) {
+  const currency = method?.paymentCurrency?.trim().toUpperCase();
+  return method?.type === "MOBILE_MONEY" && currency && /^[A-Z]{3}$/.test(currency)
+    ? currency
+    : defaultCatalogCurrency;
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }

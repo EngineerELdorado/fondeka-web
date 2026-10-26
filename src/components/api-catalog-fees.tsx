@@ -33,7 +33,8 @@ export function ApiCatalogFees({
         </p>
       </section>
     );
-  const schedule = method.fees?.[payout ? "payout" : "collection"];
+  const candidate = method.fees?.[payout ? "payout" : "collection"];
+  const schedule = candidate?.currency === currency ? candidate : undefined;
   const example = catalogFeeExample(schedule);
   const money = (value: number) =>
     `${new Intl.NumberFormat(language, { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 }).format(value)} ${schedule?.currency || currency}`;

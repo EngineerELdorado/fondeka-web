@@ -4,9 +4,11 @@ import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, Globe2, ListFilter, Network, Percent, RefreshCw, Search } from "lucide-react";
 import {
+  catalogFeeCurrency,
   catalogMethodsFor,
   catalogMethodSelectable,
   catalogNetworksFor,
+  defaultCatalogCurrency,
   type ApiCatalog,
   type ApiPaymentKind,
 } from "@/lib/api-catalog";
@@ -14,7 +16,6 @@ import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import type { ApiEnvironment } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useApiCatalog } from "@/lib/use-api-catalog";
-import { useCurrencies } from "@/lib/use-currencies";
 import { filterCatalogGroups, groupCatalogMethods } from "@/lib/api-catalog-groups";
 import { Empty, ErrorState, Loading, Modal } from "./ui";
 import { useWorkspace } from "./workspace-provider";
@@ -77,8 +78,8 @@ function CatalogContent({
   payout,
   environment,
   preferredMethod,
-  currency,
-  currencyControl,
+  accountKey,
+  businessId,
 }: {
   catalog?: ApiCatalog;
   checking: boolean;
@@ -88,14 +89,41 @@ function CatalogContent({
   payout: boolean;
   environment: ApiEnvironment;
   preferredMethod?: string;
-  currency: string;
-  currencyControl: React.ReactNode;
+  accountKey: string | null;
+  businessId: number;
 }) {
   const { t, language } = useI18n();
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const groupId = useId();
   const [selection, setSelection] = useState<{ method: string; network?: string }>();
+  const methods = catalog ? catalogMethodsFor(catalog, kind, environment) : [];
+  const groups = groupCatalogMethods(methods, language);
+  const selectedCountry = groups.some((group) => group.code === country) ? country : "";
+  const visibleGroups = filterCatalogGroups(groups, selectedCountry, search);
+  const visible = visibleGroups.flatMap((group) => group.methods);
+  const method =
+    visible.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
+    visible.find((item) => catalogMethodSelectable(item, environment, payout)) ||
+    visible[0];
+  const currency = catalogFeeCurrency(method);
+  const localizedFees = environment === "LIVE" && currency !== defaultCatalogCurrency;
+  const feeQuery = useApiCatalog(
+    accountKey,
+    localizedFees ? businessId : undefined,
+    currency,
+    language,
+  );
+  const feeMethod = method && {
+    ...method,
+    fees: localizedFees
+      ? feeQuery.data?.paymentMethods.find((item) => item.name === method.name)?.fees
+      : method.fees,
+  };
+  const refreshing = checking || feeQuery.loading;
+  const refreshAll = async () => {
+    await Promise.all([refresh(), feeQuery.refresh()]);
+  };
   const context = (
     <div className="api-catalog-context">
       <span>
@@ -105,15 +133,14 @@ function CatalogContent({
           : t("All configured countries", "Tous les pays configurés")}
       </span>
       <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>
-      {currencyControl}
       <button
         type="button"
         className="text-button"
-        disabled={checking}
-        onClick={() => void refresh()}
+        disabled={refreshing}
+        onClick={() => void refreshAll()}
       >
-        <RefreshCw size={14} className={checking ? "spin" : undefined} />
-        {checking ? t("Refreshing…", "Actualisation…") : t("Refresh", "Actualiser")}
+        <RefreshCw size={14} className={refreshing ? "spin" : undefined} />
+        {refreshing ? t("Refreshing…", "Actualisation…") : t("Refresh", "Actualiser")}
       </button>
     </div>
   );
@@ -133,20 +160,11 @@ function CatalogContent({
             error ||
             t("Couldn’t load payment methods.", "Impossible de charger les moyens de paiement.")
           }
-          retry={() => void refresh()}
+          retry={() => void refreshAll()}
         />
       </>
     );
   }
-  const methods = catalogMethodsFor(catalog, kind, environment);
-  const groups = groupCatalogMethods(methods, language);
-  const selectedCountry = groups.some((group) => group.code === country) ? country : "";
-  const visibleGroups = filterCatalogGroups(groups, selectedCountry, search);
-  const visible = visibleGroups.flatMap((group) => group.methods);
-  const method =
-    visible.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
-    visible.find((item) => catalogMethodSelectable(item, environment, payout)) ||
-    visible[0];
   const methodCountry = groups.find(
     (group) => group.countryCode && group.methods.some((item) => item.name === method?.name),
   );
@@ -158,7 +176,7 @@ function CatalogContent({
   return (
     <>
       {context}
-      {error && <ErrorState message={error} retry={() => void refresh()} />}
+      {error && <ErrorState message={error} retry={() => void refreshAll()} />}
       {!methods.length ? (
         <Empty
           icon={ListFilter}
@@ -232,7 +250,9 @@ function CatalogContent({
                 >
                   <h4 id={`${groupId}-${group.code}`}>
                     {group.flag ? (
-                      <span aria-hidden="true">{group.flag}</span>
+                      <span className="api-catalog-country-flag" aria-hidden="true">
+                        {group.flag}
+                      </span>
                     ) : (
                       <Globe2 size={17} aria-hidden="true" />
                     )}
@@ -264,17 +284,20 @@ function CatalogContent({
                           }}
                         >
                           <span className="api-catalog-method-top">
-                            <span className="api-catalog-method-identity">
-                              <CatalogMethodLogo method={item} />
-                              {item.paymentCurrency?.trim() && (
-                                <span title={t("Method currency", "Devise du moyen de paiement")}>
-                                  <CurrencyBadge currency={item.paymentCurrency} />
-                                </span>
-                              )}
-                            </span>
+                            <CatalogMethodLogo method={item} />
                             {method?.name === item.name && <Check size={16} />}
                           </span>
-                          <strong>{item.displayName || item.name}</strong>
+                          <span className="api-catalog-method-label">
+                            <strong>{item.displayName || item.name}</strong>
+                            {item.paymentCurrency?.trim() && (
+                              <span
+                                className="api-catalog-method-currency"
+                                title={t("Method currency", "Devise du moyen de paiement")}
+                              >
+                                <CurrencyBadge currency={item.paymentCurrency} />
+                              </span>
+                            )}
+                          </span>
                           <code>{item.name}</code>
                           {!selectable ? (
                             <small>
@@ -323,20 +346,21 @@ function CatalogContent({
             className="api-catalog-selection"
             aria-label={t("Fees and payload identifiers", "Frais et identifiants du payload")}
           >
-            <span className="api-catalog-selection-icon">
-              {method ? <CatalogMethodLogo method={method} /> : <Percent size={20} />}
-            </span>
-            <h3 className="api-catalog-selected-heading">
-              {method?.displayName ||
-                method?.name ||
-                t("Fees & identifiers", "Frais et identifiants")}
-              {methodCountry && (
-                <span className="api-catalog-selected-country">
-                  <span aria-hidden="true">{methodCountry.flag}</span>
-                  {methodCountry.name}
+            <div className="api-catalog-selected-header">
+              <span className="api-catalog-selection-icon">
+                {method ? <CatalogMethodLogo method={method} /> : <Percent size={20} />}
+              </span>
+              <h3 className="api-catalog-selected-heading">
+                <span className="api-catalog-selected-name">
+                  {method?.displayName ||
+                    method?.name ||
+                    t("Fees & identifiers", "Frais et identifiants")}
                 </span>
-              )}
-            </h3>
+                {methodCountry && (
+                  <span className="api-catalog-selected-country">{methodCountry.name}</span>
+                )}
+              </h3>
+            </div>
             <p>
               {t(
                 kind === "CRYPTO"
@@ -349,12 +373,23 @@ function CatalogContent({
             </p>
             {method && (
               <>
-                <ApiCatalogFees
-                  method={method}
-                  payout={payout}
-                  currency={currency}
-                  environment={environment}
-                />
+                {feeQuery.loading ? (
+                  <div className="api-catalog-fees" role="status" aria-busy="true">
+                    <p>
+                      {t(`Loading fees in ${currency}…`, `Chargement des frais en ${currency}…`)}
+                    </p>
+                    <Loading rows={2} />
+                  </div>
+                ) : feeQuery.error ? (
+                  <ErrorState message={feeQuery.error} retry={() => void feeQuery.refresh()} />
+                ) : (
+                  <ApiCatalogFees
+                    method={feeMethod!}
+                    payout={payout}
+                    currency={currency}
+                    environment={environment}
+                  />
+                )}
                 <CopyIdentifier
                   key={method.name}
                   name="paymentMethodName"
@@ -411,10 +446,17 @@ function CatalogContent({
                 {method.paymentCurrency && (
                   <p className="api-catalog-currency">
                     <strong>{method.paymentCurrency}</strong>
-                    {t(
-                      "Method currency metadata. Keep currency as your request’s fiat wallet currency.",
-                      "Devise du moyen de paiement. Gardez la devise fiat du portefeuille dans currency.",
-                    )}
+                    {environment === "SANDBOX"
+                      ? t("Method currency", "Devise du moyen de paiement")
+                      : kind === "CRYPTO"
+                        ? t(
+                            "Token currency. Fees and examples are shown in USD.",
+                            "Devise du jeton. Les frais et les exemples sont affichés en USD.",
+                          )
+                        : t(
+                            "Fees and examples are shown in this currency.",
+                            "Les frais et les exemples sont affichés dans cette devise.",
+                          )}
                   </p>
                 )}
               </>
@@ -448,35 +490,11 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
   const { t, language } = useI18n();
   const { accountKey, apiEnvironment } = useWorkspace();
   const environment = setup.environment || apiEnvironment;
-  const scope = `${accountKey}:${setup.business?.id}`;
-  const [currencySelection, setCurrencySelection] = useState<{ scope: string; value: string }>();
-  const currency = currencySelection?.scope === scope ? currencySelection.value : "USD";
-  const products = useCurrencies(["USD", currency]);
   const query = useApiCatalog(
     accountKey,
     !setup.loading && !setup.error ? setup.business?.id : undefined,
-    currency,
+    defaultCatalogCurrency,
     language,
-  );
-  const currencyControl = (
-    <label className="api-catalog-fee-currency">
-      <span>{t("Fiat fee currency", "Devise fiat des frais")}</span>
-      <select
-        value={currency}
-        onChange={(event) => setCurrencySelection({ scope, value: event.target.value })}
-      >
-        {products.currencies.map((code) => (
-          <option key={code} value={code}>
-            {code}
-          </option>
-        ))}
-      </select>
-      {products.error && (
-        <button type="button" className="text-button" onClick={() => void products.refetch()}>
-          {t("Reload currencies", "Recharger les devises")}
-        </button>
-      )}
-    </label>
   );
   if (setup.loading) return <Loading rows={3} />;
   if (setup.error) return <ErrorState message={setup.error} retry={setup.refresh} />;
@@ -492,7 +510,7 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
     );
   return (
     <CatalogContent
-      key={`${accountKey}:${setup.business.id}:${environment}:${kind}:${payout}`}
+      key={`${accountKey}:${setup.business.id}:${environment}:${kind}`}
       catalog={query.data}
       checking={query.loading}
       error={query.error}
@@ -501,8 +519,8 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
       payout={payout}
       environment={environment}
       preferredMethod={preferredMethod}
-      currency={currency}
-      currencyControl={currencyControl}
+      accountKey={accountKey}
+      businessId={setup.business.id}
     />
   );
 }
