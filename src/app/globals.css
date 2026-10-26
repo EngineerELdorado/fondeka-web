@@ -8343,7 +8343,7 @@ button.detail-row:hover {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
-  overflow: hidden;
+  overflow: clip;
 }
 .api-docs-toggle {
   display: flex;
@@ -10245,11 +10245,13 @@ button.detail-row:hover {
 }
 .guide-path-sidebar {
   position: sticky;
-  top: 94px;
+  top: 24px;
   align-self: start;
-  max-height: calc(100dvh - 118px);
+  max-height: calc(100dvh - 48px);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  padding: 3px 6px 14px 3px;
+  scroll-padding-block: 14px;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
 .guide-developer-illustration {
