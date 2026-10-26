@@ -24,8 +24,8 @@ export function parseIssuedCredentials(
     typeof row.apiKey !== "string" ||
     !(
       environment === "SANDBOX"
-        ? /^fdk_biz_(?:sandbox|test)_[A-Za-z0-9_-]{43}$/
-        : /^fdk_biz_(?:live_)?[A-Za-z0-9_-]{43}$/
+        ? /^(?:fdk_sandbox_|fdk_biz_sandbox_|fdk_biz_test_)[A-Za-z0-9_-]{43}$/
+        : /^(?:fdk_live_|fdk_biz_live_|fdk_biz_)[A-Za-z0-9_-]{43}$/
     ).test(row.apiKey) ||
     typeof row.webhookSecret !== "string" ||
     !/^whsec_[A-Za-z0-9_-]{43}$/.test(row.webhookSecret)

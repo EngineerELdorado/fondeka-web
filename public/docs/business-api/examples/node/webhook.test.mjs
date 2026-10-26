@@ -18,9 +18,9 @@ for(const [name,change] of Object.entries({tampered:{raw:Buffer.from(JSON.string
   test(`reject ${name}`,()=>assert.throws(()=>verify({...args,...change})));
 }
 test('walkthrough rejects LIVE and non-loopback cleartext before writes',()=>{
-  const env={FONDEKA_API_KEY:'fdk_biz_sandbox_example',FONDEKA_BUSINESS_ID:'42',FONDEKA_INTENT:'one-intent'};
-  for(const key of ['fdk_biz_sandbox_example','fdk_biz_test_example']) assert.equal(settings({...env,FONDEKA_API_KEY:key}).business,'42');
-  for(const key of ['fdk_biz_live_example','fdk_biz_example']) assert.throws(()=>settings({...env,FONDEKA_API_KEY:key}));
+  const env={FONDEKA_API_KEY:'fdk_sandbox_example',FONDEKA_BUSINESS_ID:'42',FONDEKA_INTENT:'one-intent'};
+  for(const key of ['fdk_sandbox_example','fdk_biz_sandbox_example','fdk_biz_test_example']) assert.equal(settings({...env,FONDEKA_API_KEY:key}).business,'42');
+  for(const key of ['fdk_live_example','fdk_biz_live_example','fdk_biz_example']) assert.throws(()=>settings({...env,FONDEKA_API_KEY:key}));
   assert.throws(()=>settings({...env,FONDEKA_BASE_URL:'http://merchant.example'}));
 });
 test('HTTP receiver persists before acknowledgment, deduplicates after restart, and retries storage failures',async t=>{

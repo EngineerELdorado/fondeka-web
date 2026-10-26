@@ -6,7 +6,7 @@ $key=getenv('FONDEKA_API_KEY') ?: ''; $business=getenv('FONDEKA_BUSINESS_ID') ?:
 $url=parse_url($base);
 if (!$url || isset($url['user']) || isset($url['pass']) || isset($url['query']) || isset($url['fragment']) || !empty($url['path']) ||
     (($url['scheme'] ?? '')!=='https' && !(($url['scheme'] ?? '')==='http' && in_array($url['host'] ?? '',['localhost','127.0.0.1','[::1]'],true)))) throw new RuntimeException('Use HTTPS or HTTP loopback.');
-if ((!str_starts_with($key,'fdk_biz_sandbox_') && !str_starts_with($key,'fdk_biz_test_')) || !preg_match('/^[1-9][0-9]*$/D',$business) || !preg_match('/^[A-Za-z0-9_.:-]{1,80}$/D',$intent)) throw new RuntimeException('Set sandbox key, Business ID and a stable FONDEKA_INTENT.');
+if ((!str_starts_with($key,'fdk_sandbox_') && !str_starts_with($key,'fdk_biz_sandbox_') && !str_starts_with($key,'fdk_biz_test_')) || !preg_match('/^[1-9][0-9]*$/D',$business) || !preg_match('/^[A-Za-z0-9_.:-]{1,80}$/D',$intent)) throw new RuntimeException('Set sandbox key, Business ID and a stable FONDEKA_INTENT.');
 function api(string $method,string $path,?array $body=null,?string $idempotency=null,?string $simulationCode=null): array {
     global $base,$key,$business;
     $headers=['X-API-Key: '.$key,'Accept: application/json'];

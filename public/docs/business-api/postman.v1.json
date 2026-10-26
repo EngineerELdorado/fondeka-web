@@ -53,7 +53,7 @@
         "type": "text/javascript",
         "exec": [
           "const key=pm.variables.get(\"apiKey\") || \"\";",
-          "if (![\"fdk_biz_sandbox_\", \"fdk_biz_test_\"].some(prefix => key.startsWith(prefix))) { pm.execution.skipRequest(); throw new Error(\"This example collection accepts sandbox keys only.\"); }",
+          "if (![\"fdk_sandbox_\", \"fdk_biz_sandbox_\", \"fdk_biz_test_\"].some(prefix => key.startsWith(prefix))) { pm.execution.skipRequest(); throw new Error(\"This example collection accepts sandbox keys only.\"); }",
           "if (!pm.variables.get(\"intent\") || pm.variables.get(\"intent\")===\"CHANGE_ME_ONCE_PER_LOGICAL_RUN\") { pm.execution.skipRequest(); throw new Error(\"Set intent to a unique value; keep it unchanged on retries.\"); }"
         ]
       }

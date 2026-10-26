@@ -5,7 +5,7 @@ export function settings(env=process.env) {
   const base=new URL(env.FONDEKA_BASE_URL || 'https://api.fondeka.com');
   if(base.username || base.password || base.search || base.hash || base.pathname!=='/' ||
       (base.protocol!=='https:' && !(base.protocol==='http:' && ['localhost','127.0.0.1','[::1]'].includes(base.hostname)))) throw new Error('Use HTTPS, or HTTP loopback for local development.');
-  if(!['fdk_biz_sandbox_','fdk_biz_test_'].some(prefix=>env.FONDEKA_API_KEY?.startsWith(prefix))) throw new Error('This example requires a sandbox key.');
+  if(!['fdk_sandbox_','fdk_biz_sandbox_','fdk_biz_test_'].some(prefix=>env.FONDEKA_API_KEY?.startsWith(prefix))) throw new Error('This example requires a sandbox key.');
   if(!/^[1-9][0-9]*$/.test(env.FONDEKA_BUSINESS_ID || '')) throw new Error('Set FONDEKA_BUSINESS_ID.');
   if(!/^[A-Za-z0-9_.:-]{1,80}$/.test(env.FONDEKA_INTENT || '')) throw new Error('Set FONDEKA_INTENT once per logical run; keep it on retries.');
   return {base:base.origin,key:env.FONDEKA_API_KEY,business:env.FONDEKA_BUSINESS_ID,intent:env.FONDEKA_INTENT};

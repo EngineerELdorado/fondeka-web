@@ -4,7 +4,7 @@ set -euo pipefail
 : "${FONDEKA_API_KEY:?Set a sandbox API key}"
 : "${FONDEKA_BUSINESS_ID:?Set your Business ID}"
 : "${FONDEKA_INTENT:?Set a unique intent once, then preserve it on retries}"
-[[ "$FONDEKA_API_KEY" == fdk_biz_sandbox_* || "$FONDEKA_API_KEY" == fdk_biz_test_* ]] || { echo 'Sandbox key required' >&2; exit 1; }
+[[ "$FONDEKA_API_KEY" == fdk_sandbox_* || "$FONDEKA_API_KEY" == fdk_biz_sandbox_* || "$FONDEKA_API_KEY" == fdk_biz_test_* ]] || { echo 'Sandbox key required' >&2; exit 1; }
 [[ "$FONDEKA_BUSINESS_ID" =~ ^[1-9][0-9]*$ && "$FONDEKA_INTENT" =~ ^[A-Za-z0-9_.:-]{1,80}$ ]] || exit 1
 base="${FONDEKA_BASE_URL:-https://api.fondeka.com}"
 python3 - "$base" <<'PY'

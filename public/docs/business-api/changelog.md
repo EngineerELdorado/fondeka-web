@@ -1,5 +1,9 @@
 # Contract changelog
 
+## 2026-10-26 — Shorter API key prefixes
+
+New credentials use `fdk_live_` and `fdk_sandbox_`. All previously issued LIVE (`fdk_biz_live_`, `fdk_biz_`) and SANDBOX (`fdk_biz_sandbox_`, `fdk_biz_test_`) keys remain accepted against their stored hash and environment. Existing integrations do not need to rotate keys. Newly stored display prefixes expose only four secret characters, and admin masking supports every issued format. Webhook signing secrets keep `whsec_`. Published sandbox examples and Postman accept the new and older sandbox formats while continuing to reject LIVE keys.
+
 ## 1.2.0 — 2026-10-26 — Order reference
 
 `orderReference` replaces `clientReference` in collection/payout request bodies, payment responses, new webhook data and nested portal transaction snapshots. It remains optional, limited to 128 characters and independent of `Idempotency-Key`. Portal order filtering also uses `orderReference`. Existing stored references and idempotency fingerprints are preserved; old/new request names can replay the same intent without another charge. Legacy request bodies and the old portal filter name remain accepted as compatibility aliases, while responses and published schemas use only the new name. Conflicting portal filter aliases return 400. Previously saved webhook payloads keep their original bytes. Update request serializers, response readers, order correlation and developer examples; routes and financial processing remain unchanged.

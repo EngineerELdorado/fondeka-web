@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import {
   businessApiDocLink,
   businessApiFiles,
@@ -220,6 +221,26 @@ test("the sandbox Postman download has no saved API key and retains sandbox/inte
   assert.match(guard, /fdk_biz_test_/);
   assert.match(guard, /skipRequest/);
   assert.match(guard, /CHANGE_ME_ONCE_PER_LOGICAL_RUN/);
+  const checkGuard = (apiKey: string, intent = "stable-intent") => {
+    let skipped = false;
+    let rejection: unknown;
+    try {
+      runInNewContext(guard, {
+        pm: {
+          variables: { get: (name: "apiKey" | "intent") => ({ apiKey, intent })[name] },
+          execution: { skipRequest: () => (skipped = true) },
+        },
+      });
+    } catch (error) {
+      rejection = error;
+    }
+    return { skipped, rejection };
+  };
+  for (const prefix of ["fdk_sandbox_", "fdk_biz_sandbox_", "fdk_biz_test_"])
+    assert.deepEqual(checkGuard(prefix + "example"), { skipped: false, rejection: undefined });
+  for (const key of ["fdk_live_example", "fdk_biz_live_example", "fdk_biz_example", "", "unknown"])
+    assert.equal(checkGuard(key).skipped, true, key);
+  assert.equal(checkGuard("fdk_sandbox_example", "CHANGE_ME_ONCE_PER_LOGICAL_RUN").skipped, true);
   assert.equal(postman.auth.type, "apikey");
   const requests = postman.item.map((item: { request: { url: string } }) =>
     item.request.url

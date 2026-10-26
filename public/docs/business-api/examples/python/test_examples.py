@@ -14,10 +14,10 @@ class ExamplesTest(unittest.TestCase):
         for change in ({'raw':json.dumps(self.event).encode()},{'now':1800000301},{'now':1799999699},{'signature':'v1=00'},{'event_id':'another-event'},{'secret':'another-business-key-secret'},{'environment':'LIVE'}):
             with self.subTest(change=list(change)),self.assertRaises(ValueError): verify(**{**self.args,**change})
     def test_walkthrough_rejects_live_and_cleartext_before_network_io(self):
-        env={'FONDEKA_API_KEY':'fdk_biz_sandbox_example','FONDEKA_BUSINESS_ID':'42','FONDEKA_INTENT':'one-intent'}
-        for key in ('fdk_biz_sandbox_example','fdk_biz_test_example'):
+        env={'FONDEKA_API_KEY':'fdk_sandbox_example','FONDEKA_BUSINESS_ID':'42','FONDEKA_INTENT':'one-intent'}
+        for key in ('fdk_sandbox_example','fdk_biz_sandbox_example','fdk_biz_test_example'):
             self.assertEqual('42',Client({**env,'FONDEKA_API_KEY':key}).business)
-        for change in ({'FONDEKA_API_KEY':'fdk_biz_live_example'},{'FONDEKA_API_KEY':'fdk_biz_example'},{'FONDEKA_BASE_URL':'http://merchant.example'}):
+        for change in ({'FONDEKA_API_KEY':'fdk_live_example'},{'FONDEKA_API_KEY':'fdk_biz_live_example'},{'FONDEKA_API_KEY':'fdk_biz_example'},{'FONDEKA_BASE_URL':'http://merchant.example'}):
             with self.assertRaises(ValueError): Client({**env,**change})
     def test_http_receiver_commits_once_and_deduplicates_after_restart(self):
         with tempfile.TemporaryDirectory(prefix='fondeka-doc-webhooks-') as folder:

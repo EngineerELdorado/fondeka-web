@@ -67,7 +67,7 @@ For a customer who does not approve mobile money collection:
 
 ```http
 POST /business-api/v1/businesses/42/collections
-X-API-Key: fdk_biz_sandbox_<secret>
+X-API-Key: fdk_sandbox_<secret>
 Idempotency-Key: order-unapproved-001
 X-Simulate-Error-Code: PAYMENT_NOT_APPROVED
 Content-Type: application/json

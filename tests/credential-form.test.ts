@@ -30,7 +30,7 @@ test("credential form submits only the normalized name and webhook destination",
     environment: "LIVE",
   });
 });
-test("sandbox credential creation uses an explicit immutable environment and validates both prefixes", () => {
+test("sandbox credential creation uses an explicit immutable environment", () => {
   assert.deepEqual(credentialPayload(" Development ", "https://merchant.example/test", "SANDBOX"), {
     name: "Development",
     webhookUrl: "https://merchant.example/test",
@@ -38,7 +38,7 @@ test("sandbox credential creation uses an explicit immutable environment and val
   });
   const sandbox = {
     credential: { id: 9, environment: "SANDBOX" },
-    apiKey: "fdk_biz_test_" + "s".repeat(43),
+    apiKey: "fdk_sandbox_" + "s".repeat(43),
     webhookSecret: "whsec_" + "w".repeat(43),
   };
   assert.equal(parseIssuedCredentials(sandbox, "SANDBOX"), sandbox);
@@ -53,8 +53,8 @@ test("sandbox credential creation uses an explicit immutable environment and val
 });
 test("issued credentials accept new and legacy keys only in their stored environment", () => {
   for (const [environment, prefixes] of [
-    ["LIVE", ["fdk_biz_live_", "fdk_biz_"]],
-    ["SANDBOX", ["fdk_biz_sandbox_", "fdk_biz_test_"]],
+    ["LIVE", ["fdk_live_", "fdk_biz_live_", "fdk_biz_"]],
+    ["SANDBOX", ["fdk_sandbox_", "fdk_biz_sandbox_", "fdk_biz_test_"]],
   ] as const) {
     for (const prefix of prefixes) {
       const issued = {
@@ -66,9 +66,22 @@ test("issued credentials accept new and legacy keys only in their stored environ
       assert.throws(() =>
         parseIssuedCredentials(issued, environment === "LIVE" ? "SANDBOX" : "LIVE"),
       );
+      const otherEnvironment = environment === "LIVE" ? "SANDBOX" : "LIVE";
       assert.throws(() =>
-        parseIssuedCredentials({ ...issued, apiKey: prefix + "a".repeat(42) }, environment),
+        parseIssuedCredentials(
+          { ...issued, credential: { ...issued.credential, environment: otherEnvironment } },
+          otherEnvironment,
+        ),
       );
+      for (const secret of [
+        "a".repeat(42),
+        "a".repeat(44),
+        "a".repeat(42) + "!",
+        "abcd********wxyz",
+      ])
+        assert.throws(() =>
+          parseIssuedCredentials({ ...issued, apiKey: prefix + secret }, environment),
+        );
     }
   }
 });

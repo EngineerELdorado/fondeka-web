@@ -3,7 +3,7 @@
   "baseUrl": "https://api.fondeka.com",
   "apiMajor": "/business-api/v1",
   "files": {
-    "README.md": "399eb234b95c7fee22d8b1db005c932335b35f5f61e858d04b91946084a8c776",
+    "README.md": "753f76c40004e45785cb1611031ce116a15273ab832aac56e768fb2890e0c60f",
     "quickstart.md": "dcf0d966058ff7471751a5d801f786864d1a2db5e16ed26c2ce239b8bf78766c",
     "guides/mobile-money-collection.md": "0d4de0f39d61011240830fa582fa71b9825714193968a4a1ca534e0b397c25e8",
     "guides/mobile-money-payout.md": "9545c077f54c16e79efc46f11b67542152a808ec8c796483a77546d2feba205b",
@@ -12,18 +12,18 @@
     "concepts.md": "a757772514b5dc0059c4551007c3713964acbc96101a10cd44f931831b55c26b",
     "webhooks.md": "c6bacba9a29380d4497fba583867a27845a24dea8a25dc99e663cc4cf7bca4bc",
     "testing.md": "a0ae7251afa32168b2c714759033fea34439312281ff5adbd0811cacf622fb44",
-    "go-live.md": "3fc73902dc64fe47028fd40e9d4be4bbd9935977ccc40e52971fbedf69644511",
-    "changelog.md": "26c19d4fe7f0810071131693fa8db3d645d218773112e6aeb38ac4f5a3993d63",
-    "openapi.v1.json": "0656593eb1681fa034f6a1a58113a654a6fb4eb8752b2c2b249404f6a97db63d",
-    "postman.v1.json": "6fefb05a1404aef546e496f2a2fb6a911af9f30f0c75b58746eb0a381d4bd76d",
-    "errors.md": "45ece5ff8b4f34ce678a6b91324c6837585fca6fa0d131f56282d318411e6050",
-    "examples/curl/quickstart.sh": "8856a29de9200c6b36729f6af4eb7fcd8d52784fb0f6562d986ce68794456409",
-    "examples/node/client.mjs": "15049a5c867e707b68ea99856e2a5996cd5eb5102094fe6fd63e17845b92f563",
+    "go-live.md": "6dc6bba1ff72a26664e0bab6885c9935528647ce411298ac13cf3c7c53327e02",
+    "changelog.md": "61ec4303d5820869c56db3e3fdf47af5cba6d12f7f0287058d295b57c9ad9021",
+    "openapi.v1.json": "99e4f2913eb57d01709feb42c63416a852bc708be1cdd1c14c81a88055f37151",
+    "postman.v1.json": "4665f166b8dab204a034454008846e55757fec554396b545b76848d00941b5f3",
+    "errors.md": "652fea42f5ffcab48180cd7c608e9e7d0f485cb74bf776a4ebaf95c763034aa2",
+    "examples/curl/quickstart.sh": "15f548c60127c1509d6e70673d13bb48f75a77974e575fb40b542aa2fb15fe7b",
+    "examples/node/client.mjs": "aa12b6afb32a6d5a587d0f9040863de4e007f948e855c4d31ec0e63c9ba98705",
     "examples/node/webhook.mjs": "a550fc1e8d29fa128fa696e11901454bf67252f8d40591a9ae4ade8630a7e233",
-    "examples/node/webhook.test.mjs": "946fd6b77987e74cb66cd8ca2ece5c2796144d03ad3109aa26a1464b80ebdf9e",
-    "examples/python/client.py": "43369e9a771181f9c1fe9c0762c46574db0173137677d6dc1dd080a7b56aaa9f",
+    "examples/node/webhook.test.mjs": "a8d1d361521bdf8d6c6a6bd11d21b996b5a90bdfb8635b69d5a4f0ed6b339020",
+    "examples/python/client.py": "ef0f02433bc8f720e912936170e2ad05e8f986fa663adcb53438a0bf10ae39e3",
     "examples/python/webhook.py": "5585a0d8c4546923df70fe53a1a3339175abdb1dc78761a01fb6232f28a6c19f",
-    "examples/python/test_examples.py": "c3e1bd3a1b6b5c17c9ab88925ac6683eae4f85ff72e22931cef364a98d285956",
-    "examples/php/client.php": "c9bdafb89cef2506e53f41a1776100872e84a33a796a7d24858100ea8e663cf6"
+    "examples/python/test_examples.py": "29d28458e77c26d42c890dce30b0b91cc9532f7dbf58076f98f0926ad03eda53",
+    "examples/php/client.php": "521be5fe31989b77ac8a867c65929609b84086293e857e2cdd2953bf606ebe2a"
   }
 }

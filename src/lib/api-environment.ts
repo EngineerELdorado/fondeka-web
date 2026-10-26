@@ -1,6 +1,9 @@
 import type { ApiEnvironment, ApiKey, ApiTransaction } from "./types";
 import { isBusinessApiPaymentStatus } from "./business-api-status";
 
+const sandboxKeyPrefixes = ["fdk_sandbox_", "fdk_biz_sandbox_", "fdk_biz_test_"];
+const liveKeyPrefixes = ["fdk_live_", "fdk_biz_live_", "fdk_biz_"];
+
 export function resolveApiEnvironment(
   selected: string | null,
   current: ApiEnvironment,
@@ -36,13 +39,9 @@ export function assertKeyEnvironment(keys: ApiKey[], expected: ApiEnvironment) {
         typeof key.keyPrefix !== "string" ||
         apiEnvironment(key.environment) !== expected ||
         (expected === "SANDBOX"
-          ? !["fdk_biz_sandbox_", "fdk_biz_test_"].some((prefix) =>
-              key.keyPrefix.startsWith(prefix),
-            )
-          : !key.keyPrefix.startsWith("fdk_biz_") ||
-            ["fdk_biz_sandbox_", "fdk_biz_test_"].some((prefix) =>
-              key.keyPrefix.startsWith(prefix),
-            )),
+          ? !sandboxKeyPrefixes.some((prefix) => key.keyPrefix.startsWith(prefix))
+          : !liveKeyPrefixes.some((prefix) => key.keyPrefix.startsWith(prefix)) ||
+            sandboxKeyPrefixes.some((prefix) => key.keyPrefix.startsWith(prefix))),
     )
   )
     throw new Error(

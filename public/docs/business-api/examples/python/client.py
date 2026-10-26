@@ -12,7 +12,7 @@ class Client:
         if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path or (parsed.scheme!='https' and not(parsed.scheme=='http' and parsed.hostname in ('localhost','127.0.0.1','::1'))):
             raise ValueError('Use HTTPS or HTTP loopback for local development.')
         self.key=env.get('FONDEKA_API_KEY',''); self.business=env.get('FONDEKA_BUSINESS_ID',''); self.intent=env.get('FONDEKA_INTENT','')
-        if not self.key.startswith(('fdk_biz_sandbox_','fdk_biz_test_')): raise ValueError('This example requires a sandbox key.')
+        if not self.key.startswith(('fdk_sandbox_','fdk_biz_sandbox_','fdk_biz_test_')): raise ValueError('This example requires a sandbox key.')
         if not re.fullmatch(r'[1-9][0-9]*',self.business): raise ValueError('Set FONDEKA_BUSINESS_ID.')
         if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,80}',self.intent): raise ValueError('Set FONDEKA_INTENT once per logical run; preserve it on retries.')
         self.http=urllib.request.build_opener(NoRedirect())

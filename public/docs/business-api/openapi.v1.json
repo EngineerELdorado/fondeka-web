@@ -733,7 +733,7 @@
     },
     "securitySchemes" : {
       "Business API Key" : {
-        "description" : "Secret Business-specific credential. Keep server-side. Obtain through the authenticated Business portal. New LIVE keys use fdk_biz_live_; SANDBOX keys use fdk_biz_sandbox_. Existing fdk_biz_ LIVE and fdk_biz_test_ SANDBOX keys remain accepted. The stored credential environment is authoritative.",
+        "description" : "Secret Business-specific credential. Keep server-side. Obtain through the authenticated Business portal. New LIVE keys use fdk_live_; SANDBOX keys use fdk_sandbox_. Existing fdk_biz_live_ and fdk_biz_ LIVE keys, and fdk_biz_sandbox_ and fdk_biz_test_ SANDBOX keys, remain accepted. The stored credential environment is authoritative.",
         "in" : "header",
         "name" : "X-API-Key",
         "type" : "apiKey"

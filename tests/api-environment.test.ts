@@ -79,13 +79,13 @@ test("mismatched environments cannot be displayed as selected activity or creden
   assert.throws(() =>
     assertKeyEnvironment([{ ...live, keyPrefix: "fdk_biz_test_prefix" }], "LIVE"),
   );
-  assert.doesNotThrow(() =>
-    assertKeyEnvironment(
-      [{ ...live, environment: "LIVE", keyPrefix: "fdk_biz_live_prefix" }],
-      "LIVE",
-    ),
-  );
-  for (const prefix of ["fdk_biz_sandbox_", "fdk_biz_test_"]) {
+  for (const prefix of ["fdk_live_", "fdk_biz_live_", "fdk_biz_"]) {
+    const liveKey = { ...live, environment: "LIVE" as const, keyPrefix: prefix + "abcd" };
+    assert.doesNotThrow(() => assertKeyEnvironment([liveKey], "LIVE"));
+    assert.throws(() => assertKeyEnvironment([liveKey], "SANDBOX"));
+    assert.throws(() => assertKeyEnvironment([{ ...liveKey, environment: "SANDBOX" }], "SANDBOX"));
+  }
+  for (const prefix of ["fdk_sandbox_", "fdk_biz_sandbox_", "fdk_biz_test_"]) {
     const sandboxKey = { ...live, environment: "SANDBOX" as const, keyPrefix: prefix + "prefix" };
     assert.doesNotThrow(() => assertKeyEnvironment([sandboxKey], "SANDBOX"));
     assert.throws(() => assertKeyEnvironment([sandboxKey], "LIVE"));
@@ -168,9 +168,7 @@ test("demo sandbox history and credentials are isolated and retain non-payable f
   );
   const keys = await demoRequest<ApiKey[]>(apiKeysPath(1, "SANDBOX"));
   assert.ok(
-    keys.every(
-      (key) => key.environment === "SANDBOX" && key.keyPrefix.startsWith("fdk_biz_sandbox_"),
-    ),
+    keys.every((key) => key.environment === "SANDBOX" && key.keyPrefix.startsWith("fdk_sandbox_")),
   );
   const filtered = await demoRequest<Page<ApiTransaction>>(
     `/customer-api/businesses/1/api-transactions?${portalQuery({ ...emptyFilters, action: "BUSINESS_API_PAYOUT", status: "FAILED" }, 0, "SANDBOX")}`,
