@@ -180,11 +180,9 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
       <ProductForm
         store={s}
         onClose={() => setAdding(false)}
-        onSaved={(p) =>
-          p.type === "TRAINING"
-            ? update({ product: null, training: p.id })
-            : update({ product: p.id })
-        }
+        onSaved={(p) => {
+          if (p.type === "TRAINING") update({ product: null, training: p.id });
+        }}
       />
     );
   return (
