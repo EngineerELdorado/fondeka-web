@@ -12,7 +12,12 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { request } from "@/lib/data";
-import { businessDestination, isBusinessTool, type BusinessTool } from "@/lib/business-tools";
+import {
+  businessDestination,
+  isBusinessTool,
+  hasToolAccess,
+  type BusinessTool,
+} from "@/lib/business-tools";
 import { useUrlState } from "@/lib/use-url-state";
 import { BusinessToolsClient, mayMountOwnerData } from "@/lib/business-tools-client";
 import { mayContinueToTool, paymentCopy } from "@/lib/business-tools-ui";
@@ -20,6 +25,11 @@ import { usePaymentLanguage } from "@/lib/use-payment-language";
 import { OwnerQueriesEnabled } from "@/lib/owner-query-context";
 import { PosStoresClient, resolvePosDestination, validStoreId } from "@/lib/pos-stores";
 import { useI18n } from "@/lib/i18n";
+import { useQuery } from "@/lib/use-query";
+import { forgetCommerceQueries } from "@/lib/query-cache";
+import type { Store } from "@/lib/types";
+import { isStoreOwner } from "@/lib/commerce";
+import { storeWorkspaceId, storeVisible } from "@/lib/shared-stores";
 import { PosStoresProvider } from "./pos-stores-provider";
 import { useWorkspace } from "./workspace-provider";
 import { Loading, Modal, ErrorState } from "./ui";
@@ -90,13 +100,10 @@ function ScopedProvider({
       if (scoped.getSnapshot().purchase?.status === "PENDING") return scoped.checkStatus();
     };
     // Let the mount settle so development Strict Mode’s discarded scope makes no request.
-    const initialCheck = proactiveGate
-      ? window.setTimeout(() => void scoped.ensureAccess().then(resumePayment), 0)
-      : undefined;
+    const initialCheck = window.setTimeout(() => void scoped.ensureAccess().then(resumePayment), 0);
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      const state = scoped.getSnapshot();
-      if (proactiveGate || state.forced) void scoped.revalidate().then(resumePayment);
+      void scoped.revalidate().then(resumePayment);
     };
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
@@ -176,6 +183,14 @@ function Experience({
       resolvingPos.current = true;
       setPosResolution({});
       try {
+        await client.ensureAccess();
+        if (intent !== navigation.current) return;
+        if (!hasToolAccess(client.getSnapshot().accountAccess, "POS")) {
+          resolvingPos.current = false;
+          setPosResolution(undefined);
+          router.push("/stores?mode=pos&view=shared");
+          return;
+        }
         const target = await resolvePosDestination(stores, language, async () => {
           if (intent !== navigation.current) return false;
           if (!enabled) return true;
@@ -217,6 +232,7 @@ function Experience({
   useEffect(() => {
     if (
       !["/overview", "/business"].includes(pathname) ||
+      !hasToolAccess(state.accountAccess, "POS") ||
       !mayMountOwnerData(state, "/pos", enabled)
     )
       return;
@@ -231,6 +247,19 @@ function Experience({
       resolvingPos.current = false;
       setPosResolution(undefined);
       handoff.current = undefined;
+      const target = new URL(known, "https://portal.invalid");
+      if (
+        !denied &&
+        !tool &&
+        (target.pathname === "/pos" ||
+          (target.pathname === "/stores" &&
+            !target.searchParams.has("new") &&
+            target.searchParams.get("view") !== "owned"))
+      ) {
+        setDialog(undefined);
+        void navigate(known);
+        return;
+      }
       if (!enabled && !denied) {
         void navigate(known);
         return;
@@ -278,7 +307,7 @@ function Experience({
     // A selected locale also determines backend plan/error localization.
     if (previousLanguage.current === language) return;
     previousLanguage.current = language;
-    if (proactiveGate || client.getSnapshot().forced)
+    if (client.getSnapshot().accountAccess || proactiveGate || client.getSnapshot().forced)
       void client.reload(false, { background: true });
   }, [client, language]);
   const enter = useCallback(
@@ -337,6 +366,18 @@ function Experience({
 export function OwnerArea({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { values } = useUrlState();
+  const storeId = storeWorkspaceId(pathname);
+  if (storeId)
+    return (
+      <StoreWorkspaceGate
+        key={`${storeId}:${pathname}`}
+        id={storeId}
+        destination={`${pathname}?${values}`}
+      >
+        {children}
+      </StoreWorkspaceGate>
+    );
+  if (["/stores", "/pos"].includes(pathname)) return children;
   if (["/overview", "/business", "/settings"].includes(pathname) || !businessDestination(pathname))
     return children;
   return (
@@ -351,9 +392,11 @@ export function OwnerArea({ children }: { children: ReactNode }) {
 export function BusinessToolsGate({
   children,
   destination,
+  passive = false,
 }: {
   children: ReactNode;
   destination: string;
+  passive?: boolean;
 }) {
   const { client, state } = useBusinessTools();
   const { enabled, open, enter } = useToolNavigation();
@@ -361,21 +404,26 @@ export function BusinessToolsGate({
   const language = usePaymentLanguage();
   const copy = paymentCopy(language);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || passive) return;
     if (["/overview", "/business"].includes(destination)) void client.enter(destination);
     else
       enter(businessDestination(window.location.pathname + window.location.search) || destination);
-  }, [client, destination, enabled, enter]);
+  }, [client, destination, enabled, enter, passive]);
   useEffect(() => {
-    if (!enabled || ["/overview", "/business"].includes(destination) || state.loading) return;
+    if (!enabled || passive || ["/overview", "/business"].includes(destination) || state.loading)
+      return;
     if (mayMountOwnerData(state, destination, true)) {
       wasGranted.current = true;
     } else if (wasGranted.current) {
       wasGranted.current = false;
       open(destination);
     }
-  }, [destination, enabled, open, state]);
-  const allowed = mayMountOwnerData(state, destination, enabled);
+  }, [destination, enabled, open, state, passive]);
+  const allowed = mayMountOwnerData(
+    state,
+    destination,
+    enabled || passive || ["/overview", "/business"].includes(destination),
+  );
   const [opened, setOpened] = useState(false);
   useEffect(() => {
     if (allowed) setOpened(true);
@@ -409,5 +457,106 @@ export function BusinessToolsGate({
       label={state.error ? copy.errorTitle : copy.lockedHint}
       onOpen={() => open(destination)}
     />
+  );
+}
+
+/** Membership reads may run before personal billing; only the actual store role opens staff data. */
+function StoreWorkspaceGate({
+  id,
+  destination,
+  children,
+}: {
+  id: string;
+  destination: string;
+  children: ReactNode;
+}) {
+  const store = useQuery<Store>(`/customer-api/commerce/stores/${id}`);
+  const { accountKey } = useWorkspace();
+  const { t } = useI18n();
+  const [checked, setChecked] = useState(false);
+  const [denial, setDenial] = useState<string>();
+  const { refetch } = store;
+  const capabilityKey = JSON.stringify([
+    store.data?.accessType,
+    store.data?.capabilities,
+    store.data?.staffPermissions,
+  ]);
+  const previousCapabilities = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!store.data) return;
+    const previous = previousCapabilities.current;
+    previousCapabilities.current = capabilityKey;
+    if (previous !== undefined && previous !== capabilityKey && accountKey)
+      forgetCommerceQueries(accountKey, `/customer-api/commerce/stores/${id}`);
+  }, [accountKey, capabilityKey, id, store.data]);
+  useEffect(() => {
+    let active = true;
+    let running = false;
+    const check = () => {
+      if (running || document.visibilityState !== "visible") return;
+      running = true;
+      void refetch().finally(() => {
+        running = false;
+        if (active) setChecked(true);
+      });
+    };
+    const changed = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ accountKey?: string; storeId?: number; message?: string }>
+      ).detail;
+      if (detail?.accountKey !== accountKey || (detail.storeId && String(detail.storeId) !== id))
+        return;
+      // A readable membership does not mean the denied operation or owner's plan is available.
+      // Keep children unmounted until the customer explicitly retries; never replay the action.
+      setDenial(
+        detail.message || t("Store access unavailable.", "Accès à la boutique indisponible."),
+      );
+      setChecked(false);
+      check();
+    };
+    check();
+    window.addEventListener("focus", check);
+    window.addEventListener("pageshow", check);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("fondeka:store-access-changed", changed);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", check);
+      window.removeEventListener("pageshow", check);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("fondeka:store-access-changed", changed);
+    };
+  }, [accountKey, id, refetch, t]);
+  const error = denial || store.error || store.refreshError;
+  if (error)
+    return (
+      <ErrorState
+        message={error}
+        retry={() => {
+          setDenial(undefined);
+          setChecked(false);
+          void refetch().finally(() => setChecked(true));
+        }}
+      />
+    );
+  if (!checked || store.loading) return <Loading rows={3} />;
+  if (!store.data || !storeVisible(store.data))
+    return (
+      <ErrorState
+        message={t(
+          "This store is no longer available to your account.",
+          "Cette boutique n’est plus accessible avec votre compte.",
+        )}
+        retry={() => void refetch()}
+      />
+    );
+  if (isStoreOwner(store.data))
+    return <BusinessToolsGate destination={destination}>{children}</BusinessToolsGate>;
+  return (
+    <OwnerQueriesEnabled.Provider value={true}>
+      <div key={JSON.stringify(store.data.capabilities || store.data.staffPermissions)}>
+        {children}
+      </div>
+    </OwnerQueriesEnabled.Provider>
   );
 }

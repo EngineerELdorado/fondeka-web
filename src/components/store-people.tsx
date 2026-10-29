@@ -1,15 +1,15 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { useQuery } from "@/lib/use-query";
 import { request } from "@/lib/data";
 import { invalidateQueryPaths } from "@/lib/query-cache";
-import { staffPermissions } from "@/lib/commerce";
+import { staffPermissions, canViewCustomerOrders } from "@/lib/commerce";
 import { label, date } from "@/lib/format";
-import type { Customer, Staff, Page } from "@/lib/types";
+import type { Customer, Staff, Page, Store } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
-import { Loading, ErrorState, Empty, Modal, Pagination, SubmitButton } from "./ui";
+import { Badge, Loading, ErrorState, Empty, Modal, Pagination, SubmitButton } from "./ui";
 import { SalesPanel } from "./store-sales";
 import { CustomerCreateFlow, StaffCreateFlow } from "./people-create-flow";
 type CustomerFormProps = {
@@ -117,7 +117,8 @@ function CustomerEditor({
     </Modal>
   );
 }
-export function CustomersPanel({ storeId }: { storeId: number }) {
+export function CustomersPanel({ store }: { store: Store }) {
+  const storeId = store.id;
   const { t } = useI18n();
   const { values, update, page } = useUrlState();
   const { refresh } = useWorkspace();
@@ -271,7 +272,9 @@ export function CustomersPanel({ storeId }: { storeId: number }) {
                     {error}
                   </p>
                 )}
-                <SalesPanel storeId={storeId} customerId={selected.data.id} />
+                {canViewCustomerOrders(store) && (
+                  <SalesPanel store={store} customerId={selected.data.id} />
+                )}
               </>
             )
           )}
@@ -283,10 +286,22 @@ export function CustomersPanel({ storeId }: { storeId: number }) {
 export function StaffPanel({ storeId }: { storeId: number }) {
   const { t } = useI18n();
   const { page, update, values } = useUrlState();
-  const { refresh } = useWorkspace();
   const list = useQuery<Page<Staff>>(
     `/customer-api/commerce/stores/${storeId}/staff?page=${page}&size=20`,
   );
+  const { refetch } = list;
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState === "visible") void refetch();
+    };
+    check();
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [refetch, storeId, page]);
   const [selected, setSelected] = useState<Staff>();
   const adding = values.get("invite") === "1";
   const setAdding = (open: boolean) => update({ invite: open ? 1 : null, flow: null, step: null });
@@ -295,6 +310,35 @@ export function StaffPanel({ storeId }: { storeId: number }) {
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
+  const [readingMember, setReadingMember] = useState<number>();
+  const memberRead = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => memberRead.current?.abort(), [storeId]);
+  async function openMember(member: Staff) {
+    memberRead.current?.abort();
+    const controller = new AbortController();
+    memberRead.current = controller;
+    setReadingMember(member.id);
+    setError("");
+    try {
+      const current = await request<Staff>(
+        `/customer-api/commerce/stores/${storeId}/staff/${member.id}`,
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      setSelected(current);
+      setPermissions(current.permissions.map((permission) => permission.toUpperCase()));
+      setDeleting(false);
+    } catch (error) {
+      if (!controller.signal.aborted)
+        setError(
+          error instanceof Error
+            ? error.message
+            : t("Unable to update team.", "Impossible de modifier l’équipe."),
+        );
+    } finally {
+      if (!controller.signal.aborted) setReadingMember(undefined);
+    }
+  }
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (lock.current) return;
@@ -307,7 +351,9 @@ export function StaffPanel({ storeId }: { storeId: number }) {
         `/customer-api/commerce/stores/${storeId}/staff${selected ? `/${selected.id}` : ""}`,
         {
           method: deleting ? "DELETE" : selected ? "PATCH" : "POST",
-          ...(deleting ? {} : { body: JSON.stringify({ email, permissions }) }),
+          ...(deleting
+            ? {}
+            : { body: JSON.stringify(selected ? { permissions } : { email, permissions }) }),
         },
       );
       invalidateQueryPaths(["/customer-api/commerce/stores/" + storeId + "/staff"]);
@@ -331,6 +377,7 @@ export function StaffPanel({ storeId }: { storeId: number }) {
         <h2>{t("Team", "Équipe")}</h2>
         <button
           className="button primary small"
+          disabled={busy || readingMember !== undefined}
           onClick={() => {
             setAdding(true);
             setPermissions([]);
@@ -340,10 +387,15 @@ export function StaffPanel({ storeId }: { storeId: number }) {
           {t("Add staff", "Ajouter un membre")}
         </button>
       </div>
+      {error && !selected && (
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+      )}
       {list.loading ? (
         <Loading />
-      ) : list.error ? (
-        <ErrorState message={list.error} retry={refresh} />
+      ) : list.error || list.refreshError ? (
+        <ErrorState message={list.error || list.refreshError!} retry={() => void refetch()} />
       ) : !list.data?.content.length ? (
         <Empty
           title={t("Build your team", "Constituez votre équipe")}
@@ -357,17 +409,21 @@ export function StaffPanel({ storeId }: { storeId: number }) {
           <button
             key={member.id}
             className="detail-row"
-            onClick={() => {
-              setSelected(member);
-              setPermissions(member.permissions.map((p) => p.toUpperCase()));
-              setError("");
-            }}
+            disabled={busy || readingMember !== undefined}
+            aria-busy={readingMember === member.id}
+            onClick={() => void openMember(member)}
           >
             <span>
               <strong>{member.name || member.email}</strong>
               <small>{member.permissions.map(label).join(" · ")}</small>
+              <small>
+                {t("First store access", "Premier accès à la boutique")}: {date(member.acceptedAt)}
+              </small>
             </span>
-            <small>{date(member.createdAt)}</small>
+            <span>
+              {member.status && <Badge value={member.status} />}
+              <small>{date(member.createdAt)}</small>
+            </span>
           </button>
         ))
       )}
@@ -394,6 +450,24 @@ export function StaffPanel({ storeId }: { storeId: number }) {
           busy={busy}
         >
           <form className="form-stack" onSubmit={save}>
+            <dl className="detail-list">
+              <div>
+                <dt>{t("Access status", "Statut de l’accès")}</dt>
+                <dd>
+                  <Badge value={selected.status} />
+                </dd>
+              </div>
+              <div>
+                <dt>{t("First store access", "Premier accès à la boutique")}</dt>
+                <dd>{date(selected.acceptedAt)}</dd>
+              </div>
+            </dl>
+            <p className="muted">
+              {t(
+                "Staff access is available immediately. The first-access date is informational and does not require an acceptance step.",
+                "L’accès du membre est immédiat. La date du premier accès est informative et ne nécessite aucune acceptation.",
+              )}
+            </p>
             <label>
               {t("Staff email", "E-mail du membre")}
               <input

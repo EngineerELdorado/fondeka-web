@@ -7,13 +7,27 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { useQuery } from "@/lib/use-query";
 import type { Business, Page, PaymentRequest, Store as StoreType } from "@/lib/types";
 import { money, label } from "@/lib/format";
+import { useBusinessTools } from "./business-tools-provider";
+import { hasToolAccess } from "@/lib/business-tools";
 
 export function OwnerOverview() {
   const uiText = useUiText();
+  const { state } = useBusinessTools();
+  const access = state.accountAccess || state.access;
 
-  const stores = useQuery<Page<StoreType>>("/customer-api/commerce/stores?page=0&size=3");
-  const payments = useQuery<Page<PaymentRequest>>("/customer-api/payment_requests?page=0&size=5");
-  const businesses = useQuery<Page<Business>>("/customer-api/businesses?page=0&size=1");
+  const stores = useQuery<Page<StoreType>>(
+    hasToolAccess(access, "ONLINE_STORES") || hasToolAccess(access, "POS")
+      ? "/customer-api/commerce/stores?page=0&size=3"
+      : null,
+  );
+  const payments = useQuery<Page<PaymentRequest>>(
+    hasToolAccess(access, "PAYMENT_REQUESTS")
+      ? "/customer-api/payment_requests?page=0&size=5"
+      : null,
+  );
+  const businesses = useQuery<Page<Business>>(
+    hasToolAccess(access, "API") ? "/customer-api/businesses?page=0&size=1" : null,
+  );
   const { refresh } = useWorkspace();
   return (
     <>

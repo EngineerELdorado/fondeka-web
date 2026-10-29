@@ -7,6 +7,12 @@ export type BusinessPricingMode = "BUNDLE" | "PER_TOOL";
 export type BusinessPurchaseAction =
   "BUSINESS_TOOLS_ACCESS" | `BUSINESS_TOOLS_${BusinessTool}_ACCESS`;
 export interface BusinessToolsAccess {
+  commerceAccess?: {
+    canCreateOwnStore: boolean;
+    hasSharedStores: boolean;
+    sharedStoreCount: number;
+    sharedStoresEndpoint: string;
+  };
   tool?: BusinessToolScope;
   pricingMode?: BusinessPricingMode;
   purchaseAction?: BusinessPurchaseAction;
@@ -37,6 +43,7 @@ export interface BusinessToolsAccess {
     legacyCreditAmount: number;
     amountDue: number;
     currency: string;
+    priceSource?: "ACCOUNT" | "COUNTRY" | "BASE";
   };
 }
 export interface BusinessToolAccess extends Omit<BusinessToolsAccess, "bundle" | "tools"> {
@@ -240,6 +247,11 @@ export function businessDestination(value: string): string | undefined {
     query.set("mode", "pos");
     if (url.searchParams.get("state") === "empty") query.set("state", "empty");
   }
+  if (
+    url.pathname === "/stores" &&
+    ["owned", "shared"].includes(url.searchParams.get("view") || "")
+  )
+    query.set("view", url.searchParams.get("view")!);
   if (url.pathname === "/payment-requests" && url.searchParams.get("new") === "1")
     query.set("new", "1");
   if (url.pathname === "/pos" && /^\d+$/.test(url.searchParams.get("store") || ""))
@@ -373,6 +385,18 @@ export function parseAccess(value: unknown): BusinessToolsAccess {
     parseAccess(access.bundle);
     if (access.bundle.tool !== "BUNDLE" || access.bundle.purchaseAction !== "BUSINESS_TOOLS_ACCESS")
       throw new Error("Invalid Business Tools bundle offer.");
+  }
+  if (access.commerceAccess !== undefined) {
+    const commerce = access.commerceAccess;
+    if (
+      !commerce ||
+      typeof commerce.canCreateOwnStore !== "boolean" ||
+      typeof commerce.hasSharedStores !== "boolean" ||
+      !Number.isSafeInteger(commerce.sharedStoreCount) ||
+      commerce.sharedStoreCount < 0 ||
+      commerce.sharedStoresEndpoint !== "/customer-api/commerce/stores/shared"
+    )
+      throw new Error("Invalid shared-store access summary.");
   }
   if (access.tools !== undefined) {
     if (

@@ -1,7 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { demoRequest, resetDemo } from "../src/lib/demo";
-import type { ApiKey, ApiTransaction, Order, Page, Product, Quote } from "../src/lib/types";
+import type {
+  ApiKey,
+  ApiTransaction,
+  Order,
+  Page,
+  Product,
+  Quote,
+  Staff,
+  Store,
+} from "../src/lib/types";
 
 test("credential demo edits only an active owned key URL and keeps LIVE/SANDBOX metadata separate", async () => {
   resetDemo();
@@ -76,6 +85,119 @@ test("demo cash checkout quotes decimals correctly, records one order, and reduc
     }),
     /stock/,
   );
+});
+test("demo shared-store filtering and POS payment stay scoped to the assigned store", async () => {
+  resetDemo();
+  await demoRequest("/customer-api/commerce/stores/1", {
+    method: "PATCH",
+    body: JSON.stringify({ accessType: "STAFF", shared: true, staffPermissions: ["POS"] }),
+  });
+  const shared = await demoRequest<Page<Store>>(
+    "/customer-api/commerce/stores/shared?page=0&size=1&permission=POS",
+  );
+  assert.equal(shared.totalElements, 1);
+  assert.deepEqual(
+    shared.content.map((store) => store.id),
+    [1],
+  );
+  const products = await demoRequest<Page<Store>>(
+    "/customer-api/commerce/stores/shared?permission=PRODUCTS",
+  );
+  assert.equal(products.totalElements, 0);
+  const create = (paymentMode: string) =>
+    demoRequest<Order>("/customer-api/commerce/stores/1/pos/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        items: [{ productId: 2, quantity: 1 }],
+        billingCurrency: "USD",
+        paymentCurrency: "USD",
+        paymentMode,
+        paymentStatus: "PAID",
+        customerId: 1,
+      }),
+    });
+  const order = await create("FONDEKA");
+  assert.equal(order.accessToken, "demo-order-token");
+  assert.equal(order.customerId, 1);
+  const path = `/customer-api/commerce/stores/1/pos/orders/${order.reference}`;
+  const payment = {
+    method: "POST",
+    body: JSON.stringify({
+      paymentMethodId: 2,
+      currency: "USD",
+      idempotencyKey: "demo-staff-payment",
+    }),
+  };
+  const paid = await demoRequest<Order>(path + "/payments/start", payment);
+  assert.equal(paid.paymentTransactionStatus, "COMPLETED");
+  assert.equal(paid.totalAmount, order.totalAmount);
+  assert.equal(Object.hasOwn(paid, "accessToken"), false);
+  assert.deepEqual(await demoRequest(path + "/payments/start", payment), paid);
+  assert.deepEqual(await demoRequest(path), paid);
+  const legacy = await demoRequest<Order>(
+    `/customer-api/commerce/orders/${order.reference}?accessToken=${order.accessToken}`,
+  );
+  assert.equal(legacy.accessToken, order.accessToken);
+  assert.equal(legacy.customerId, order.customerId);
+  await assert.rejects(demoRequest(path.replace("stores/1", "stores/2")), /unavailable/);
+  await assert.rejects(
+    demoRequest(path + "/payments/start", {
+      ...payment,
+      body: JSON.stringify({ fiatWalletId: 1 }),
+    }),
+    /unavailable/,
+  );
+  const cash = await create("CASH");
+  await assert.rejects(
+    demoRequest(
+      `/customer-api/commerce/stores/1/pos/orders/${cash.reference}/payments/start`,
+      payment,
+    ),
+    /unavailable/,
+  );
+  resetDemo();
+});
+test("staff assignments are immediately active, preserve durable identity and do not treat owner reads as first entry", async () => {
+  resetDemo();
+  const path = "/customer-api/commerce/stores/1/staff";
+  const create = (email: string, permissions: string[]) =>
+    demoRequest<Staff>(path, { method: "POST", body: JSON.stringify({ email, permissions }) });
+  const member = await create("staff@example.test", ["pos", "sales"]);
+  assert.equal(member.status, "ACTIVE");
+  assert.equal(member.acceptedAt, null);
+  assert.deepEqual(member.permissions, ["POS", "SALES"]);
+  assert.deepEqual(await demoRequest(`${path}/${member.id}`), member);
+  assert.equal((await demoRequest<Page<Staff>>(path)).content[0].acceptedAt, null);
+  const duplicate = await create("STAFF@example.test", ["customers"]);
+  assert.equal(duplicate.id, member.id);
+  assert.equal((await demoRequest<Page<Staff>>(path)).totalElements, 1);
+  const updated = await demoRequest<Staff>(`${path}/${member.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ permissions: ["reports"] }),
+  });
+  assert.deepEqual(updated.permissions, ["REPORTS"]);
+  assert.equal(updated.id, member.id);
+  assert.equal(updated.email, member.email);
+  assert.equal(updated.acceptedAt, null);
+  assert.equal(await demoRequest(`${path}/${member.id}`, { method: "DELETE" }), undefined);
+  for (const method of ["GET", "PATCH", "DELETE"])
+    await assert.rejects(
+      demoRequest(`${path}/${member.id}`, {
+        method,
+        ...(method === "PATCH" ? { body: JSON.stringify({ permissions: ["pos"] }) } : {}),
+      }),
+      (error: { status?: number; code?: string }) =>
+        error.status === 404 && error.code === "NO_RESULT",
+    );
+  const regranted = await create("staff@example.test", ["pos"]);
+  assert.equal(regranted.id, member.id);
+  assert.equal(regranted.acceptedAt, member.acceptedAt);
+  assert.equal(regranted.status, "ACTIVE");
+  await assert.rejects(
+    demoRequest(`/customer-api/commerce/stores/2/staff/${member.id}`),
+    (error: { status?: number }) => error.status === 404,
+  );
+  resetDemo();
 });
 test("demo API history paginates and filters directions, exact references, and currencies", async () => {
   const first = await demoRequest<Page<ApiTransaction>>(

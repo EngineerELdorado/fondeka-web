@@ -34,6 +34,7 @@ const navigation = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/stores", label: "Online Stores", icon: Store },
+  { href: "/stores?view=shared", label: "Stores shared with me", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
   { href: "/developers", label: "Payments API", icon: Code2 },
 ];
@@ -47,6 +48,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     (pathname === "/stores" && values.get("mode") === "pos")
       ? "/pos"
       : pathname;
+  const sharedActive =
+    pathname === "/stores" && values.get("view") === "shared" && values.get("mode") !== "pos";
+  const activeLink = (href: string) =>
+    href === "/stores?view=shared"
+      ? sharedActive
+      : href === "/stores"
+        ? activePath.startsWith(href) && !sharedActive
+        : activePath.startsWith(href);
   const [open, setOpen] = useState(false);
   const workspaceTone = activePath.startsWith("/pos")
     ? "amber"
@@ -106,13 +115,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                className={`nav-item ${activePath.startsWith(href) ? "active" : ""}`}
-                aria-current={activePath.startsWith(href) ? "page" : undefined}
+                className={`nav-item ${activeLink(href) ? "active" : ""}`}
+                aria-current={activeLink(href) ? "page" : undefined}
                 onClick={() => setOpen(false)}
               >
                 <Icon size={19} />
                 <span>{uiText(label)}</span>
-                {activePath.startsWith(href) && <span className="nav-active-dot" />}
+                {activeLink(href) && <span className="nav-active-dot" />}
               </Link>
             ),
           )}
@@ -169,9 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>{uiText("Workspace")}</span>
             <span className="breadcrumb-slash">/</span>
             <strong>
-              {uiText(
-                navigation.find((item) => activePath.startsWith(item.href))?.label ?? "Settings",
-              )}
+              {uiText(navigation.find((item) => activeLink(item.href))?.label ?? "Settings")}
             </strong>
             {developerSections.find((section) => section.href === pathname) && (
               <>

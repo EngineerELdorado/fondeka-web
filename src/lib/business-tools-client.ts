@@ -53,7 +53,9 @@ export function mayMountOwnerData(
     !enabled ||
     (!state.loading &&
       !state.error &&
-      effectiveAccess(state, destination)?.accessGranted === true &&
+      (["/overview", "/business"].includes(destination)
+        ? hasAnyToolAccess(state.accountAccess || state.access)
+        : effectiveAccess(state, destination)?.accessGranted === true) &&
       !!businessDestination(destination) &&
       !resourceAccessUnavailable(state, destination))
   );

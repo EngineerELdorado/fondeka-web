@@ -10,7 +10,7 @@ export default function Pos() {
   const values = useSearchParams();
   const search = values.toString();
   useEffect(() => {
-    if (!enabled) open(`/pos${search ? `?${search}` : ""}`);
+    open(`/pos${search ? `?${search}` : ""}`);
   }, [enabled, open, search]);
   return <Loading rows={3} />;
 }

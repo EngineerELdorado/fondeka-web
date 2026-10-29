@@ -810,6 +810,7 @@ export function PosRegister({ store }: { store: Store }) {
       {external && (
         <CollectionDialog
           order={external}
+          store={store}
           onDone={refresh}
           onClose={() => {
             setReceipt(external);
@@ -820,6 +821,7 @@ export function PosRegister({ store }: { store: Store }) {
       {receipt && (
         <SaleDetail
           order={receipt}
+          store={store}
           onClose={() => setReceipt(undefined)}
           onNewSale={() => {
             setReceipt(undefined);

@@ -159,7 +159,7 @@ export function Pagination({
 }: {
   page: number;
   pages: number;
-  total: number;
+  total?: number;
   onChange: (page: number) => void;
 }) {
   const uiText = useUiText();
@@ -167,8 +167,12 @@ export function Pagination({
   return (
     <div className="pagination">
       <span>
-        {total} {uiText(total === 1 ? "result" : "results")}
-        {" · "}
+        {total !== undefined && (
+          <>
+            {total} {uiText(total === 1 ? "result" : "results")}
+            {" · "}
+          </>
+        )}
         {uiText("Page")} {page + 1} {uiText("of")} {Math.max(1, pages)}
       </span>
       <div>

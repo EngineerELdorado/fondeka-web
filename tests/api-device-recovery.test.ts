@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { DeviceError, isDeviceError, mayRetryDeviceRead } from "../src/lib/device-session";
+import { storeOwnerAccessRequired } from "../src/lib/shared-stores";
+import { isBusinessTool, needsBusinessToolsRecovery } from "../src/lib/business-tools";
 
 const source = ts.transpileModule(readFileSync("src/lib/api.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -14,9 +16,11 @@ function client(responses: Response[]) {
   let clearedSessions = 0;
   let clearedQueries = 0;
   const events: string[] = [];
+  const eventDetails: { type: string; detail: unknown }[] = [];
   const renewals: (string | undefined)[] = [];
   const calls: { path: string; method: string; headers: Headers; body: unknown }[] = [];
   const dependencies: Record<string, unknown> = {
+    "./shared-stores": { storeOwnerAccessRequired },
     "./auth": { accessToken: async () => "customer-token", customerScope: async () => "owner" },
     "./session-scope": { tokenCustomerScope: () => "owner" },
     "./device-session": { DeviceError, mayRetryDeviceRead },
@@ -34,12 +38,13 @@ function client(responses: Response[]) {
       },
     },
     "./business-tools": {
-      isBusinessTool: () => false,
-      needsBusinessToolsRecovery: () => false,
+      isBusinessTool,
+      needsBusinessToolsRecovery,
     },
     "./query-cache": {
       clearQueryCache: () => clearedQueries++,
       invalidateQueryPaths: () => {},
+      forgetCommerceQueries: () => {},
     },
   };
   const exports: { api?: <T>(path: string, init?: RequestInit) => Promise<T> } = {};
@@ -60,7 +65,12 @@ function client(responses: Response[]) {
     },
     AbortSignal,
     document: { documentElement: { lang: "en" } },
-    window: { dispatchEvent: (event: Event) => events.push(event.type) },
+    window: {
+      dispatchEvent: (event: Event & { options?: { detail: unknown } }) => {
+        events.push(event.type);
+        if (event.options) eventDetails.push({ type: event.type, detail: event.options.detail });
+      },
+    },
     fetch: async (path: string, init: RequestInit) => {
       calls.push({
         path,
@@ -76,6 +86,7 @@ function client(responses: Response[]) {
     api: exports.api!,
     calls,
     events,
+    eventDetails,
     renewals,
     clearedSessions: () => clearedSessions,
     clearedQueries: () => clearedQueries,
@@ -142,4 +153,54 @@ test("an expired customer login still clears private queries and returns to sign
   assert.equal(browser.calls.length, 1);
   assert.equal(browser.clearedQueries(), 1);
   assert.deepEqual(browser.events, ["fondeka:session-expired"]);
+});
+
+test("a staff member is told to contact the owner without opening a personal purchase", async () => {
+  for (const envelope of ["access", "details"] as const) {
+    const access = {
+      paymentResponsibility: "STORE_OWNER",
+      staffPaymentRequired: false,
+      accessType: "STAFF",
+      storeId: 74,
+      ownerAccountId: 100,
+      requestedTool: "POS",
+    };
+    const browser = client([
+      Response.json(
+        {
+          errorCode: "BUSINESS_TOOLS_ACCESS_REQUIRED",
+          message: "Owner subscription inactive",
+          ...(envelope === "access" ? { access } : { details: { access } }),
+        },
+        { status: 403 },
+      ),
+    ]);
+    await assert.rejects(
+      browser.api("/customer-api/commerce/stores/74/pos/orders/quote", {
+        method: "POST",
+        body: "{}",
+      }),
+      (error: unknown) => {
+        assert.match((error as Error).message, /store owner needs to activate access/);
+        assert.match((error as Error).message, /do not need a personal purchase/);
+        return true;
+      },
+    );
+    assert.deepEqual(browser.events, ["fondeka:store-access-changed"]);
+    const detail = browser.eventDetails[0].detail as { storeId: number; message: string };
+    assert.equal(detail.storeId, 74);
+    assert.match(detail.message, /store owner needs to activate access/);
+    assert.equal(browser.calls.length, 1);
+  }
+});
+test("personal entitlement denials retain the normal purchase recovery while removed store permissions do not", async () => {
+  const owner = client([rejection("BUSINESS_TOOLS_ACCESS_REQUIRED", 403)]);
+  await assert.rejects(owner.api("/customer-api/commerce/stores/74/products"), { status: 403 });
+  assert.ok(owner.events.includes("fondeka:business-tools-required"));
+  for (const status of [403, 404]) {
+    const staff = client([rejection(status === 403 ? "PERMISSION_DENIED" : "NO_RESULT", status)]);
+    await assert.rejects(staff.api("/customer-api/commerce/stores/74/products"), { status });
+    assert.deepEqual(staff.events, ["fondeka:store-access-changed"]);
+    assert.equal(staff.calls.length, 1);
+  }
 });

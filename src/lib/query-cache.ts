@@ -160,6 +160,23 @@ export function clearQueryCache() {
   revisions.clear();
   for (const listener of listeners) listener();
 }
+/** Evict revoked store data without changing query revisions or replaying the rejected read. */
+export function forgetCommerceQueries(accountKey: string, rejectedPath: string) {
+  for (const [key, entry] of entries)
+    if (key.startsWith(accountKey + ":") && entry.path?.startsWith("/customer-api/commerce/"))
+      entries.delete(key);
+  for (const [key, task] of pending)
+    if (
+      key.startsWith(accountKey + ":") &&
+      task.path.startsWith("/customer-api/commerce/") &&
+      task.path !== rejectedPath
+    ) {
+      task.controller.abort();
+      pending.delete(key);
+    }
+  dataRevision++;
+  for (const listener of listeners) listener();
+}
 export function clearCollectionRecovery(keepAccount?: string) {
   if (typeof window === "undefined") return;
   try {

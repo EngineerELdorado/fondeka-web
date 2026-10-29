@@ -4,8 +4,9 @@ import { accessToken, customerScope } from "./auth";
 import { clearDeviceSession, deviceHeaders, ensureDeviceSession, isDeviceError } from "./device";
 import { DeviceError, mayRetryDeviceRead } from "./device-session";
 import { isBusinessTool, needsBusinessToolsRecovery } from "./business-tools";
-import { clearQueryCache, invalidateQueryPaths } from "./query-cache";
+import { clearQueryCache, invalidateQueryPaths, forgetCommerceQueries } from "./query-cache";
 import { tokenCustomerScope } from "./session-scope";
+import { storeOwnerAccessRequired } from "./shared-stores";
 
 export class ApiError extends Error {
   constructor(
@@ -105,6 +106,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
     if (!response.ok) {
       const code = body?.code ?? body?.errorCode;
+      const ownerActivationStore =
+        response.status === 403 && code === "BUSINESS_TOOLS_ACCESS_REQUIRED"
+          ? storeOwnerAccessRequired(body)
+          : undefined;
       // Only safe reads can resume after a server-expired proof. Never replay a write.
       if (
         attempt === 0 &&
@@ -125,7 +130,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         }
       } else if (response.status === 401)
         window.dispatchEvent(new Event("fondeka:session-expired"));
-      else if (needsBusinessToolsRecovery(response.status, code, path)) {
+      else if (!ownerActivationStore && needsBusinessToolsRecovery(response.status, code, path)) {
         invalidateQueryPaths([path.split("?")[0]]);
         const deniedAccess = body?.access ?? body?.details?.access;
         const tool = deniedAccess?.requestedTool ?? deniedAccess?.tool;
@@ -135,14 +140,35 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
           }),
         );
       }
-      throw new ApiError(
+      const message =
+        (ownerActivationStore
+          ? document.documentElement.lang.startsWith("fr")
+            ? "Le propriétaire de la boutique doit activer son accès. Contactez-le pour continuer ; aucun achat personnel n’est requis pour cette boutique partagée."
+            : "The store owner needs to activate access. Contact the owner to continue; you do not need a personal purchase for this shared store."
+          : undefined) ||
         body?.message ||
-          body?.detail ||
-          body?.title ||
-          `The request failed (${response.status}). Please try again.`,
-        response.status,
-        code,
-      );
+        body?.detail ||
+        body?.title ||
+        `The request failed (${response.status}). Please try again.`;
+      if (
+        [403, 404].includes(response.status) &&
+        !isDeviceError(code) &&
+        path.startsWith("/customer-api/commerce/")
+      ) {
+        forgetCommerceQueries(accountKey, path);
+        window.dispatchEvent(
+          new CustomEvent("fondeka:store-access-changed", {
+            detail: {
+              accountKey,
+              message,
+              storeId:
+                ownerActivationStore ??
+                (Number(/^\/customer-api\/commerce\/stores\/(\d+)/.exec(path)?.[1]) || undefined),
+            },
+          }),
+        );
+      }
+      throw new ApiError(message, response.status, code);
     }
     return body as T;
   }

@@ -5,12 +5,14 @@ import { useQuery } from "@/lib/use-query";
 import { useUrlState } from "@/lib/use-url-state";
 import { money, date, label } from "@/lib/format";
 import { receiptHtml, receiptText } from "@/lib/receipt";
-import { reportQuery } from "@/lib/commerce";
-import type { Order, Page, SalesReport } from "@/lib/types";
+import { reportQuery, canUseStore, isStoreOwner } from "@/lib/commerce";
+import { posOrderPath } from "@/lib/pos-payment";
+import type { Order, Page, SalesReport, Store } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
 import { Badge, Loading, ErrorState, Empty, Modal, Pagination } from "./ui";
 import { CollectionDialog } from "./collection-dialog";
-export function SalesPanel({ storeId, customerId }: { storeId: number; customerId?: number }) {
+export function SalesPanel({ store, customerId }: { store: Store; customerId?: number }) {
+  const storeId = store.id;
   const { t } = useI18n();
   const { refresh } = useWorkspace();
   const { values, update, page } = useUrlState();
@@ -84,25 +86,33 @@ export function SalesPanel({ storeId, customerId }: { storeId: number; customerI
           onChange={(v) => (customerId ? update({ customerSalesPage: v }) : update({ page: v }))}
         />
       )}
-      {selected && <SaleDetail order={selected} onClose={() => update({ sale: null })} />}
+      {selected && (
+        <SaleDetail order={selected} store={store} onClose={() => update({ sale: null })} />
+      )}
     </>
   );
 }
 export function SaleDetail({
   order,
+  store,
   onClose,
   onNewSale,
 }: {
   order: Order;
+  store: Store;
   onClose: () => void;
   onNewSale?: () => void;
 }) {
   const { t, language } = useI18n();
   const { refresh, notify } = useWorkspace();
+  const scopedPos =
+    store.accessType === "STAFF" && order.channel === "POS" && canUseStore(store, "POS");
   const details = useQuery<Order>(
-    order.accessToken
-      ? `/customer-api/commerce/orders/${encodeURIComponent(order.reference)}?${new URLSearchParams({ accessToken: order.accessToken })}`
-      : null,
+    scopedPos
+      ? posOrderPath(store.id, order.reference)
+      : order.accessToken
+        ? `/customer-api/commerce/orders/${encodeURIComponent(order.reference)}?${new URLSearchParams({ accessToken: order.accessToken })}`
+        : null,
   );
   const sale = details.data || order;
   const [collect, setCollect] = useState(false);
@@ -111,7 +121,11 @@ export function SaleDetail({
     status?: string;
     amount?: number;
     currency?: string;
-  }>(sale.paymentTransactionId ? `/customer-api/transactions/${sale.paymentTransactionId}` : null);
+  }>(
+    !scopedPos && isStoreOwner(store) && sale.paymentTransactionId
+      ? `/customer-api/transactions/${sale.paymentTransactionId}`
+      : null,
+  );
   async function share() {
     const text = receiptText(sale, language);
     try {
@@ -161,6 +175,7 @@ export function SaleDetail({
     return (
       <CollectionDialog
         order={sale}
+        store={scopedPos ? store : undefined}
         onDone={refresh}
         onClose={() => {
           setCollect(false);
@@ -248,7 +263,7 @@ export function SaleDetail({
         </button>
         {sale.posPaymentMode === "FONDEKA" &&
           sale.status === "PENDING_PAYMENT" &&
-          sale.accessToken && (
+          (scopedPos || sale.accessToken) && (
             <button className="button primary" onClick={() => setCollect(true)}>
               {sale.paymentTransactionId
                 ? t("Payment status", "Statut du paiement")

@@ -2,6 +2,7 @@
 import { mayMountOwnerData } from "@/lib/business-tools-client";
 import { businessDisplayName } from "@/lib/business-profile";
 import { useQuery } from "@/lib/use-query";
+import { hasToolAccess } from "@/lib/business-tools";
 import { useUiText } from "@/lib/use-ui-text";
 import type { Business, Page } from "@/lib/types";
 import { useBusinessTools, useToolNavigation } from "./business-tools-provider";
@@ -11,7 +12,7 @@ export function WorkspaceBusinessId() {
   const { state } = useBusinessTools();
   const { enabled } = useToolNavigation();
   const businesses = useQuery<Page<Business>>(
-    mayMountOwnerData(state, "/developers", enabled)
+    hasToolAccess(state.accountAccess, "API") && mayMountOwnerData(state, "/developers", enabled)
       ? "/customer-api/businesses?page=0&size=20"
       : null,
   );

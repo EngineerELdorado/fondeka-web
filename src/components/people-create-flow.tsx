@@ -167,13 +167,19 @@ export function StaffCreateFlow({ storeId, onClose }: { storeId: number; onClose
       "Manage the product catalog.",
       "Gérer le catalogue de produits.",
     ],
-    ["sales", "Sales", "Ventes", "View sales and receipts.", "Consulter les ventes et reçus."],
+    [
+      "sales",
+      "Sales",
+      "Ventes",
+      "View sales and manage settlements.",
+      "Consulter les ventes et gérer les règlements.",
+    ],
     [
       "customers",
       "Customers",
       "Clients",
-      "Manage customer details.",
-      "Gérer les coordonnées des clients.",
+      "Manage customers and view their order history.",
+      "Gérer les clients et consulter leur historique de commandes.",
     ],
   ];
   const steps: GuidedStep<Invitation>[] = [
@@ -232,7 +238,7 @@ export function StaffCreateFlow({ storeId, onClose }: { storeId: number; onClose
     },
     {
       id: "review",
-      title: t("Review invitation", "Vérifiez l’invitation"),
+      title: t("Review staff access", "Vérifiez l’accès du membre"),
       render: ({ value, go }) => (
         <>
           <FlowReview title={t("Staff member", "Membre de l’équipe")} edit={() => go("identity")}>
@@ -246,13 +252,19 @@ export function StaffCreateFlow({ storeId, onClose }: { storeId: number; onClose
                 .join(" · ") || t("No permissions selected", "Aucune autorisation sélectionnée")}
             </p>
           </FlowReview>
+          <p className="muted">
+            {t(
+              "Access is available immediately after adding this staff member. No invitation acceptance is required.",
+              "L’accès est disponible dès l’ajout du membre. Aucune invitation n’est à accepter.",
+            )}
+          </p>
         </>
       ),
     },
   ];
   return (
     <Modal
-      title={t("Invite staff member", "Inviter un membre")}
+      title={t("Add staff member", "Ajouter un membre")}
       onClose={() => closeRequest.current?.()}
       hideHeader
       className="guided-dialog"
@@ -261,14 +273,14 @@ export function StaffCreateFlow({ storeId, onClose }: { storeId: number; onClose
         compact
         closeRequest={closeRequest}
         id="staff"
-        title={t("Invite staff member", "Inviter un membre")}
+        title={t("Add staff member", "Ajouter un membre")}
         steps={steps}
         value={draft.value}
         set={draft.set}
         dirty={draft.dirty}
         onDiscard={draft.clear}
         onClose={onClose}
-        finalLabel={t("Invite staff member", "Inviter le membre")}
+        finalLabel={t("Add staff member", "Ajouter le membre")}
         onFinish={async () => {
           await request(`/customer-api/commerce/stores/${storeId}/staff`, {
             method: "POST",

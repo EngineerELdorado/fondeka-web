@@ -4,7 +4,8 @@ import { useI18n } from "@/lib/i18n";
 import { request } from "@/lib/data";
 import { money, parseAmount } from "@/lib/format";
 import type { PaymentSelection, PaymentTransaction } from "@/lib/business-tools";
-import type { Order, PaymentRequest } from "@/lib/types";
+import type { Order, PaymentRequest, Store } from "@/lib/types";
+import { posOrderPath, posOrderTransaction, posPaymentBody } from "@/lib/pos-payment";
 import { useWorkspace } from "./workspace-provider";
 import { Modal, Badge } from "./ui";
 import { PaymentMethodWidget } from "./payment-method-widget";
@@ -12,16 +13,21 @@ import { TransactionInstructions } from "./transaction-instructions";
 export function CollectionDialog({
   payment,
   order,
+  store,
   onClose,
   onDone,
 }: {
   payment?: PaymentRequest;
   order?: Order;
+  store?: Store;
   onClose: () => void;
   onDone: () => void;
 }) {
   const { t } = useI18n();
   const { accountKey } = useWorkspace();
+  const scopedPos = store?.accessType === "STAFF" && order?.channel === "POS";
+  const posStoreId = scopedPos ? store.id : undefined;
+  const orderReference = order?.reference;
   const variable =
     !!payment && (payment.type === "DONATION" || payment.allowPartial || payment.amount == null);
   const currency = payment?.currency || order?.paymentCurrency || order?.totalCurrency || "USD";
@@ -49,7 +55,7 @@ export function CollectionDialog({
   const [uncertain, setUncertain] = useState(false);
   const lock = useRef(false);
   const [checks, setChecks] = useState(0);
-  const storageKey = `fondeka-collection:${accountKey}:${payment ? `request-${payment.id}` : `order-${order?.reference}`}`;
+  const storageKey = `fondeka-collection:${accountKey}:${payment ? `request-${payment.id}` : `order-${order?.storeId}-${order?.reference}`}`;
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null");
@@ -83,11 +89,11 @@ export function CollectionDialog({
     setBusy(true);
     setError("");
     try {
-      const response = await request<{ transactionId?: number; paymentTransactionId?: number }>(
-        original.path,
-        { method: "POST", body: original.body },
-      );
+      const response = await request<
+        Order & { transactionId?: number; paymentTransactionId?: number }
+      >(original.path, { method: "POST", body: original.body });
       const id = response.transactionId ?? response.paymentTransactionId;
+      if (scopedPos) setTransaction(posOrderTransaction(response, store!.id, order!.reference));
       if (!Number.isSafeInteger(id) || id! <= 0)
         throw new Error(
           t(
@@ -151,10 +157,14 @@ export function CollectionDialog({
           },
           feeApplicationMode: payment.feeInclusion === "ABSORBED" ? "INCLUSIVE" : "EXCLUSIVE",
         }
-      : { paymentMethod: selection, idempotencyKey: key };
+      : scopedPos
+        ? posPaymentBody(selection, key)
+        : { paymentMethod: selection, idempotencyKey: key };
     const path = payment
       ? `/customer-api/payment_requests/${payment.id}/collect`
-      : `/customer-api/commerce/orders/${encodeURIComponent(order!.reference)}/payments/start?${new URLSearchParams({ accessToken: order?.accessToken || "" })}`;
+      : scopedPos
+        ? `${posOrderPath(store!.id, order!.reference)}/payments/start`
+        : `/customer-api/commerce/orders/${encodeURIComponent(order!.reference)}/payments/start?${new URLSearchParams({ accessToken: order?.accessToken || "" })}`;
     const original = { path, body: JSON.stringify(body) };
     // Order access tokens remain in memory. Only a request's scoped retry selection is persisted.
     if (payment) {
@@ -183,7 +193,13 @@ export function CollectionDialog({
       if (!active || running || document.visibilityState !== "visible") return;
       running = true;
       try {
-        const tx = await request<PaymentTransaction>(`/customer-api/transactions/${transactionId}`);
+        const tx = scopedPos
+          ? posOrderTransaction(
+              await request<Order>(posOrderPath(posStoreId!, orderReference!)),
+              posStoreId!,
+              orderReference!,
+            )
+          : await request<PaymentTransaction>(`/customer-api/transactions/${transactionId}`);
         if (!active) return;
         setTransaction(tx);
         if (
@@ -221,7 +237,7 @@ export function CollectionDialog({
       window.removeEventListener("focus", resume);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [transactionId, checks, storageKey, t, onDone]);
+  }, [transactionId, checks, storageKey, t, onDone, scopedPos, posStoreId, orderReference]);
   const terminal = [
     "COMPLETED",
     "SUCCESS",

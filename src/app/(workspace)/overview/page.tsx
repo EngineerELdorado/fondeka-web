@@ -67,8 +67,8 @@ export default function Overview() {
           <h2>{t("Your business toolkit", "Vos outils Business")}</h2>
           <p className="muted">
             {t(
-              "Four tools. One account-level activation.",
-              "Quatre outils. Une activation pour votre compte.",
+              "Choose a tool to see your access and available offers.",
+              "Choisissez un outil pour consulter votre accès et les offres disponibles.",
             )}
           </p>
         </div>

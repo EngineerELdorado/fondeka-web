@@ -379,9 +379,9 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                   )}
                 </>
               ) : tab === "sales" ? (
-                <SalesPanel storeId={s.id} />
+                <SalesPanel store={s} />
               ) : tab === "customers" ? (
-                <CustomersPanel storeId={s.id} />
+                <CustomersPanel store={s} />
               ) : tab === "reports" ? (
                 <ReportsPanel storeId={s.id} />
               ) : tab === "staff" ? (

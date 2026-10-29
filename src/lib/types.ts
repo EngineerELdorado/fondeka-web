@@ -18,6 +18,21 @@ export interface Store {
   visibility?: string;
   accessType?: string;
   staffPermissions?: string[];
+  ownerAccountId?: number;
+  businessId?: number | null;
+  shared?: boolean;
+  capabilities?: {
+    canViewStore: boolean;
+    canUsePos: boolean;
+    canManageProducts: boolean;
+    canViewSales: boolean;
+    canManageCustomers: boolean;
+    canViewReports: boolean;
+    canViewCustomerOrderHistory: boolean;
+    canManageStore: boolean;
+    canManageStaff: boolean;
+    canManageSettlements: boolean;
+  };
   storefrontUrl?: string;
   publicUrl?: string;
   createdAt?: string;
@@ -314,10 +329,13 @@ export interface Customer {
 }
 export interface Staff {
   storeId?: number;
+  accountId?: number;
   id: number;
   email: string;
   name?: string;
   permissions: string[];
+  status?: string;
+  acceptedAt?: string | null;
   createdAt?: string;
 }
 export interface SaleItem {

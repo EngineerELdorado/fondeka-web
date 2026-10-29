@@ -4,6 +4,7 @@
   "Payment processing. Long-running payments may need provider or manual reconciliation. Keep this reference and investigate before creating a replacement payment.": "Paiement en cours. Un paiement long peut nécessiter un rapprochement fournisseur ou manuel. Conservez cette référence et vérifiez avant de créer un paiement de remplacement.",
   "Couldn’t refresh balances. Showing the last loaded balances.": "Impossible d’actualiser les soldes. Les derniers soldes chargés sont affichés.",
   "All": "Tous",
+  "Stores shared with me": "Boutiques partagées avec moi",
   "Amount": "Montant",
   "Back": "Retour",
   "Business": "Business",

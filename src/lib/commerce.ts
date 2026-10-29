@@ -19,15 +19,40 @@ export function isStoreOwner(store: Store) {
   return store.accessType === "OWNER";
 }
 export function canUseStore(store: Store, permission: string) {
+  if (!["OWNER", "STAFF"].includes(store.accessType || "")) return false;
+  const key = {
+    POS: "canUsePos",
+    PRODUCTS: "canManageProducts",
+    SALES: "canViewSales",
+    CUSTOMERS: "canManageCustomers",
+    REPORTS: "canViewReports",
+  }[permission.toUpperCase()] as keyof NonNullable<Store["capabilities"]> | undefined;
+  if (store.capabilities) return !!key && store.capabilities[key] === true;
   return (
     isStoreOwner(store) ||
     (store.accessType === "STAFF" &&
       !!store.staffPermissions?.some((value) => value.toUpperCase() === permission.toUpperCase()))
   );
 }
+export function canViewCustomerOrders(store: Store) {
+  return store.capabilities
+    ? store.capabilities.canViewCustomerOrderHistory === true
+    : canUseStore(store, "CUSTOMERS");
+}
+export function canManageStore(
+  store: Store,
+  capability: "canManageStore" | "canManageStaff" | "canManageSettlements",
+) {
+  if (capability === "canManageSettlements")
+    return store.capabilities
+      ? ["OWNER", "STAFF"].includes(store.accessType || "") &&
+          store.capabilities.canManageSettlements === true
+      : canUseStore(store, "SALES");
+  return isStoreOwner(store) && (!store.capabilities || store.capabilities[capability] === true);
+}
 export function storeTabAllowed(store: Store, tab: string) {
   return ["staff", "settings"].includes(tab)
-    ? isStoreOwner(store)
+    ? canManageStore(store, tab === "staff" ? "canManageStaff" : "canManageStore")
     : canUseStore(
         store,
         { products: "PRODUCTS", sales: "SALES", customers: "CUSTOMERS", reports: "REPORTS" }[tab] ||

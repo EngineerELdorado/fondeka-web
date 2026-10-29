@@ -20,6 +20,7 @@ import type {
   RequestPayment,
 } from "./types";
 import { amountInMinorUnits } from "./format";
+import { canUseStore, isStoreOwner } from "./commerce";
 import { apiEnvironment } from "./api-environment";
 import { webhookUpdatePayload } from "./credential-form";
 import type { ProcessingErrorCode } from "./api-error-catalog";
@@ -40,6 +41,7 @@ interface DemoData {
   apiKeys?: ApiKey[];
   customers?: Customer[];
   staff?: Staff[];
+  removedStaff?: Staff[];
   requestPayments?: (RequestPayment & { requestId: number })[];
   collections?: Record<
     string,
@@ -390,7 +392,24 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       },
       pendingPurchase: null,
       pricing: { planAmount: 0, legacyCreditAmount: 0, amountDue: 0, currency: "USD" },
+      commerceAccess: {
+        canCreateOwnStore: true,
+        hasSharedStores: db.stores.some((store) => store.accessType === "STAFF"),
+        sharedStoreCount: db.stores.filter((store) => store.accessType === "STAFF").length,
+        sharedStoresEndpoint: "/customer-api/commerce/stores/shared",
+      },
     };
+  } else if (route === "/commerce/stores/shared" && method === "GET") {
+    const permission = url.searchParams.get("permission");
+    result = paginate(
+      db.stores.filter(
+        (store) =>
+          store.accessType === "STAFF" &&
+          !["DELETED", "ARCHIVED"].includes(store.status) &&
+          (!permission || canUseStore(store, permission)),
+      ),
+      url.searchParams,
+    );
   } else if (route === "/commerce/stores") {
     if (method === "POST") {
       const input = body as StoreInput;
@@ -512,6 +531,38 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       db.orders.unshift(order);
       result = order;
     }
+  } else if (
+    /^\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+(?:\/payments\/start)?$/.test(route)
+  ) {
+    const storeId = Number(route.split("/")[3]);
+    const reference = route.split("/")[6];
+    const store = db.stores.find((store) => store.id === storeId);
+    const order = db.orders.find(
+      (order) =>
+        order.storeId === storeId && order.reference === reference && order.channel === "POS",
+    );
+    if (!store || !canUseStore(store, "POS") || !order)
+      throw Object.assign(new Error("POS order unavailable."), {
+        status: 403,
+        code: "PERMISSION_DENIED",
+      });
+    if (route.endsWith("/payments/start")) {
+      if (order.posPaymentMode === "CASH" || body.fiatWalletId || body.paymentMethod?.fiatWalletId)
+        throw Object.assign(new Error("This POS payment is unavailable."), {
+          status: 403,
+          code: "PERMISSION_DENIED",
+        });
+      order.paymentTransactionId ??= 9999;
+      order.paymentTransactionReference = `DEMO-${order.paymentTransactionId}`;
+      order.paymentTransactionStatus = "COMPLETED";
+      order.status = "COMPLETED";
+      order.posPaymentStatus = "PAID";
+      order.amountPaid = order.totalAmount;
+      order.balanceDue = 0;
+    }
+    result = isStoreOwner(store)
+      ? order
+      : Object.fromEntries(Object.entries(order).filter(([key]) => key !== "accessToken"));
   } else if (route === "/payment_requests") {
     if (method === "POST") {
       const input = body as PaymentInput;
@@ -702,15 +753,41 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   } else if (/^\/commerce\/stores\/\d+\/staff(?:\/\d+)?$/.test(route)) {
     const storeId = Number(route.split("/")[3]);
     const id = Number(route.split("/")[5]);
+    db.removedStaff ??= [];
+    const permissions = ["POST", "PATCH"].includes(method)
+      ? [...new Set((body.permissions as string[]).map((permission) => permission.toUpperCase()))]
+      : [];
     if (id) {
       const member = db.staff.find((p) => p.id === id && p.storeId === storeId);
-      if (!member) throw new Error("Staff member not found.");
-      if (method === "PATCH") Object.assign(member, body);
-      if (method === "DELETE") db.staff = db.staff.filter((p) => p.id !== id);
-      result = member;
+      if (!member)
+        throw Object.assign(new Error("Staff member not found."), {
+          status: 404,
+          code: "NO_RESULT",
+        });
+      if (method === "PATCH") member.permissions = permissions;
+      if (method === "DELETE") {
+        db.staff = db.staff.filter((p) => p.id !== id);
+        db.removedStaff.push(member);
+        result = undefined;
+      } else result = member;
     } else if (method === "POST") {
-      const member = { ...body, id: nextId(db.staff), storeId } as Staff;
-      db.staff.unshift(member);
+      const email = String(body.email).trim().toLowerCase();
+      const existing = [...db.staff, ...db.removedStaff].find(
+        (member) => member.storeId === storeId && member.email.toLowerCase() === email,
+      );
+      const member: Staff = existing || {
+        id: nextId([...db.staff, ...db.removedStaff]),
+        storeId,
+        email,
+        permissions,
+        status: "ACTIVE",
+        acceptedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      member.permissions = permissions;
+      member.status = "ACTIVE";
+      db.removedStaff = db.removedStaff.filter((previous) => previous.id !== member.id);
+      if (!db.staff.includes(member)) db.staff.unshift(member);
       result = member;
     } else
       result = paginate(
