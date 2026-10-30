@@ -11,7 +11,7 @@ const source = ts.transpileModule(readFileSync("src/lib/api.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
-function client(responses: Response[]) {
+function client(responses: Response[], ensureResult = true) {
   let proof = "existing-session";
   let clearedSessions = 0;
   let clearedQueries = 0;
@@ -30,7 +30,7 @@ function client(responses: Response[]) {
       ensureDeviceSession: async (failedToken?: string) => {
         renewals.push(failedToken);
         if (failedToken) proof = "renewed-session";
-        return true;
+        return ensureResult;
       },
       clearDeviceSession: () => {
         clearedSessions++;
@@ -47,7 +47,10 @@ function client(responses: Response[]) {
       forgetCommerceQueries: () => {},
     },
   };
-  const exports: { api?: <T>(path: string, init?: RequestInit) => Promise<T> } = {};
+  const exports: {
+    api?: <T>(path: string, init?: RequestInit) => Promise<T>;
+    resetDeviceRecovery?: () => void;
+  } = {};
   runInNewContext(source, {
     exports,
     require: (name: string) => {
@@ -84,6 +87,8 @@ function client(responses: Response[]) {
   });
   return {
     api: exports.api!,
+    resetDeviceRecovery: exports.resetDeviceRecovery!,
+    verified: () => (proof = "verified-session"),
     calls,
     events,
     eventDetails,
@@ -130,6 +135,45 @@ test("an untrusted browser still enters verification without automatically repla
   assert.equal(browser.clearedSessions(), 1);
   assert.equal(browser.clearedQueries(), 1);
   assert.deepEqual(browser.events, ["fondeka:device-required"]);
+});
+
+test("a shared-store rejection after successful browser verification stays on the error instead of remounting verification", async () => {
+  const shared = "/customer-api/commerce/stores/shared?page=0&size=20";
+  const browser = client([rejection("DEVICE_UNTRUSTED"), rejection("DEVICE_UNTRUSTED")]);
+  await assert.rejects(browser.api(shared), { code: "DEVICE_UNTRUSTED" });
+  browser.verified();
+  await assert.rejects(browser.api(shared), { code: "DEVICE_UNTRUSTED" });
+  assert.equal(browser.calls.length, 2);
+  assert.equal(browser.clearedSessions(), 1);
+  assert.equal(browser.clearedQueries(), 1);
+  assert.deepEqual(browser.events, ["fondeka:device-required"]);
+});
+
+test("repeated failed device checks do not keep clearing queries or reopening verification", async () => {
+  const browser = client([], false);
+  for (let attempt = 0; attempt < 3; attempt++)
+    await assert.rejects(browser.api(path), { code: "DEVICE_SESSION_REQUIRED" });
+  assert.equal(browser.calls.length, 0);
+  assert.equal(browser.clearedSessions(), 1);
+  assert.equal(browser.clearedQueries(), 1);
+  assert.deepEqual(browser.events, ["fondeka:device-required"]);
+});
+
+test("a successful read or a new login allows device recovery again", async () => {
+  for (const recover of ["read", "login"]) {
+    const browser = client([
+      rejection("DEVICE_UNTRUSTED"),
+      ...(recover === "read" ? [Response.json({ restored: true })] : []),
+      rejection("DEVICE_UNTRUSTED"),
+    ]);
+    await assert.rejects(browser.api(path), { code: "DEVICE_UNTRUSTED" });
+    browser.verified();
+    if (recover === "read") assert.deepEqual(await browser.api(path), { restored: true });
+    else browser.resetDeviceRecovery();
+    await assert.rejects(browser.api(path), { code: "DEVICE_UNTRUSTED" });
+    assert.equal(browser.clearedSessions(), 2);
+    assert.deepEqual(browser.events, ["fondeka:device-required", "fondeka:device-required"]);
+  }
 });
 
 test("device rejection never automatically replays a mutation", async () => {

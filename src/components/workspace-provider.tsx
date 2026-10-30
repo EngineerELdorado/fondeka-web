@@ -13,6 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import { accessToken, authConfigured, customerScope, demoMode } from "@/lib/auth";
+import { resetDeviceRecovery } from "@/lib/api";
 import { clearBusinessToolsRecovery } from "@/lib/business-tools-client";
 import { clearSandboxFundingRecovery } from "@/lib/sandbox-funding";
 import { clearSandboxConversionRecovery } from "@/lib/sandbox-conversion";
@@ -53,6 +54,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (demoMode) return;
     const reset = () => {
+      resetDeviceRecovery();
       resetDeviceIdentityMemory();
       clearQueryCache();
       clearCollectionRecovery();
@@ -132,6 +134,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
     void check();
     const expire = () => {
+      resetDeviceRecovery();
       resetDeviceIdentityMemory();
       setApiScope(undefined);
       setReady(false);
@@ -155,6 +158,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   }, [needsSession, router, authRevision]);
   const logout = useCallback(async () => {
+    resetDeviceRecovery();
     setApiScope(undefined);
     clearQueryCache();
     clearCollectionRecovery();

@@ -8,6 +8,13 @@ import { clearQueryCache, invalidateQueryPaths, forgetCommerceQueries } from "./
 import { tokenCustomerScope } from "./session-scope";
 import { storeOwnerAccessRequired } from "./shared-stores";
 
+// Verification can succeed while an endpoint still rejects this browser's device policy.
+// Allow one recovery per account/endpoint, then keep its error mounted until a read succeeds.
+const deviceRecoveries = new Set<string>();
+export function resetDeviceRecovery() {
+  deviceRecoveries.clear();
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -38,12 +45,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     );
     throw new ApiError("Your account changed. Open the tool again.", 0);
   }
+  const recoveryKey = `${accountKey}:${path.split("?")[0]}`;
+  const verifyDevice = (code: string) => {
+    if (deviceRecoveries.has(recoveryKey)) return;
+    deviceRecoveries.add(recoveryKey);
+    clearDeviceSession();
+    clearQueryCache();
+    window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
+  };
   const proof = async (failedToken?: string) => {
     try {
       if (!(await ensureDeviceSession(failedToken))) {
-        clearDeviceSession();
-        clearQueryCache();
-        window.dispatchEvent(new Event("fondeka:device-required"));
+        verifyDevice("DEVICE_SESSION_REQUIRED");
         throw new ApiError("Verify this browser to continue.", 401, "DEVICE_SESSION_REQUIRED");
       }
       if (accountKey !== (await customerScope().catch(() => undefined))) {
@@ -56,7 +69,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
       const headers = deviceHeaders(accountKey);
       if (!headers["X-Device-Session"]) {
-        window.dispatchEvent(new Event("fondeka:device-required"));
+        verifyDevice("DEVICE_SESSION_REQUIRED");
         throw new ApiError("Verify this browser to continue.", 401, "DEVICE_SESSION_REQUIRED");
       }
       return headers;
@@ -122,15 +135,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       // A freshly renewed proof was already tried. Keep the view mounted so its error can
       // be shown instead of verification remounting it and starting the same read again.
       const renewedProofRejected = attempt > 0 && mayRetryDeviceRead(init.method || "GET", code);
-      if (response.status === 401 && !renewedProofRejected) clearQueryCache();
       if (isDeviceError(code)) {
-        if (!renewedProofRejected) {
-          clearDeviceSession();
-          window.dispatchEvent(new CustomEvent("fondeka:device-required", { detail: code }));
-        }
-      } else if (response.status === 401)
+        if (!renewedProofRejected) verifyDevice(code);
+      } else if (response.status === 401) {
+        clearQueryCache();
         window.dispatchEvent(new Event("fondeka:session-expired"));
-      else if (!ownerActivationStore && needsBusinessToolsRecovery(response.status, code, path)) {
+      } else if (!ownerActivationStore && needsBusinessToolsRecovery(response.status, code, path)) {
         invalidateQueryPaths([path.split("?")[0]]);
         const deniedAccess = body?.access ?? body?.details?.access;
         const tool = deniedAccess?.requestedTool ?? deniedAccess?.tool;
@@ -170,6 +180,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
       throw new ApiError(message, response.status, code);
     }
+    deviceRecoveries.delete(recoveryKey);
     return body as T;
   }
   throw new ApiError(
