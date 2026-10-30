@@ -214,7 +214,7 @@ export default function Login() {
               <form onSubmit={submit} className="form-stack login-auth-form">
                 {step === "email" ? (
                   <label className="login-auth-field">
-                    {t("Email address", "Adresse e-mail")}
+                    <span>{t("Email address", "Adresse e-mail")}</span>
                     <span className="login-field-shell">
                       <Mail size={18} aria-hidden="true" />
                       <input
@@ -236,7 +236,7 @@ export default function Login() {
                   </label>
                 ) : (
                   <label className="login-auth-field">
-                    {t("Verification code", "Code de vérification")}
+                    <span>{t("Verification code", "Code de vérification")}</span>
                     <span className="login-field-shell login-code-field">
                       <input
                         key="code"

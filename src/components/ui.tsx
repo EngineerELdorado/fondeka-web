@@ -341,14 +341,9 @@ export function SubmitButton({
 
   return (
     <button className="button primary" type="submit" disabled={busy || disabled}>
-      {busy ? (
-        <>
-          <span className="spinner" />
-          {uiText("Please wait…")}
-        </>
-      ) : (
-        children
-      )}
+      {busy && <span className="spinner" aria-hidden="true" />}
+      {/* Keep text in its own element: browser translation can replace bare text nodes. */}
+      <span>{busy ? uiText("Please wait…") : children}</span>
     </button>
   );
 }
