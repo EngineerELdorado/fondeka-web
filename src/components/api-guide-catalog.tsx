@@ -104,6 +104,11 @@ function CatalogContent({
   const visible = visibleGroups.flatMap((group) => group.methods);
   const method =
     visible.find((item) => item.name === (selection?.method ?? preferredMethod)) ||
+    visible.find(
+      (item) =>
+        item.paymentCurrency?.trim().toUpperCase() === defaultCatalogCurrency &&
+        catalogMethodSelectable(item, environment, payout),
+    ) ||
     visible.find((item) => catalogMethodSelectable(item, environment, payout)) ||
     visible[0];
   const currency = catalogFeeCurrency(method);
