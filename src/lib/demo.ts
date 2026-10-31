@@ -18,7 +18,10 @@ import type {
   Customer,
   Staff,
   RequestPayment,
+  Quote,
+  SaleItem,
 } from "./types";
+import type { CommercePaymentQuote } from "./commerce-payments";
 import { amountInMinorUnits } from "./format";
 import { canUseStore, isStoreOwner } from "./commerce";
 import { apiEnvironment } from "./api-environment";
@@ -340,6 +343,31 @@ function nextId(items: { id: number }[]) {
   return Math.max(0, ...items.map((item) => item.id)) + 1;
 }
 
+/** The browser demo has synthetic zero collection fees; real Commerce quotes are server-only. */
+function demoCommercePaymentQuote(
+  subtotal: number,
+  currency: string,
+  items: SaleItem[],
+): CommercePaymentQuote {
+  const modes = new Set(items.map((item) => item.feeApplicationMode ?? null));
+  const mode = modes.size === 1 ? (items[0]?.feeApplicationMode ?? "LEGACY") : "MIXED";
+  return {
+    commerceSubtotalAmount: subtotal,
+    buyerFeeAmount: 0,
+    merchantFeeAmount: 0,
+    productFeeApplicationMode: mode,
+    appliedFeeApplicationMode: "INCLUSIVE",
+    fees: 0,
+    feesCurrency: currency,
+    netAmount: subtotal,
+    netAmountCurrency: currency,
+    grossAmount: subtotal,
+    grossAmountCurrency: currency,
+    totalToPay: subtotal,
+    totalToPayCurrency: currency,
+  };
+}
+
 export async function demoRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   await new Promise((resolve) => setTimeout(resolve, 120));
   const url = new URL(path, "https://demo.local");
@@ -449,6 +477,29 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       db.orders.filter((item) => item.storeId === Number(route.split("/")[3])),
       url.searchParams,
     );
+  } else if (/^\/commerce\/stores\/\d+\/pos\/payments\/quote$/.test(route) && method === "POST") {
+    const storeId = Number(route.split("/")[3]);
+    const sale = body.sale as PosInput;
+    if (
+      sale?.paymentMode !== "FONDEKA" ||
+      !body.payment?.paymentMethod?.id ||
+      body.payment.paymentMethod.currency !== sale.paymentCurrency ||
+      sale.billingCurrency !== sale.paymentCurrency
+    )
+      throw new Error("Choose a payment method in the demo sale’s currency.");
+    const quoted = await demoRequest<Quote>(
+      `/customer-api/commerce/stores/${storeId}/pos/orders/quote`,
+      { method: "POST", body: JSON.stringify(sale) },
+    );
+    result = demoCommercePaymentQuote(
+      quoted.totalAmount,
+      quoted.totalCurrency,
+      sale.items.map((item) => ({
+        quantity: item.quantity,
+        feeApplicationMode:
+          db.products.find((product) => product.id === item.productId)?.feeApplicationMode ?? null,
+      })),
+    );
   } else if (/^\/commerce\/stores\/\d+\/pos\/orders(?:\/quote)?$/.test(route)) {
     const storeId = Number(route.split("/")[3]);
     const input = body as PosInput;
@@ -522,6 +573,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
             unitPriceCurrency: p.priceCurrency,
             totalAmount: p.priceAmount * item.quantity,
             totalCurrency: p.priceCurrency,
+            feeApplicationMode: p.feeApplicationMode ?? null,
           };
         }),
         totalAmount: total / 10 ** digits,
@@ -532,7 +584,9 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       result = order;
     }
   } else if (
-    /^\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+(?:\/payments\/start)?$/.test(route)
+    /^\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+(?:\/payments\/(start|quote))?$/.test(
+      route,
+    )
   ) {
     const storeId = Number(route.split("/")[3]);
     const reference = route.split("/")[6];
@@ -546,6 +600,20 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         status: 403,
         code: "PERMISSION_DENIED",
       });
+    if (route.endsWith("/payments/quote")) {
+      if (
+        method !== "POST" ||
+        !body.paymentMethod?.id ||
+        body.paymentMethod.currency !== order.paymentCurrency
+      )
+        throw new Error("Choose a payment method in the order’s currency.");
+      result = demoCommercePaymentQuote(
+        order.commerceSubtotalAmount ?? order.paymentAmount ?? order.totalAmount,
+        order.paymentCurrency || order.totalCurrency,
+        order.items || [],
+      );
+      return structuredClone(result) as T;
+    }
     if (route.endsWith("/payments/start")) {
       if (order.posPaymentMode === "CASH" || body.fiatWalletId || body.paymentMethod?.fiatWalletId)
         throw Object.assign(new Error("This POS payment is unavailable."), {
@@ -553,6 +621,16 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
           code: "PERMISSION_DENIED",
         });
       order.paymentTransactionId ??= 9999;
+      const quote = demoCommercePaymentQuote(
+        order.commerceSubtotalAmount ?? order.paymentAmount ?? order.totalAmount,
+        order.paymentCurrency || order.totalCurrency,
+        order.items || [],
+      );
+      order.commerceSubtotalAmount = quote.commerceSubtotalAmount;
+      order.buyerFeeAmount = quote.buyerFeeAmount;
+      order.merchantFeeAmount = quote.merchantFeeAmount;
+      order.feeAmount = quote.fees;
+      order.feeCurrency = quote.feesCurrency;
       order.paymentTransactionReference = `DEMO-${order.paymentTransactionId}`;
       order.paymentTransactionStatus = "COMPLETED";
       order.status = "COMPLETED";
@@ -843,9 +921,23 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       topProducts: [],
       unpaidCustomers: [],
     };
-  } else if (/^\/commerce\/orders\/[^/]+(?:\/payments\/start)?$/.test(route)) {
+  } else if (/^\/commerce\/orders\/[^/]+(?:\/payments\/(start|quote))?$/.test(route)) {
     const order = db.orders.find((o) => o.reference === route.split("/")[3]);
     if (!order) throw new Error("Order not found.");
+    if (route.endsWith("/payments/quote")) {
+      if (
+        method !== "POST" ||
+        !body.paymentMethod?.id ||
+        body.paymentMethod.currency !== order.paymentCurrency ||
+        url.searchParams.get("accessToken") !== order.accessToken
+      )
+        throw new Error("Open the demo order and select its payment currency.");
+      return demoCommercePaymentQuote(
+        order.commerceSubtotalAmount ?? order.paymentAmount ?? order.totalAmount,
+        order.paymentCurrency || order.totalCurrency,
+        order.items || [],
+      ) as T;
+    }
     if (method === "POST") {
       order.paymentTransactionId = 9999;
       order.status = "COMPLETED";

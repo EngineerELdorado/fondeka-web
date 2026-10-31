@@ -1,4 +1,5 @@
 import type { Order } from "./types";
+import { orderBuyerFee, orderBuyerTotal } from "./commerce-payments";
 export function escapeHtml(value: unknown) {
   return String(value ?? "").replace(
     /[&<>"']/g,
@@ -7,6 +8,8 @@ export function escapeHtml(value: unknown) {
 }
 export function receiptText(order: Order, language = "en") {
   const fr = language === "fr";
+  const buyerFee = orderBuyerFee(order);
+  const total = orderBuyerTotal(order);
   const amount = (v: number | undefined, c: string | undefined) =>
     v == null
       ? "—"
@@ -24,7 +27,13 @@ export function receiptText(order: Order, language = "en") {
       (i) =>
         `${i.productName || ""} × ${i.quantity} · ${amount(i.totalAmount ?? i.lineTotalAmount, i.totalCurrency ?? i.lineTotalCurrency)}`,
     ),
-    `${fr ? "Total" : "Total"}: ${amount(order.totalAmount, order.totalCurrency)}`,
+    order.commerceSubtotalAmount != null
+      ? `${fr ? "Sous-total des produits" : "Product subtotal"}: ${amount(order.commerceSubtotalAmount, order.paymentCurrency || order.totalCurrency)}`
+      : "",
+    buyerFee != null
+      ? `${fr ? "Frais ajoutés au total" : "Fees added to buyer total"}: ${amount(buyerFee, order.feeCurrency || order.paymentCurrency || order.totalCurrency)}`
+      : "",
+    `Total: ${amount(total.amount, total.currency)}`,
     `${fr ? "Payé" : "Paid"}: ${amount(order.amountPaid, order.amountPaidCurrency)}`,
     `${fr ? "Solde dû" : "Balance due"}: ${amount(order.balanceDue ?? order.outstandingAmount, order.balanceDueCurrency ?? order.outstandingCurrency)}`,
     order.paymentDueDate ? `${fr ? "Échéance" : "Due date"}: ${order.paymentDueDate}` : "",

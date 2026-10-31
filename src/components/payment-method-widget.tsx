@@ -25,6 +25,12 @@ import { request } from "@/lib/data";
 import { useQuery } from "@/lib/use-query";
 import { useWorkspace } from "./workspace-provider";
 import { useAffordableWallets } from "@/lib/use-affordable-wallets";
+import {
+  commerceQuoteRequest,
+  parseCommerceQuote,
+  type CommercePaymentContext,
+  type CommercePaymentQuote,
+} from "@/lib/commerce-payments";
 import { ChevronDown } from "lucide-react";
 function PaymentLoading({ message }: { message?: string }) {
   const t = paymentCopy(usePaymentLanguage());
@@ -61,6 +67,8 @@ export function PaymentMethodWidget({
   feeMode = "EXCLUSIVE",
   paymentRequestId,
   paymentRequestCode,
+  commerceContext,
+  initialSelection,
 }: {
   action: string;
   amount: number;
@@ -73,6 +81,8 @@ export function PaymentMethodWidget({
   feeMode?: "INCLUSIVE" | "EXCLUSIVE";
   paymentRequestId?: number;
   paymentRequestCode?: string;
+  commerceContext?: CommercePaymentContext;
+  initialSelection?: PaymentSelection;
 }) {
   const submitting = useRef(false);
   const [ownBusy, setOwnBusy] = useState(false);
@@ -88,10 +98,13 @@ export function PaymentMethodWidget({
     accountCountry: account.data?.countryCode,
     accountLoading: account.loading,
   });
-  const [selectedKey, setSelectedKey] = useState("");
-  const [cryptoCurrency, setCryptoCurrency] = useState(baseCurrency);
-  const [networkId, setNetworkId] = useState("");
-  const [phone, setPhone] = useState("");
+  const isCommerce = action === "COMMERCE_CHECKOUT_PAYMENT";
+  const [selectedKey, setSelectedKey] = useState<string>();
+  const [cryptoCurrency, setCryptoCurrency] = useState(initialSelection?.currency || baseCurrency);
+  const [networkId, setNetworkId] = useState(
+    initialSelection?.networkId ? String(initialSelection.networkId) : "",
+  );
+  const [phone, setPhone] = useState(initialSelection?.accountRef || "");
   const [error, setError] = useState("");
   const [quoteVersion, setQuoteVersion] = useState(0);
   // Resolve the initial country before discovery; never briefly show an unfiltered method list.
@@ -106,7 +119,9 @@ export function PaymentMethodWidget({
   if (methods.data) {
     try {
       const result = normalizeMethods(methods.data);
-      methodList = collectionMethods(result.paymentMethods, action);
+      methodList = collectionMethods(result.paymentMethods, action).filter(
+        (method) => !isCommerce || method.type === "CRYPTO" || method.currency === baseCurrency,
+      );
     } catch (failure) {
       methodsError = failure instanceof Error ? failure.message : t.methodsError;
     }
@@ -118,7 +133,16 @@ export function PaymentMethodWidget({
     paymentCountry,
   );
   const visibleMethods = eligibleWallets.methods;
-  const selected = visibleMethods.find((method) => methodKey(method) === selectedKey);
+  const initialMethod = visibleMethods.find(
+    (method) =>
+      initialSelection &&
+      method.id === initialSelection.id &&
+      (method.type === "CRYPTO" || method.currency === initialSelection.currency) &&
+      method.fiatWalletId === initialSelection.fiatWalletId,
+  );
+  const selected = visibleMethods.find(
+    (method) => methodKey(method) === (selectedKey ?? (initialMethod && methodKey(initialMethod))),
+  );
   const currency = selected?.type === "CRYPTO" ? cryptoCurrency : (selected?.currency ?? "");
   const networks = useQuery<{ id: number; name: string; displayName?: string }[]>(
     selected?.type === "CRYPTO"
@@ -150,7 +174,8 @@ export function PaymentMethodWidget({
     );
   }
   const selectionKey = selection ? JSON.stringify(selection) : "";
-  const quoteKey = `${paymentCountry}:${selectionKey}:${action}:${amount}:${baseAmount}:${baseCurrency}:${feeMode}:${quoteVersion}:${language}:${paymentRequestId}:${paymentRequestCode}`;
+  const commerceContextKey = commerceContext ? JSON.stringify(commerceContext) : "";
+  const quoteKey = `${commerceContextKey}:${paymentCountry}:${selectionKey}:${action}:${amount}:${baseAmount}:${baseCurrency}:${feeMode}:${quoteVersion}:${language}:${paymentRequestId}:${paymentRequestCode}`;
   const [quoteState, setQuoteState] = useState<{
     key: string;
     quote?: { value: AccessQuote; receivedAt: number };
@@ -162,23 +187,30 @@ export function PaymentMethodWidget({
     const abort = new AbortController();
     const timer = setTimeout(() => {
       const payment = JSON.parse(selectionKey) as PaymentSelection;
-      void request(
-        quotePath(payment, {
-          action,
-          amount,
-          currency: baseCurrency,
-          feeMode,
-          paymentRequestId,
-          paymentRequestCode,
-        }),
-        {
-          headers: { "Accept-Language": language },
-          signal: abort.signal,
-        },
-      )
-        .then((body) => {
+      void Promise.resolve()
+        .then(async () => {
+          const context = commerceContextKey
+            ? (JSON.parse(commerceContextKey) as CommercePaymentContext)
+            : undefined;
+          if (isCommerce && !context) throw new Error(t.quoteError);
+          const contextual = context && commerceQuoteRequest(context, payment);
+          const body = await request(
+            contextual
+              ? contextual.path
+              : quotePath(payment, {
+                  action,
+                  amount,
+                  currency: baseCurrency,
+                  feeMode,
+                  paymentRequestId,
+                  paymentRequestCode,
+                }),
+            { ...contextual?.init, headers: { "Accept-Language": language }, signal: abort.signal },
+          );
+          return context ? parseCommerceQuote(body, payment.currency) : parseQuote(body, [feeMode]);
+        })
+        .then((quote) => {
           if (!active) return;
-          const quote = parseQuote(body);
           if (quote.totalToPayCurrency !== payment.currency) throw new Error(t.quoteChanged);
           setQuoteState({
             key: quoteKey,
@@ -207,6 +239,8 @@ export function PaymentMethodWidget({
     };
   }, [
     selectionKey,
+    commerceContextKey,
+    isCommerce,
     quoteKey,
     action,
     amount,
@@ -220,6 +254,7 @@ export function PaymentMethodWidget({
     t.quoteError,
   ]);
   const quote = quoteState.key === quoteKey ? quoteState.quote : undefined;
+  const commerceQuote = isCommerce && quote ? (quote.value as CommercePaymentQuote) : undefined;
   const quoteError = quoteState.key === quoteKey ? quoteState.error : undefined;
   const affordable = !!selected && !!quote && canAfford(selected, quote.value);
   const busy = parentBusy || ownBusy;
@@ -284,7 +319,7 @@ export function PaymentMethodWidget({
                   }
                 : undefined
             }
-            selectedKey={selectedKey}
+            selectedKey={selected ? methodKey(selected) : ""}
             onSelect={(key) => {
               setSelectedKey(key);
               setNetworkId("");
@@ -326,7 +361,9 @@ export function PaymentMethodWidget({
                       new Set([
                         baseCurrency,
                         baseCurrency,
-                        ...methodList.map((method) => method.currency).filter(isFiatCurrency),
+                        ...(isCommerce
+                          ? []
+                          : methodList.map((method) => method.currency).filter(isFiatCurrency)),
                       ]),
                     ).map((value) => (
                       <option key={value}>{value}</option>
@@ -375,22 +412,43 @@ export function PaymentMethodWidget({
             <dl>
               <div>
                 <dt>
-                  {action === "BUSINESS_TOOLS_ACCESS"
-                    ? t.baseAmount
-                    : language === "fr"
-                      ? "Montant"
-                      : "Amount"}
+                  {isCommerce
+                    ? language === "fr"
+                      ? "Sous-total des produits"
+                      : "Product subtotal"
+                    : action === "BUSINESS_TOOLS_ACCESS"
+                      ? t.baseAmount
+                      : language === "fr"
+                        ? "Montant"
+                        : "Amount"}
                 </dt>
                 <dd>
-                  {paymentMoney(baseAmount, baseCurrency, language)} <small>{baseCurrency}</small>
+                  {isCommerce && !commerceQuote
+                    ? "—"
+                    : paymentMoney(
+                        commerceQuote?.commerceSubtotalAmount ?? baseAmount,
+                        commerceQuote?.totalToPayCurrency ?? baseCurrency,
+                        language,
+                      )}{" "}
+                  <small>{commerceQuote?.totalToPayCurrency ?? baseCurrency}</small>
                 </dd>
               </div>
               {quote && (
                 <>
                   <div>
-                    <dt>{t.fees}</dt>
+                    <dt>
+                      {isCommerce
+                        ? language === "fr"
+                          ? "Frais ajoutés au total"
+                          : "Fees added to buyer total"
+                        : t.fees}
+                    </dt>
                     <dd>
-                      {paymentMoney(quote.value.fees, quote.value.feesCurrency, language)}{" "}
+                      {paymentMoney(
+                        commerceQuote?.buyerFeeAmount ?? quote.value.fees,
+                        quote.value.feesCurrency,
+                        language,
+                      )}{" "}
                       <small>{quote.value.feesCurrency}</small>
                     </dd>
                   </div>
@@ -408,6 +466,22 @@ export function PaymentMethodWidget({
                 </>
               )}
             </dl>
+            {quote &&
+              (quote.value.customerPaidProviderFeeMessage ||
+                Number(quote.value.customerPaidProviderFeeAmount) > 0) && (
+                <p className="activation-note">
+                  {quote.value.customerPaidProviderFeeMessage ||
+                    `${paymentMoney(quote.value.customerPaidProviderFeeAmount!, quote.value.customerPaidProviderFeeCurrency || quote.value.totalToPayCurrency, language)} · ${language === "fr" ? "Frais du prestataire" : "Provider fee"}`}
+                  {quote.value.customerPaidProviderFeeIncludedInTotal === false && (
+                    <>
+                      {" "}
+                      {language === "fr"
+                        ? "Facturés séparément par le prestataire."
+                        : "Charged separately by the provider."}
+                    </>
+                  )}
+                </p>
+              )}
             {selection && !quote && !quoteError && <PaymentLoading message={t.gettingQuote} />}
             {quoteError && (
               <PaymentError

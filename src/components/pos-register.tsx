@@ -28,6 +28,9 @@ import { CollectionDialog } from "@/components/collection-dialog";
 import { SaleDetail } from "@/components/store-sales";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { PosCatalog } from "./pos-catalog";
+import { PaymentMethodWidget } from "./payment-method-widget";
+import { parseCommerceQuote, type CommercePaymentQuote } from "@/lib/commerce-payments";
+import type { PaymentSelection } from "@/lib/business-tools";
 export function PosRegister({ store }: { store: Store }) {
   const { t } = useI18n();
   const { refresh, notify } = useWorkspace();
@@ -45,6 +48,14 @@ export function PosRegister({ store }: { store: Store }) {
   const [currency, setCurrency] = useState(store.defaultCurrency);
   const { currencies } = useCurrencies([billing, currency]);
   const [quote, setQuote] = useState<Quote>();
+  const [previewingPayment, setPreviewingPayment] = useState(false);
+  const [paymentPreview, setPaymentPreview] = useState<{
+    saleKey: string;
+    selection: PaymentSelection;
+    quote: CommercePaymentQuote;
+    receivedAt: number;
+  }>();
+  const [externalSelection, setExternalSelection] = useState<PaymentSelection>();
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState("");
@@ -80,6 +91,7 @@ export function PosRegister({ store }: { store: Store }) {
     : undefined;
   function invalidate() {
     setQuote(undefined);
+    setPaymentPreview(undefined);
     setConfirmed(false);
   }
   function add(p: Product) {
@@ -205,6 +217,18 @@ export function PosRegister({ store }: { store: Store }) {
           t("Quote expired. Calculate the sale again.", "Le devis a expiré. Recalculez la vente."),
         );
       const body = payload(mode);
+      if (
+        mode === "FONDEKA" &&
+        (!paymentPreview ||
+          paymentPreview.saleKey !== JSON.stringify(body) ||
+          Date.now() - paymentPreview.receivedAt > 60_000)
+      )
+        throw new Error(
+          t(
+            "Review a fresh payment quote before creating this sale.",
+            "Vérifiez un devis de paiement récent avant de créer cette vente.",
+          ),
+        );
       if (mode === "CASH") {
         if (!confirmed) return;
         validateCashSale(body, quote.totalAmount);
@@ -230,8 +254,10 @@ export function PosRegister({ store }: { store: Store }) {
           ? [`/customer-api/commerce/stores/${store.id}/customers/${customer.id}/orders`]
           : []),
       ]);
-      if (mode === "FONDEKA") setExternal(order);
-      else setReceipt(order);
+      if (mode === "FONDEKA") {
+        setExternalSelection(paymentPreview?.selection);
+        setExternal(order);
+      } else setReceipt(order);
     } catch (e) {
       setError(
         e instanceof Error
@@ -266,6 +292,8 @@ export function PosRegister({ store }: { store: Store }) {
     paid,
     due,
   };
+  const saleKey = JSON.stringify(payload("FONDEKA"));
+  const preview = paymentPreview?.saleKey === saleKey ? paymentPreview : undefined;
   function setDecision(patch: Partial<SaleDecision>) {
     if (patch.mode) {
       setPaymentMode(patch.mode);
@@ -406,7 +434,16 @@ export function PosRegister({ store }: { store: Store }) {
             </p>
           </FlowReview>
           <FlowReview title={t("Fees", "Frais")}>
-            <p>{quote ? money(quote.feeAmount, quote.feeCurrency || quote.totalCurrency) : "—"}</p>
+            <p>
+              {paymentMode === "FONDEKA"
+                ? t(
+                    "Choose a payment method to review the final fees and total.",
+                    "Choisissez un moyen de paiement pour consulter les frais et le total définitifs.",
+                  )
+                : quote
+                  ? money(quote.feeAmount, quote.feeCurrency || quote.totalCurrency)
+                  : "—"}
+            </p>
           </FlowReview>
         </>
       ),
@@ -419,7 +456,16 @@ export function PosRegister({ store }: { store: Store }) {
         "Choisissez les espèces ou un encaissement via Fondeka.",
       ),
       validate: (v) => {
-        if (v.mode !== "CASH" || !quote) return {};
+        if (v.mode === "FONDEKA")
+          return preview && Date.now() - preview.receivedAt <= 60_000
+            ? {}
+            : {
+                payment: t(
+                  "Choose a payment method and review a fresh quote.",
+                  "Choisissez un moyen de paiement et vérifiez un devis récent.",
+                ),
+              };
+        if (!quote) return {};
         try {
           validateCashSale(payload("CASH"), quote.totalAmount);
           return {};
@@ -450,13 +496,44 @@ export function PosRegister({ store }: { store: Store }) {
                 value: "FONDEKA",
                 title: t("Fondeka collection", "Encaissement Fondeka"),
                 description: t(
-                  "Choose the payment method after confirming the order.",
-                  "Choisissez le moyen de paiement après confirmation de la commande.",
+                  "Review the payment total before creating the sale.",
+                  "Vérifiez le total du paiement avant de créer la vente.",
                 ),
                 icon: <Smartphone size={22} />,
               },
             ]}
           />
+          {value.mode === "FONDEKA" && (
+            <div data-flow-field="payment">
+              {preview && (
+                <FlowReview title={t("Payment quote", "Devis du paiement")}>
+                  <p>
+                    {t("Product subtotal", "Sous-total des produits")}:{" "}
+                    {money(preview.quote.commerceSubtotalAmount, preview.quote.totalToPayCurrency)}
+                  </p>
+                  <p>
+                    {t("Fees added to buyer total", "Frais ajoutés au total")}:{" "}
+                    {money(preview.quote.buyerFeeAmount, preview.quote.feesCurrency)}
+                  </p>
+                  <p>
+                    {t("Total to pay", "Total à payer")}:{" "}
+                    {money(preview.quote.totalToPay, preview.quote.totalToPayCurrency)}
+                  </p>
+                </FlowReview>
+              )}
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy || uncertain}
+                onClick={() => setPreviewingPayment(true)}
+              >
+                {preview
+                  ? t("Review payment method", "Revoir le moyen de paiement")
+                  : t("Choose payment method", "Choisir le moyen de paiement")}
+              </button>
+              <FlowError name="payment" />
+            </div>
+          )}
           {value.mode === "CASH" && (
             <>
               <FlowField name="status" label={t("Payment status", "Statut du paiement")}>
@@ -530,7 +607,13 @@ export function PosRegister({ store }: { store: Store }) {
       render: ({ go }) => (
         <>
           <p className="flow-price">
-            {quote ? money(quote.totalAmount, quote.totalCurrency) : "—"}
+            {paymentMode === "FONDEKA"
+              ? preview
+                ? money(preview.quote.totalToPay, preview.quote.totalToPayCurrency)
+                : "—"
+              : quote
+                ? money(quote.totalAmount, quote.totalCurrency)
+                : "—"}
           </p>
           <FlowReview title={t("Customer", "Client")} edit={() => go("identity")}>
             <p>
@@ -760,7 +843,7 @@ export function PosRegister({ store }: { store: Store }) {
           <div className="mobile-sale-content">{cartContent}</div>
         </Modal>
       )}
-      {review && !creatingCustomer && (
+      {review && !creatingCustomer && !previewingPayment && (
         <Modal
           title={t("Complete sale", "Terminer la vente")}
           hideHeader
@@ -792,6 +875,33 @@ export function PosRegister({ store }: { store: Store }) {
           />
         </Modal>
       )}
+      {previewingPayment && (
+        <Modal
+          title={t("Review payment total", "Vérifiez le total du paiement")}
+          className="activation-dialog"
+          onClose={() => setPreviewingPayment(false)}
+        >
+          <PaymentMethodWidget
+            action="COMMERCE_CHECKOUT_PAYMENT"
+            commerceContext={{ kind: "POS_SALE", storeId: store.id, sale: payload("FONDEKA") }}
+            initialSelection={preview?.selection}
+            amount={quote?.totalAmount || 0}
+            baseAmount={quote?.totalAmount || 0}
+            baseCurrency={currency}
+            confirmLabel={t("Use this payment method", "Utiliser ce moyen de paiement")}
+            onClose={() => setPreviewingPayment(false)}
+            onConfirm={async (selection, value, receivedAt) => {
+              setPaymentPreview({
+                saleKey,
+                selection,
+                quote: parseCommerceQuote(value, currency),
+                receivedAt,
+              });
+              setPreviewingPayment(false);
+            }}
+          />
+        </Modal>
+      )}
       {creatingCustomer && (
         <CustomerForm
           storeId={store.id}
@@ -811,10 +921,13 @@ export function PosRegister({ store }: { store: Store }) {
         <CollectionDialog
           order={external}
           store={store}
+          initialSelection={externalSelection}
           onDone={refresh}
           onClose={() => {
             setReceipt(external);
             setExternal(undefined);
+            setExternalSelection(undefined);
+            setPaymentPreview(undefined);
           }}
         />
       )}

@@ -102,6 +102,11 @@ export interface AccessQuote {
   totalToPay: number;
   totalToPayCurrency: string;
   appliedFeeApplicationMode?: string;
+  customerPaidProviderFeeAmount?: number;
+  customerPaidProviderFeeCurrency?: string;
+  customerPaidProviderFeeIncludedInTotal?: boolean;
+  customerPaidProviderFeeChargedBy?: string;
+  customerPaidProviderFeeMessage?: string;
 }
 export interface ReviewedQuote {
   value: AccessQuote;
@@ -531,7 +536,10 @@ export function quotePath(selection: PaymentSelection, context: PaymentContext =
   if (selection.networkId) query.set("networkId", String(selection.networkId));
   return `/customer-api/fees?${query}`;
 }
-export function parseQuote(value: unknown): AccessQuote {
+export function parseQuote(
+  value: unknown,
+  allowedFeeModes: readonly string[] = ["EXCLUSIVE"],
+): AccessQuote {
   const quote = value as AccessQuote;
   if (
     !quote ||
@@ -541,7 +549,7 @@ export function parseQuote(value: unknown): AccessQuote {
     quote.fees < 0 ||
     !isFiatCurrency(quote.totalToPayCurrency) ||
     !isFiatCurrency(quote.feesCurrency) ||
-    (quote.appliedFeeApplicationMode && quote.appliedFeeApplicationMode !== "EXCLUSIVE")
+    (quote.appliedFeeApplicationMode && !allowedFeeModes.includes(quote.appliedFeeApplicationMode))
   )
     throw new Error("A final payable quote is unavailable. Refresh the quote or contact support.");
   return quote;

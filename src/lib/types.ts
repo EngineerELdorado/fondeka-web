@@ -48,6 +48,7 @@ export interface StoreInput {
 export const productTypes = ["PHYSICAL", "DIGITAL", "SERVICE", "TRAINING"] as const;
 export type ProductType = (typeof productTypes)[number];
 export interface Product {
+  feeApplicationMode?: "EXCLUSIVE" | "INCLUSIVE" | null;
   id: number;
   storeId: number;
   name: string;
@@ -60,6 +61,7 @@ export interface Product {
   inventoryQuantity?: number;
 }
 export interface ProductInput {
+  feeApplicationMode?: "EXCLUSIVE" | "INCLUSIVE" | null;
   name: string;
   priceAmount: number;
   priceCurrency: string;
@@ -339,6 +341,7 @@ export interface Staff {
   createdAt?: string;
 }
 export interface SaleItem {
+  feeApplicationMode?: "EXCLUSIVE" | "INCLUSIVE" | null;
   productId?: number;
   productName?: string;
   quantity: number;
@@ -351,6 +354,9 @@ export interface SaleItem {
 }
 export interface Order {
   accessToken?: string;
+  commerceSubtotalAmount?: number | null;
+  buyerFeeAmount?: number | null;
+  merchantFeeAmount?: number | null;
   customerId?: number;
   buyerEmail?: string;
   buyerPhone?: string;

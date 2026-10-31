@@ -5,6 +5,7 @@ import { useQuery } from "@/lib/use-query";
 import { useUrlState } from "@/lib/use-url-state";
 import { money, date, label } from "@/lib/format";
 import { receiptHtml, receiptText } from "@/lib/receipt";
+import { orderBuyerFee, orderBuyerTotal } from "@/lib/commerce-payments";
 import { reportQuery, canUseStore, isStoreOwner } from "@/lib/commerce";
 import { posOrderPath } from "@/lib/pos-payment";
 import type { Order, Page, SalesReport, Store } from "@/lib/types";
@@ -175,7 +176,7 @@ export function SaleDetail({
     return (
       <CollectionDialog
         order={sale}
-        store={scopedPos ? store : undefined}
+        store={sale.channel === "POS" ? store : undefined}
         onDone={refresh}
         onClose={() => {
           setCollect(false);
@@ -191,7 +192,7 @@ export function SaleDetail({
       className="owner-detail-dialog"
     >
       <div className="transaction-hero">
-        <strong>{money(sale.totalAmount, sale.totalCurrency)}</strong>
+        <strong>{money(orderBuyerTotal(sale).amount, orderBuyerTotal(sale).currency)}</strong>
         <Badge value={sale.posPaymentStatus || sale.status} />
       </div>
       {details.loading && <Loading rows={2} />}{" "}
@@ -205,6 +206,36 @@ export function SaleDetail({
           [t("Date", "Date"), date(sale.createdAt)],
           [t("Channel", "Canal"), label(sale.channel)],
           [t("Payment method", "Moyen de paiement"), label(sale.posPaymentMode)],
+          ...(sale.commerceSubtotalAmount != null
+            ? [
+                [
+                  t("Product subtotal", "Sous-total des produits"),
+                  money(sale.commerceSubtotalAmount, sale.paymentCurrency || sale.totalCurrency),
+                ],
+              ]
+            : []),
+          ...(orderBuyerFee(sale) != null
+            ? [
+                [
+                  t("Fees added to buyer total", "Frais ajoutés au total"),
+                  money(
+                    orderBuyerFee(sale),
+                    sale.feeCurrency || sale.paymentCurrency || sale.totalCurrency,
+                  ),
+                ],
+              ]
+            : []),
+          ...(sale.merchantFeeAmount != null
+            ? [
+                [
+                  t("Fees deducted from proceeds", "Frais déduits des recettes"),
+                  money(
+                    sale.merchantFeeAmount,
+                    sale.feeCurrency || sale.paymentCurrency || sale.totalCurrency,
+                  ),
+                ],
+              ]
+            : []),
           [
             t("Paid", "Payé"),
             money(sale.amountPaid, sale.amountPaidCurrency || sale.totalCurrency),

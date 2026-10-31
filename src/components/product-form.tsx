@@ -9,6 +9,7 @@ import { invalidateQueryPaths } from "@/lib/query-cache";
 import type { Product, Store } from "@/lib/types";
 import { Modal, SubmitButton } from "./ui";
 import { MediaUpload } from "./media-upload";
+import { ProductFeeMode } from "./product-fee-mode";
 import { ProductCreateFlow } from "./product-create-flow";
 import { LinkSharing } from "./link-sharing";
 import { useWorkspace } from "./workspace-provider";
@@ -42,6 +43,8 @@ function ProductEditor({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [type, setType] = useState(product?.type || "PHYSICAL");
+  const [feeModeOverride, setFeeModeOverride] = useState<"INHERIT" | "EXCLUSIVE" | "INCLUSIVE">();
+  const feeApplicationMode = feeModeOverride ?? product?.feeApplicationMode ?? "INHERIT";
   const [currency, setCurrency] = useState(product?.priceCurrency || store.defaultCurrency);
   const { currencies } = useCurrencies([currency, store.defaultCurrency]);
   const [images, setImages] = useState([
@@ -68,6 +71,9 @@ function ProductEditor({
         description: String(f.get("description")).trim(),
         slug: String(f.get("slug") || "").trim() || undefined,
         priceAmount: price,
+        ...(feeModeOverride !== undefined
+          ? { feeApplicationMode: feeModeOverride === "INHERIT" ? null : feeModeOverride }
+          : {}),
         priceCurrency: currency,
         type,
         ...Object.fromEntries(images.map((v, i) => [`image${i + 1}`, v || null])),
@@ -186,6 +192,7 @@ function ProductEditor({
               </select>
             </label>
           </div>
+          <ProductFeeMode value={feeApplicationMode} onChange={setFeeModeOverride} />
         </section>
         <section className="form-section">
           <h3>3. {t("Photos and video", "Photos et vidéo")}</h3>

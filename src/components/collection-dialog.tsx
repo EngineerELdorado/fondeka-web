@@ -6,6 +6,7 @@ import { money, parseAmount } from "@/lib/format";
 import type { PaymentSelection, PaymentTransaction } from "@/lib/business-tools";
 import type { Order, PaymentRequest, Store } from "@/lib/types";
 import { posOrderPath, posOrderTransaction, posPaymentBody } from "@/lib/pos-payment";
+import { commercePaymentSelection } from "@/lib/commerce-payments";
 import { useWorkspace } from "./workspace-provider";
 import { Modal, Badge } from "./ui";
 import { PaymentMethodWidget } from "./payment-method-widget";
@@ -16,16 +17,18 @@ export function CollectionDialog({
   store,
   onClose,
   onDone,
+  initialSelection,
 }: {
   payment?: PaymentRequest;
   order?: Order;
   store?: Store;
   onClose: () => void;
   onDone: () => void;
+  initialSelection?: PaymentSelection;
 }) {
   const { t } = useI18n();
   const { accountKey } = useWorkspace();
-  const scopedPos = store?.accessType === "STAFF" && order?.channel === "POS";
+  const scopedPos = !!store && order?.channel === "POS";
   const posStoreId = scopedPos ? store.id : undefined;
   const orderReference = order?.reference;
   const variable =
@@ -159,7 +162,7 @@ export function CollectionDialog({
         }
       : scopedPos
         ? posPaymentBody(selection, key)
-        : { paymentMethod: selection, idempotencyKey: key };
+        : { paymentMethod: commercePaymentSelection(selection), idempotencyKey: key };
     const path = payment
       ? `/customer-api/payment_requests/${payment.id}/collect`
       : scopedPos
@@ -346,6 +349,17 @@ export function CollectionDialog({
           )}
           {amount > 0 && (
             <PaymentMethodWidget
+              initialSelection={initialSelection}
+              commerceContext={
+                order
+                  ? {
+                      kind: "ORDER",
+                      reference: order.reference,
+                      accessToken: order.accessToken,
+                      ...(scopedPos ? { storeId: posStoreId } : {}),
+                    }
+                  : undefined
+              }
               paymentRequestId={payment?.id}
               paymentRequestCode={payment?.linkCode}
               action={payment ? "PAY_REQUEST" : "COMMERCE_CHECKOUT_PAYMENT"}

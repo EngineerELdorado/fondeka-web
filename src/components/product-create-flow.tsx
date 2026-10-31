@@ -17,7 +17,9 @@ import {
   useFlowDraft,
   type GuidedStep,
 } from "./guided-flow";
+import { ProductFeeMode } from "./product-fee-mode";
 type Draft = {
+  feeApplicationMode: "INHERIT" | "EXCLUSIVE" | "INCLUSIVE";
   name: string;
   price: string;
   currency: string;
@@ -47,6 +49,7 @@ export function ProductCreateFlow({
     {
       name: "",
       price: "",
+      feeApplicationMode: "INHERIT",
       currency: store.defaultCurrency,
       images: ["", "", "", ""],
       video: "",
@@ -58,7 +61,18 @@ export function ProductCreateFlow({
       instructions: "",
       asset: "",
     },
-    ["name", "price", "currency", "images", "video", "duration", "description", "type", "stock"],
+    [
+      "name",
+      "price",
+      "feeApplicationMode",
+      "currency",
+      "images",
+      "video",
+      "duration",
+      "description",
+      "type",
+      "stock",
+    ],
   );
   const [uploading, setUploading] = useState(false);
   const currencies = useCurrencies([draft.value.currency, store.defaultCurrency]);
@@ -110,6 +124,10 @@ export function ProductCreateFlow({
               ))}
             </select>
           </FlowField>
+          <ProductFeeMode
+            value={value.feeApplicationMode || "INHERIT"}
+            onChange={(feeApplicationMode) => set({ feeApplicationMode })}
+          />
         </>
       ),
     },
@@ -330,6 +348,18 @@ export function ProductCreateFlow({
             </p>
             <p className="flow-price">{money(Number(value.price), value.currency)}</p>
           </FlowReview>
+          <FlowReview title={t("Payment fees", "Frais de paiement")} edit={() => go("price")}>
+            <p>
+              {value.feeApplicationMode === "EXCLUSIVE"
+                ? t(
+                    "EXCLUSIVE · Added to buyer total",
+                    "EXCLUSIVE · Ajoutés au total de l’acheteur",
+                  )
+                : value.feeApplicationMode === "INCLUSIVE"
+                  ? t("INCLUSIVE · Included in price", "INCLUSIVE · Inclus dans le prix")
+                  : t("Use current fee policy", "Conserver la politique de frais actuelle")}
+            </p>
+          </FlowReview>
           <FlowReview title={t("Description", "Description")} edit={() => go("description")}>
             <p>{value.description}</p>
           </FlowReview>
@@ -375,6 +405,10 @@ export function ProductCreateFlow({
         body: JSON.stringify({
           name: v.name.trim(),
           priceAmount: parseAmount(v.price, v.currency),
+          feeApplicationMode:
+            !v.feeApplicationMode || v.feeApplicationMode === "INHERIT"
+              ? null
+              : v.feeApplicationMode,
           priceCurrency: v.currency,
           description: v.description.trim(),
           type: v.type,
