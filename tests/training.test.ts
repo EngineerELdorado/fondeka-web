@@ -25,6 +25,7 @@ import {
   trainingMaterialPath,
   trainingPath,
   trainingPayload,
+  trainingPreviewCurriculum,
   type TrainingCurriculum,
   type TrainingModule,
 } from "../src/lib/training";
@@ -48,6 +49,87 @@ const module = (): TrainingModule => ({
       completed: true,
     },
   ],
+});
+test("owner learner preview hides unpublished content, strips author sources and isolates completion", () => {
+  const visible = module();
+  visible.materials.push({ ...visible.materials[0], id: secondId, published: false });
+  const source: TrainingCurriculum = {
+    productId: 42,
+    title: "Training",
+    version: 4,
+    modules: [
+      visible,
+      { ...module(), id: secondId, published: false },
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        title: "Empty",
+        published: true,
+        materials: [],
+      },
+    ],
+    totalMaterials: 3,
+    completedMaterials: 3,
+    progressPercentage: 100,
+    nextMaterialId: null,
+  };
+  const before = structuredClone(source);
+  const fresh = trainingPreviewCurriculum(source);
+  assert.deepEqual(
+    fresh.modules.map((item) => item.id),
+    [moduleId],
+  );
+  assert.deepEqual(
+    fresh.modules[0].materials.map((item) => item.id),
+    [lessonId],
+  );
+  assert.equal(fresh.modules[0].materials[0].linkUrl, null);
+  assert.equal(fresh.modules[0].materials[0].assetKey, null);
+  assert.equal(fresh.modules[0].materials[0].completed, false);
+  assert.equal(fresh.modules[0].materials[0].completedAt, null);
+  assert.equal(fresh.totalMaterials, 1);
+  assert.equal(fresh.completedMaterials, 0);
+  assert.equal(fresh.progressPercentage, 0);
+  assert.equal(fresh.nextMaterialId, lessonId);
+  const completed = trainingPreviewCurriculum(source, new Set([lessonId, secondId]));
+  assert.equal(completed.completedMaterials, 1);
+  assert.equal(completed.progressPercentage, 100);
+  assert.equal(completed.nextMaterialId, null);
+  assert.deepEqual(source, before);
+  assert.equal(trainingPreviewCurriculum(source).completedMaterials, 0);
+  const empty = trainingPreviewCurriculum({ ...source, modules: [] });
+  assert.equal(empty.progressPercentage, 0);
+  assert.equal(empty.nextMaterialId, null);
+});
+test("preview preserves lesson order and uses the learner percentage and next-material rules", () => {
+  const source: TrainingCurriculum = {
+    productId: 42,
+    title: "Training",
+    version: 1,
+    modules: [
+      {
+        ...module(),
+        materials: [lessonId, secondId, moduleId].map((id) => ({
+          id,
+          title: id,
+          type: "FILE",
+          published: true,
+          assetKey: key,
+        })),
+      },
+    ],
+    totalMaterials: 3,
+    completedMaterials: 0,
+    progressPercentage: 0,
+    nextMaterialId: lessonId,
+  };
+  const preview = trainingPreviewCurriculum(source, new Set([secondId]));
+  assert.equal(preview.progressPercentage, 33);
+  assert.equal(preview.nextMaterialId, lessonId);
+  assert.deepEqual(
+    preview.modules[0].materials.map((item) => item.id),
+    [lessonId, secondId, moduleId],
+  );
+  assert.ok(preview.modules[0].materials.every((item) => item.assetKey === null));
 });
 test("training demo exercises draft saves, version conflicts, ID-preserving moves and unrestricted learner progress", () => {
   const products: Product[] = [
@@ -83,6 +165,21 @@ test("training demo exercises draft saves, version conflicts, ID-preserving move
   assert.ok(savedId);
   assert.equal(first.version, 1);
   assert.equal(demoTrainingPublishable(99001), true);
+  const preview = trainingPreviewCurriculum(first);
+  const authorAccess = demoTrainingRequest(
+    `${author}/materials/${preview.nextMaterialId}/access`,
+    "GET",
+    undefined,
+    new URLSearchParams(),
+    products,
+  )?.data as { url: string };
+  assert.equal(authorAccess.url, "https://example.com/watch?lesson=1#start");
+  // Preview does not grant enrollment or write any learner progress.
+  assert.throws(
+    () => read("/commerce/trainings/99001"),
+    (error: unknown) => (error as { code: string }).code === "TRAINING_ACCESS_REQUIRED",
+  );
+  assert.equal(read(author).completedMaterials, 0);
   assert.throws(
     () => read(author, "PUT", { version: 0, modules: first.modules }),
     (error: unknown) => (error as { status: number }).status === 409,

@@ -72,6 +72,39 @@ export function trainingHttpsUrl(value: string) {
     return;
   }
 }
+/** A learner-shaped view of saved author content. Preview completion stays in memory. */
+export function trainingPreviewCurriculum(
+  source: TrainingCurriculum,
+  completedIds: ReadonlySet<string> = new Set(),
+): TrainingCurriculum {
+  const modules = source.modules
+    .filter((module) => module.published)
+    .map((module) => ({
+      ...module,
+      materials: module.materials
+        .filter((material) => material.published)
+        .map((material) => ({
+          ...material,
+          assetKey: null,
+          linkUrl: null,
+          completed: completedIds.has(material.id!),
+          completedAt: null,
+        })),
+    }))
+    .filter((module) => module.materials.length > 0);
+  const materials = modules.flatMap((module) => module.materials);
+  const completedMaterials = materials.filter((material) => material.completed).length;
+  return {
+    ...source,
+    modules,
+    totalMaterials: materials.length,
+    completedMaterials,
+    progressPercentage: materials.length
+      ? Math.floor((completedMaterials * 100) / materials.length)
+      : 0,
+    nextMaterialId: materials.find((material) => !material.completed)?.id || null,
+  };
+}
 /** Whitelist the author write contract; order comes only from arrays, never positions. */
 export type TrainingCurriculumInput = {
   version: number;

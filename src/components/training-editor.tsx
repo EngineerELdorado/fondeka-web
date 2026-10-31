@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, BookOpen, FilePlus2, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, Eye, FilePlus2, Plus, Trash2 } from "lucide-react";
 import { request } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
 import { useUiText } from "@/lib/use-ui-text";
@@ -17,6 +17,7 @@ import { useWorkspace } from "./workspace-provider";
 import { Loading, ErrorState, Modal } from "./ui";
 import { MediaUpload } from "./media-upload";
 import { TrainingMaterialOpener } from "./training-material-opener";
+import { TrainingPreview } from "./training-preview";
 
 type Lesson = TrainingMaterial & { key: string };
 type Module = Omit<TrainingModule, "materials"> & { key: string; materials: Lesson[] };
@@ -92,6 +93,8 @@ function CurriculumWorkspace({
   const [conflict, setConflict] = useState(false);
   const [previousDraft, setPreviousDraft] = useState<Module[]>();
   const [remove, setRemove] = useState<{ module: string; material?: string }>();
+  const [previewing, setPreviewing] = useState(false);
+  const previewButton = useRef<HTMLButtonElement>(null);
   const lock = useRef(false);
   const editingUrl = useRef(typeof window === "undefined" ? "" : window.location.href);
   const dirty = JSON.stringify(modules) !== JSON.stringify(draftOf(baseline));
@@ -210,7 +213,7 @@ function CurriculumWorkspace({
     patchModule({ materials: next });
   }
   async function save() {
-    if (lock.current || uploading || conflict) return;
+    if (lock.current || uploading || conflict) return false;
     setError("");
     try {
       const payload = trainingPayload(baseline.version, modules);
@@ -242,9 +245,11 @@ function CurriculumWorkspace({
           "Programme enregistré. Publiez le produit lorsqu’il est prêt.",
         ),
       );
+      return true;
     } catch (failure) {
       setError(ui(failure instanceof Error ? failure.message : "Unable to save curriculum."));
       if ((failure as { status?: number })?.status === 409) setConflict(true);
+      return false;
     } finally {
       lock.current = false;
       setBusy(false);
@@ -274,6 +279,16 @@ function CurriculumWorkspace({
     }
   }
   const count = modules.reduce((n, item) => n + item.materials.length, 0);
+  if (previewing)
+    return (
+      <TrainingPreview
+        productId={initial.productId}
+        onClose={() => {
+          setPreviewing(false);
+          requestAnimationFrame(() => previewButton.current?.focus());
+        }}
+      />
+    );
   return (
     <section className="training-author">
       <header className="training-heading">
@@ -303,6 +318,20 @@ function CurriculumWorkspace({
             onClick={onProductSettings}
           >
             {t("Product settings & publish", "Paramètres du produit et publication")}
+          </button>
+          <button
+            ref={previewButton}
+            type="button"
+            className="button secondary"
+            disabled={busy || uploading || conflict}
+            onClick={async () => {
+              if (!dirty || (await save())) setPreviewing(true);
+            }}
+          >
+            <Eye size={16} />
+            {dirty
+              ? t("Save & preview as learner", "Enregistrer et voir comme un apprenant")
+              : t("Preview as learner", "Voir comme un apprenant")}
           </button>
           <button
             type="button"

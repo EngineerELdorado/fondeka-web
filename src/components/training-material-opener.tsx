@@ -15,12 +15,14 @@ export function TrainingMaterialOpener({
   materialId,
   title,
   author = false,
+  actionLabel,
   onAccessLost,
 }: {
   productId: number;
   materialId: string;
   title: string;
   author?: boolean;
+  actionLabel?: string;
   onAccessLost?: () => void;
 }) {
   const { t } = useI18n();
@@ -94,7 +96,8 @@ export function TrainingMaterialOpener({
         onClick={() => void load()}
       >
         <Play size={15} />
-        {author ? t("Preview", "Aperçu") : t("Open material", "Ouvrir la ressource")}
+        {actionLabel ||
+          (author ? t("Preview", "Aperçu") : t("Open material", "Ouvrir la ressource"))}
       </button>
       {open && (
         <Modal title={title} onClose={close}>
