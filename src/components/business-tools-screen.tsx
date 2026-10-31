@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Code2, Link2, LockKeyhole, Calculator, RefreshCw, ShieldCheck, Store } from "lucide-react";
 import {
   accessDecision,
+  businessToolsPurchaseCopy,
   billingLabel,
   isPositiveId,
   normalizeMethods,
@@ -279,13 +280,15 @@ export function BusinessToolsScreen({ onClose }: { onClose: () => void }) {
                   <span>{billingLabel(offer.plan.billingMode, language)}</span>
                 </small>
               </div>
-              <p className="activation-explanation">
-                {offer.purchaseNotice ||
-                  (offer.pricingMode === "PER_TOOL" && offer.tool !== "BUNDLE"
+              <p className="activation-explanation" style={{ whiteSpace: "pre-wrap" }}>
+                {businessToolsPurchaseCopy(
+                  offer,
+                  offer.pricingMode === "PER_TOOL" && offer.tool !== "BUNDLE"
                     ? language === "fr"
                       ? `Cet achat active uniquement ${offer.plan.name}. Les autres outils Business nécessitent un accès distinct.`
                       : `This purchase unlocks ${offer.plan.name} only. Other Business Tools require separate access.`
-                    : t.explanation)}
+                    : t.explanation,
+                )}
               </p>
               {state.submissionError && <PaymentError message={state.submissionError} />}
               {purchase?.status === "PENDING" && (

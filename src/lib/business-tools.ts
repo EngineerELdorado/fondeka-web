@@ -17,6 +17,7 @@ export interface BusinessToolsAccess {
   pricingMode?: BusinessPricingMode;
   purchaseAction?: BusinessPurchaseAction;
   purchaseNotice?: string;
+  purchaseScopeNotice?: string;
   paymentRequired?: boolean;
   free?: boolean;
   accessSource?: string;
@@ -186,6 +187,9 @@ export function toolForDestination(
       : "ONLINE_STORES";
   }
 }
+function firstPurchaseNotice(...values: (string | undefined)[]) {
+  return values.map((value) => value?.trim()).find(Boolean);
+}
 /** Mode selects the offer; a returned individual grant remains valid in either mode. */
 export function accessForDestination(
   access: BusinessToolsAccess,
@@ -203,10 +207,36 @@ export function accessForDestination(
     pricingMode: mode,
     purchaseAction:
       mode === "PER_TOOL" && tool ? individual!.purchaseAction : "BUSINESS_TOOLS_ACCESS",
-    purchaseNotice:
-      mode === "PER_TOOL" && tool ? individual!.purchaseNotice : access.bundle?.purchaseNotice,
+    purchaseNotice: firstPurchaseNotice(
+      individual?.purchaseNotice,
+      offer.purchaseNotice,
+      mode === "BUNDLE" ? access.bundle?.purchaseNotice : undefined,
+    ),
+    purchaseScopeNotice:
+      mode === "BUNDLE"
+        ? firstPurchaseNotice(access.bundle?.purchaseScopeNotice, access.purchaseScopeNotice)
+        : firstPurchaseNotice(offer.purchaseScopeNotice),
     accessGranted: individual?.accessGranted ?? offer.accessGranted,
   };
+}
+/** Keep selected-tool benefits, optional bundle copy and the payment scope visible together. */
+export function businessToolsPurchaseCopy(
+  access: BusinessToolsAccess | null | undefined,
+  fallbackScope: string,
+): string {
+  const notices = [
+    access?.purchaseNotice,
+    access?.pricingMode !== "PER_TOOL" ? access?.bundle?.purchaseNotice : undefined,
+    firstPurchaseNotice(access?.purchaseScopeNotice, fallbackScope),
+  ];
+  return [
+    ...new Set(
+      notices
+        .filter((text): text is string => typeof text === "string")
+        .map((text) => text.trim())
+        .filter(Boolean),
+    ),
+  ].join("\n\n");
 }
 /** Accepted purchases keep their own action even if the current offer/mode changes. */
 export function effectivePurchaseAction(
@@ -377,6 +407,7 @@ export function parseAccess(value: unknown): BusinessToolsAccess {
         ...businessToolCodes.map((tool) => `BUSINESS_TOOLS_${tool}_ACCESS`),
       ].includes(access.purchaseAction)) ||
     (access.purchaseNotice !== undefined && typeof access.purchaseNotice !== "string") ||
+    (access.purchaseScopeNotice !== undefined && typeof access.purchaseScopeNotice !== "string") ||
     (access.pendingPurchase &&
       (!purchaseIdPattern.test(access.pendingPurchase.id) ||
         access.pendingPurchase.status !== "PENDING" ||

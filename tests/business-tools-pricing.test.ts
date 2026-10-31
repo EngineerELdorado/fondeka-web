@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   accessForDestination,
+  businessToolsPurchaseCopy,
   accessPath,
   businessToolCodes,
   effectivePurchaseAction,
@@ -168,6 +169,174 @@ test("each card selects the server's independent plan, notice, method and quote 
       "0",
     );
   }
+});
+test("selected-tool benefits remain visible with the bundle plan and payment action", () => {
+  const root = account([], "BUNDLE");
+  root.bundle!.purchaseScopeNotice = "All Business Tools are included.";
+  for (const [destination, tool] of [
+    ["/payment-requests", "PAYMENT_REQUESTS"],
+    ["/stores", "ONLINE_STORES"],
+    ["/pos", "POS"],
+    ["/developers", "API"],
+  ] as const) {
+    const selected = accessForDestination(parseAccess(root), destination)!;
+    assert.equal(selected.purchaseNotice, `Server notice: ${tool}`);
+    assert.equal(selected.plan.code, root.plan.code);
+    assert.equal(selected.pricing.amountDue, root.pricing.amountDue);
+    assert.equal(selected.purchaseAction, "BUSINESS_TOOLS_ACCESS");
+    assert.equal(selected.purchaseScopeNotice, "All Business Tools are included.");
+    assert.equal(
+      businessToolsPurchaseCopy(selected, "fallback"),
+      `Server notice: ${tool}\n\nServer notice: BUNDLE\n\nAll Business Tools are included.`,
+    );
+  }
+});
+test("purchase copy preserves multiline benefits, distinct scope and old-response fallbacks", () => {
+  const benefits = "Gérez les ventes.\nSuivez vos clients • POS.";
+  const root = account();
+  root.tools!.find((entry) => entry.tool === "POS")!.purchaseNotice = benefits;
+  root.tools!.find((entry) => entry.tool === "POS")!.purchaseScopeNotice =
+    "Cet achat active uniquement POS.";
+  const selected = accessForDestination(parseAccess(root), "/pos")!;
+  assert.equal(
+    businessToolsPurchaseCopy(selected, "fallback"),
+    `${benefits}\n\nCet achat active uniquement POS.`,
+  );
+  const legacy: BusinessToolsAccess = offer("BUNDLE");
+  legacy.pricingMode = "BUNDLE";
+  legacy.purchaseNotice = "Bundle coverage";
+  legacy.bundle = { ...offer("BUNDLE"), purchaseNotice: "Bundle coverage" };
+  assert.equal(businessToolsPurchaseCopy(legacy, "Bundle coverage"), "Bundle coverage");
+  delete legacy.purchaseNotice;
+  delete legacy.bundle;
+  assert.equal(businessToolsPurchaseCopy(legacy, "Legacy fallback"), "Legacy fallback");
+  assert.throws(() => parseAccess({ ...root, purchaseScopeNotice: false }));
+});
+test("bundle benefits survive an inactive individual offer and use the bundle's scope", () => {
+  const root = account([], "BUNDLE");
+  root.purchaseScopeNotice = "Older top-level scope";
+  root.bundle!.purchaseScopeNotice = "  All tools are included.  ";
+  const pos = root.tools!.find((entry) => entry.tool === "POS")!;
+  pos.plan = { ...offer("POS").plan, purchasesEnabled: false };
+  pos.purchaseNotice = "  Gérez vos ventes\net vos clients.  ";
+  pos.purchaseScopeNotice = "This inactive individual plan is not the offer.";
+  const selected = accessForDestination(parseAccess(root), "/pos")!;
+  assert.equal(selected.plan, root.plan);
+  assert.equal(selected.pricing, root.pricing);
+  assert.equal(selected.purchaseAction, "BUSINESS_TOOLS_ACCESS");
+  assert.equal(selected.plan.purchasesEnabled, true);
+  assert.equal(
+    businessToolsPurchaseCopy(selected, "fallback"),
+    "Gérez vos ventes\net vos clients.\n\nServer notice: BUNDLE\n\nAll tools are included.",
+  );
+});
+test("all per-tool offers retain their benefits, price and coverage without bundle promotion", () => {
+  const root = account();
+  root.bundle!.purchaseNotice = "Bundle promotion must stay out of individual purchases.";
+  for (const [destination, tool] of [
+    ["/payment-requests", "PAYMENT_REQUESTS"],
+    ["/stores", "ONLINE_STORES"],
+    ["/pos", "POS"],
+    ["/developers", "API"],
+  ] as const) {
+    const individual = root.tools!.find((entry) => entry.tool === tool)!;
+    individual.purchaseScopeNotice = `Only ${tool} is included.`;
+    const selected = accessForDestination(parseAccess(root), destination)!;
+    assert.equal(selected.plan, individual.plan);
+    assert.equal(selected.pricing, individual.pricing);
+    assert.equal(selected.purchaseAction, individual.purchaseAction);
+    assert.equal(
+      businessToolsPurchaseCopy(selected, "fallback"),
+      `Server notice: ${tool}\n\nOnly ${tool} is included.`,
+    );
+    individual.purchaseNotice = " \n ";
+    individual.purchaseScopeNotice = " \t ";
+    const withoutCopy = accessForDestination(parseAccess(root), destination)!;
+    assert.equal(
+      businessToolsPurchaseCopy(withoutCopy, "Localized individual scope"),
+      "Localized individual scope",
+    );
+    assert.equal(withoutCopy.plan, individual.plan);
+  }
+});
+test("blank notices fall back before deduplication while Unicode and inner line breaks stay intact", () => {
+  const root = account([], "BUNDLE");
+  const benefits = "L’outil POS • ventes\nClients et rapports — prêt à l’emploi";
+  root.purchaseNotice = `  ${benefits}  `;
+  root.bundle!.purchaseNotice = `\n${benefits}\n`;
+  root.bundle!.purchaseScopeNotice = " \n ";
+  root.purchaseScopeNotice = " \t ";
+  root.tools!.find((entry) => entry.tool === "POS")!.purchaseNotice = " \n ";
+  assert.equal(
+    businessToolsPurchaseCopy(
+      accessForDestination(parseAccess(root), "/pos"),
+      " Tous les outils. ",
+    ),
+    `${benefits}\n\nTous les outils.`,
+  );
+  delete root.tools;
+  delete root.purchaseNotice;
+  delete root.pricingMode;
+  assert.equal(
+    businessToolsPurchaseCopy(accessForDestination(parseAccess(root), "/pos"), "Tous les outils."),
+    `${benefits}\n\nTous les outils.`,
+  );
+});
+test("a locale refresh supersedes an older read and keeps the selected tool without starting payment", async () => {
+  let finishOld!: (value: BusinessToolsAccess) => void;
+  const old = new Promise<BusinessToolsAccess>((resolve) => {
+    finishOld = resolve;
+  });
+  const french = account([], "BUNDLE");
+  french.tools!.find((entry) => entry.tool === "POS")!.purchaseNotice = "Gérez vos ventes.";
+  const calls: string[] = [];
+  const subject = client(async (path, init) => {
+    calls.push(`${init?.method || "GET"} ${path}`);
+    return calls.length === 1 ? old : french;
+  });
+  const original = subject.enter("/pos");
+  await subject.reload(false, { background: true, force: true });
+  assert.equal(subject.getSnapshot().destination, "/pos");
+  assert.equal(subject.getSnapshot().access?.purchaseNotice, "Gérez vos ventes.");
+  finishOld(account());
+  await original;
+  assert.equal(subject.getSnapshot().access?.purchaseNotice, "Gérez vos ventes.");
+  assert.equal(subject.getSnapshot().access?.plan.code, "RETURNED_BUNDLE");
+  assert.deepEqual(calls, [`GET ${accessPath}`, `GET ${accessPath}`]);
+  assert.equal(subject.getSnapshot().intent, undefined);
+});
+test("notice refresh and reopening preserve an accepted pending purchase through a mode change", async () => {
+  let localized = false;
+  const storage = session();
+  const calls: string[] = [];
+  const request = async (path: string, init?: RequestInit) => {
+    calls.push(`${init?.method || "GET"} ${path}`);
+    const root = account([], localized ? "PER_TOOL" : "BUNDLE");
+    const pos = root.tools!.find((entry) => entry.tool === "POS")!;
+    pos.purchaseNotice = localized ? "Gérez vos ventes." : "Manage your sales.";
+    if (!localized) root.pendingPurchase = { id, status: "PENDING", paymentTransactionId: 789 };
+    return path === accessPath ? root : payment("PENDING", root, "BUNDLE");
+  };
+  const subject = client(request, storage);
+  await subject.enter("/pos");
+  await subject.checkStatus();
+  const recovery = storage.getItem(recoveryPrefix + "owner");
+  localized = true;
+  await subject.reload(false, { background: true, force: true });
+  assert.equal(subject.getSnapshot().destination, "/pos");
+  assert.equal(subject.getSnapshot().access?.purchaseNotice, "Gérez vos ventes.");
+  assert.equal(subject.getSnapshot().purchase?.id, id);
+  assert.equal(subject.getSnapshot().purchase?.tool, "BUNDLE");
+  assert.equal(effectivePurchaseAction(subject.getSnapshot().purchase!), "BUSINESS_TOOLS_ACCESS");
+  assert.equal(subject.getSnapshot().intent, undefined);
+  assert.equal(storage.getItem(recoveryPrefix + "owner"), recovery);
+  subject.dispose();
+  const reopened = client(request, storage);
+  await reopened.ensureAccess();
+  assert.equal(reopened.getSnapshot().destination, "/pos");
+  assert.equal(reopened.getSnapshot().access?.purchaseNotice, "Gérez vos ventes.");
+  assert.equal(reopened.getSnapshot().purchase?.id, id);
+  assert.ok(calls.every((call) => call.startsWith("GET ")));
 });
 test("an individually paid tool remains accessible when the offered mode returns to BUNDLE", async () => {
   let reads = 0;

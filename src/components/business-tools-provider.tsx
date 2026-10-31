@@ -305,11 +305,11 @@ function Experience({
   const previousLanguage = useRef(language);
   useEffect(() => {
     // A selected locale also determines backend plan/error localization.
-    if (previousLanguage.current === language) return;
+    // Wait for an accepted payment response before refreshing its explanation.
+    if (previousLanguage.current === language || state.busy) return;
     previousLanguage.current = language;
-    if (client.getSnapshot().accountAccess || proactiveGate || client.getSnapshot().forced)
-      void client.reload(false, { background: true });
-  }, [client, language]);
+    void client.reload(false, { background: true, force: true });
+  }, [client, language, state.busy]);
   const enter = useCallback(
     (destination: string) => {
       if (handoff.current === destination) {

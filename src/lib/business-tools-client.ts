@@ -268,9 +268,10 @@ export class BusinessToolsClient {
       return Promise.resolve();
     return this.reload(false, { background: true });
   }
-  reload(denied = false, options: { background?: boolean } = {}): Promise<void> {
+  reload(denied = false, options: { background?: boolean; force?: boolean } = {}): Promise<void> {
     if (this.disposed) return Promise.resolve();
-    if (this.accessTask && !denied) return this.accessTask;
+    // A locale change must supersede a read started in the previous language.
+    if (this.accessTask && !denied && !options.force) return this.accessTask;
     const revision = ++this.revision;
     const background =
       !!options.background &&
