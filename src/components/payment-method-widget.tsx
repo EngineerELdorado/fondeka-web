@@ -327,9 +327,6 @@ export function PaymentMethodWidget({
             }}
           />
         )}
-        {selected?.localizedCollectionDisabledMessage && (
-          <p className="activation-note">{selected.localizedCollectionDisabledMessage}</p>
-        )}
         {selected?.type === "MOBILE_MONEY" && (
           <label className="activation-method-details">
             {t.phone}
