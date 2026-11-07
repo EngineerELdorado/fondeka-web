@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   description:
     "One workspace for your stores, point of sale, payment requests, and Fondeka API integrations.",
   robots: { index: false, follow: false },
+  other: { google: "notranslate" },
 };
 export const viewport: Viewport = {
   width: "device-width",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
+      translate="no"
       data-theme={defaultTheme}
       data-scroll-behavior="smooth"
       className={`${GeistSans.variable} ${GeistMono.variable}`}

@@ -88,3 +88,13 @@ test("corrupt identities and blocked storage fail without silently replacing an 
   } as unknown as IDBFactory;
   await assert.rejects(browserIdentity("account-a", true, blocked), { name: "SecurityError" });
 });
+test("missing browser security capabilities explain the requirement before creating an identity", async () => {
+  await assert.rejects(
+    browserIdentity("account-a", true, undefined, crypto.subtle),
+    /Browser storage is unavailable/,
+  );
+  await assert.rejects(
+    browserIdentity("account-a", true, new IDBFactory(), null as unknown as SubtleCrypto),
+    /Secure browser verification is unavailable/,
+  );
+});

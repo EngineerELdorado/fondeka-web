@@ -6,6 +6,7 @@ import ts from "typescript";
 import { DeviceError, isDeviceError, mayRetryDeviceRead } from "../src/lib/device-session";
 import { storeOwnerAccessRequired } from "../src/lib/shared-stores";
 import { isBusinessTool, needsBusinessToolsRecovery } from "../src/lib/business-tools";
+import { withRequestDeadline } from "../src/lib/request-deadline";
 
 const source = ts.transpileModule(readFileSync("src/lib/api.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -20,6 +21,7 @@ function client(responses: Response[], ensureResult = true) {
   const renewals: (string | undefined)[] = [];
   const calls: { path: string; method: string; headers: Headers; body: unknown }[] = [];
   const dependencies: Record<string, unknown> = {
+    "./request-deadline": { withRequestDeadline },
     "./shared-stores": { storeOwnerAccessRequired },
     "./auth": { accessToken: async () => "customer-token", customerScope: async () => "owner" },
     "./session-scope": { tokenCustomerScope: () => "owner" },
@@ -66,7 +68,8 @@ function client(responses: Response[], ensureResult = true) {
         super(type);
       }
     },
-    AbortSignal,
+    // Safari versions supported by Next.js can lack these newer static APIs.
+    AbortSignal: {},
     document: { documentElement: { lang: "en" } },
     window: {
       dispatchEvent: (event: Event & { options?: { detail: unknown } }) => {

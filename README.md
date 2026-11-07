@@ -23,6 +23,8 @@ On phones, the workspace uses bottom navigation, compact lists in place of wide 
 
 ## Connect the existing backend
 
+The portal provides its own English/French controls and opts out of automatic browser translation, which can replace React-owned text nodes. Verification action labels stay inside stable elements so their busy/approval transitions also tolerate translated content. Browser API calls use `AbortController` deadlines and caller cancellation without requiring `AbortSignal.timeout()` or `AbortSignal.any()`. Verification reports unavailable secure cryptography or site/session storage explicitly, while retaining existing persisted identities and the normal approval/signature checks.
+
 Copy `.env.example` to `.env.local`, set `NEXT_PUBLIC_DEMO_MODE=false`, and provide:
 
 ```dotenv

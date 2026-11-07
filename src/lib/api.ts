@@ -7,6 +7,7 @@ import { isBusinessTool, needsBusinessToolsRecovery } from "./business-tools";
 import { clearQueryCache, invalidateQueryPaths, forgetCommerceQueries } from "./query-cache";
 import { tokenCustomerScope } from "./session-scope";
 import { storeOwnerAccessRequired } from "./shared-stores";
+import { withRequestDeadline } from "./request-deadline";
 
 // Verification can succeed while an endpoint still rejects this browser's device policy.
 // Allow one recovery per account/endpoint, then keep its error mounted until a read succeeds.
@@ -89,27 +90,27 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   };
   let device = await proof();
   for (let attempt = 0; attempt < 2; attempt++) {
-    let response: Response;
-    try {
-      response = await fetch(`/api/backend${path}`, {
-        ...init,
-        cache: "no-store",
-        signal: init.signal
-          ? AbortSignal.any([init.signal, AbortSignal.timeout(25_000)])
-          : AbortSignal.timeout(25_000),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "Accept-Language": document.documentElement.lang || navigator.language || "en",
-          Authorization: `Bearer ${token}`,
-          ...device,
-          ...init.headers,
-        },
-      });
-    } catch {
-      throw new ApiError("We couldn’t reach Fondeka. Check your connection and try again.", 0);
-    }
-    const body = await response.json().catch(() => null);
+    const { response, body } = await withRequestDeadline(25_000, init.signal, async (signal) => {
+      let response: Response;
+      try {
+        response = await fetch(`/api/backend${path}`, {
+          ...init,
+          cache: "no-store",
+          signal,
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Accept-Language": document.documentElement.lang || navigator.language || "en",
+            Authorization: `Bearer ${token}`,
+            ...device,
+            ...init.headers,
+          },
+        });
+      } catch {
+        throw new ApiError("We couldn’t reach Fondeka. Check your connection and try again.", 0);
+      }
+      return { response, body: await response.json().catch(() => null) };
+    });
     // Discard a response (and its errors) from a previous signed-in account.
     if ((await customerScope().catch(() => undefined)) !== accountKey) {
       window.dispatchEvent(

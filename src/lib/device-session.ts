@@ -111,7 +111,13 @@ export class BrowserDeviceSessions {
         proof.expiresInSeconds * 1000 -
         Math.min(10_000, proof.expiresInSeconds * 100),
     };
-    this.deps.write(JSON.stringify(session));
+    try {
+      this.deps.write(JSON.stringify(session));
+    } catch {
+      throw new DeviceError(
+        "Allow browser session storage to finish verification, then try again.",
+      );
+    }
   }
   /** Renew only a persisted identity; never register a replacement or replay a write here. */
   async ensure(failedToken?: string): Promise<boolean> {

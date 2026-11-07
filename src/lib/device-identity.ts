@@ -16,7 +16,8 @@ function validIdentity(value: unknown): value is BrowserIdentity {
     identity.publicKey.includes("BEGIN PUBLIC KEY") &&
     identity.privateKey?.type === "private" &&
     identity.privateKey.extractable === false &&
-    identity.privateKey.algorithm.name === "RSASSA-PKCS1-v1_5" &&
+    identity.privateKey.algorithm?.name === "RSASSA-PKCS1-v1_5" &&
+    Array.isArray(identity.privateKey.usages) &&
     identity.privateKey.usages.includes("sign")
   );
 }
@@ -24,10 +25,18 @@ function validIdentity(value: unknown): value is BrowserIdentity {
 export async function browserIdentity(
   accountKey: string,
   create: boolean,
-  factory: IDBFactory = indexedDB,
-  subtle: SubtleCrypto = crypto.subtle,
+  factory: IDBFactory | undefined = globalThis.indexedDB,
+  subtle: SubtleCrypto | undefined = globalThis.crypto?.subtle,
 ): Promise<BrowserIdentity | undefined> {
   if (!accountKey) throw new Error("Sign in before verifying this browser.");
+  if (!factory)
+    throw new Error(
+      "Browser storage is unavailable. Allow site storage and try verification again.",
+    );
+  if (!subtle)
+    throw new Error(
+      "Secure browser verification is unavailable. Open Fondeka in an up-to-date browser over HTTPS.",
+    );
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const operation = factory.open("fondeka-device-keys", 1);
     operation.onupgradeneeded = () => operation.result.createObjectStore("identities");

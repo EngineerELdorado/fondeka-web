@@ -126,6 +126,19 @@ test("expiry and a new tab renew the existing ID by signed challenge, without re
   assert.equal(await f.manager.ensure(), true);
   assert.equal(f.manager.headers("account-a")["X-Device-Id"], "persisted-id");
 });
+test("blocked session storage keeps the signed device unverified with an actionable error", async () => {
+  const f = await fixture();
+  f.deps.write = () => {
+    throw new DOMException("Blocked", "SecurityError");
+  };
+  await assert.rejects(f.manager.register(), /Allow browser session storage/);
+  assert.deepEqual(f.manager.headers("account-a"), {});
+  assert.equal(f.stored(), null);
+  assert.deepEqual(
+    f.calls.map((call) => call.path),
+    ["register", "verify"],
+  );
+});
 
 test("concurrent reads share renewal and late expired-token errors reuse the newly verified proof", async () => {
   const f = await fixture();

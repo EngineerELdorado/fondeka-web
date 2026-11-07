@@ -426,5 +426,16 @@
   "A file material requires an uploaded training file and no link.": "Une ressource de type fichier nécessite un fichier de formation importé et aucun lien.",
   "Unable to save curriculum.": "Impossible d’enregistrer le programme.",
   "Material access is unavailable. Please try again.": "L’accès à cette ressource est indisponible. Veuillez réessayer.",
-  "Unable to read the training curriculum.": "Impossible de lire le programme de formation."
+  "Unable to read the training curriculum.": "Impossible de lire le programme de formation.",
+  "Browser storage is unavailable. Allow site storage and try verification again.": "Le stockage du navigateur est indisponible. Autorisez le stockage du site, puis réessayez la vérification.",
+  "Secure browser verification is unavailable. Open Fondeka in an up-to-date browser over HTTPS.": "La vérification sécurisée est indisponible. Ouvrez Fondeka dans un navigateur à jour via HTTPS.",
+  "Allow browser session storage to finish verification, then try again.": "Autorisez le stockage de session du navigateur pour terminer la vérification, puis réessayez.",
+  "The browser identity could not be saved. Allow browser storage and retry.": "L’identité du navigateur n’a pas pu être enregistrée. Autorisez le stockage du site, puis réessayez.",
+  "The saved browser identity could not be read. Contact Fondeka support for device recovery.": "L’identité enregistrée du navigateur est illisible. Contactez l’assistance Fondeka pour récupérer l’accès à cet appareil.",
+  "Allow browser storage to verify this device.": "Autorisez le stockage du site pour vérifier ce navigateur.",
+  "Device verification failed. Please try again.": "La vérification du navigateur a échoué. Veuillez réessayer.",
+  "Your login has expired. Please sign in again.": "Votre connexion a expiré. Veuillez vous reconnecter.",
+  "Fondeka did not return a device challenge.": "Fondeka n’a pas retourné de demande de vérification du navigateur. Veuillez réessayer.",
+  "Fondeka did not return a valid device session.": "Fondeka n’a pas retourné de session valide pour ce navigateur. Veuillez réessayer.",
+  "This browser was not approved. Contact Fondeka support or use your trusted device.": "Ce navigateur n’a pas été approuvé. Contactez l’assistance Fondeka ou utilisez votre appareil de confiance."
 }
