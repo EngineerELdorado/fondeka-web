@@ -68,6 +68,74 @@ test("every declared request and response property has an English and French exp
   }
 });
 
+test("bill guides expose optional purchase controls and explain receipt/reactivation inline fields", () => {
+  const track = guideTrack("bill-payments");
+  const purchase = track.lessons.find((lesson) => lesson.id === "request")!.example!;
+  const operation = guideOperation(spec, purchase);
+  const media = guideMedia(operation.requestBody?.content);
+  const body = publishedExample(media, purchase.exampleName);
+  const scoped = guidePageFields(guideSchemaFields(spec, media?.schema, "body"), purchase, body);
+  assert.deepEqual(scoped.map((field) => field.path).sort(), [
+    "accountNumber",
+    "additionalInfo",
+    "amount",
+    "billProductCode",
+    "currency",
+    "maxFee",
+    "maxGrossAmount",
+    "orderReference",
+  ]);
+  for (const id of ["additional-info", "television", "tv-change"]) {
+    const selected = track.lessons.find((lesson) => lesson.id === id)!.example!;
+    const media = guideMedia(guideOperation(spec, selected).requestBody?.content);
+    const body = publishedExample(media, selected.exampleName) as {
+      additionalInfo: Record<string, unknown>;
+    };
+    const declared = guideSchemaFields(spec, media?.schema, "body");
+    assert.ok(declared.every((field) => !field.path.startsWith("additionalInfo.")));
+    const displayed = guidePageFields(declared, selected, body);
+    for (const key of Object.keys(body.additionalInfo)) {
+      const field = displayed.find((field) => field.path === `additionalInfo.${key}`)!;
+      assert.equal(field.extension, true);
+      for (const language of ["en", "fr"]) {
+        assert.equal(guideFieldDescription(field, language, selected).language, language);
+        assert.ok(guideFieldDescription(field, language, selected).text.length > 10);
+      }
+      if (id !== "additional-info") assert.equal(field.required, true);
+    }
+    const extended = {
+      ...body,
+      additionalInfo: { ...body.additionalInfo, futureInput: { values: ["opaque"] } },
+    };
+    const extra = guidePageFields(declared, selected, extended).find(
+      (field) => field.path === "additionalInfo.futureInput",
+    )!;
+    assert.equal(extra.extension, true);
+    assert.equal(extra.required, false);
+    assert.deepEqual(extra.schema.example, { values: ["opaque"] });
+    assert.match(guideFieldDescription(extra, "en", selected).text, /provider must support/);
+    assert.match(guideFieldDescription(extra, "fr", selected).text, /fournisseur choisi/);
+    assert.deepEqual(extended.additionalInfo.futureInput, { values: ["opaque"] });
+  }
+  for (const example of [
+    track.lessons.find((lesson) => lesson.id === "receipt")!.example!,
+    {
+      method: "POST" as const,
+      path: "/business-api/v1/businesses/{businessId}/bill-payments/{reference}/actions",
+      fields: [],
+    },
+  ]) {
+    const response = Object.values(guideOperation(spec, example).responses)[0];
+    const schema = guideMedia(response.content)?.schema;
+    for (const field of guideSchemaFields(spec, schema, "response"))
+      for (const language of ["en", "fr"]) {
+        const description = guideFieldDescription(field, language, example);
+        assert.equal(description.language, language);
+        assert.ok(description.text.length > 10);
+      }
+  }
+});
+
 test("crypto response structure retains the entire transaction around the expanded cryptoDetails object", () => {
   for (const id of ["crypto-collection", "crypto-payout"]) {
     const example = guideTrack(id).lessons[0].example!;
@@ -131,6 +199,8 @@ test("the shared schema remains complete independently of the guide-specific fie
       "orderReference",
       "currency",
       "feeApplicationMode",
+      "maxFee",
+      "maxGrossAmount",
       "networkId",
       "networkName",
       "paymentMethodId",

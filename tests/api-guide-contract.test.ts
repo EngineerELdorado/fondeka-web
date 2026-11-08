@@ -83,7 +83,20 @@ test("guide payloads and explanations use the payment reference and omit interna
   assert.match(example.path, /\/transactions\/\{reference\}$/);
   assert.ok(example.fields.some((field) => field.key === "fondekaReference"));
 });
-test("visual guides cover every published merchant endpoint without introducing guessed routes", () => {
+test("visual guides cover current menu endpoints without recommending deprecated routes", () => {
+  // These bill operations remain in the full reference without separate menu lessons.
+  const referenceOnlyOperations = new Set([
+    "get /business-api/v1/businesses/{businessId}/bill-payments",
+    "post /business-api/v1/businesses/{businessId}/bill-payments/{reference}/actions",
+  ]);
+  const endpoints = Object.entries(spec.paths).flatMap(([path, methods]) =>
+    Object.entries(methods)
+      .filter(
+        ([method, operation]) =>
+          !operation.deprecated && !referenceOnlyOperations.has(`${method} ${path}`),
+      )
+      .map(([method]) => ({ method, path })),
+  );
   assert.deepEqual(
     apiGuideTracks.map((track) => track.id),
     businessApiTopics.map((topic) => topic.id),
@@ -97,7 +110,17 @@ test("visual guides cover every published merchant endpoint without introducing 
   const routes = new Set(
     examples.filter((example) => !example.incoming).map((example) => example.path),
   );
-  assert.deepEqual([...routes].sort(), Object.keys(spec.paths).sort());
+  assert.deepEqual([...routes].sort(), [...new Set(endpoints.map(({ path }) => path))].sort());
+  assert.deepEqual(
+    [
+      ...new Set(
+        examples
+          .filter((example) => !example.incoming)
+          .map((example) => `${example.method.toLowerCase()} ${example.path}`),
+      ),
+    ].sort(),
+    endpoints.map(({ method, path }) => `${method} ${path}`).sort(),
+  );
   for (const example of examples) {
     const operation = guideOperation(spec, example);
     assert.ok(operation.responses);
@@ -125,6 +148,20 @@ test("visual guides cover every published merchant endpoint without introducing 
     for (const lesson of track.lessons)
       for (const resource of lesson.resources || [])
         assert.ok(businessApiFiles.includes(resource.file));
+});
+
+test("bill cURL paths use discovered product and offer variables and require idempotency only for purchase", () => {
+  const track = guideTrack("bill-payments");
+  for (const lesson of track.lessons) {
+    const example = lesson.example!;
+    const operation = guideOperation(spec, example);
+    const curl = contractCurl(spec, example, undefined);
+    assert.doesNotMatch(curl, /\{billProductCode\}|\{offerCode\}/);
+    if (example.path.includes("{billProductCode}"))
+      assert.match(curl, /\$FONDEKA_BILL_PRODUCT_CODE/);
+    if (example.path.includes("{offerCode}")) assert.match(curl, /\$FONDEKA_OFFER_CODE/);
+    assert.equal(curl.includes("Idempotency-Key:"), operation.operationId === "createBillPayment");
+  }
 });
 test("request and response examples are the literal contract values, including error bodies", () => {
   const example = guideTrack("crypto-collection").lessons[0].example!;

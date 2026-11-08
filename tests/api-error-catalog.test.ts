@@ -38,7 +38,7 @@ const payout = errorCatalogEndpoint(
 )!;
 
 test("catalog parsing validates environment, header, error stages and distinct operation identities", () => {
-  assert.equal(catalog.endpoints.length, 9);
+  assert.equal(catalog.endpoints.length, 24);
   assert.throws(() => parseApiErrorCatalog(response, "LIVE"));
   for (const bad of [
     null,
@@ -323,6 +323,48 @@ test("every current catalog description and testing instruction has French copy"
       if ("howToTest" in error) assert.notEqual(uiText(error.howToTest, "fr"), error.howToTest);
     }
   }
+});
+
+test("bill simulations use BALANCE only and retain the sandbox PENDING debit scenario", () => {
+  const bill = errorCatalogEndpoint(
+    catalog,
+    "POST",
+    "/business-api/v1/businesses/{businessId}/bill-payments",
+  )!;
+  const entries = processingErrorsFor(bill, "BALANCE");
+  assert.deepEqual(entries.map((entry) => entry.errorCode).sort(), [
+    "INVALID_DESTINATION",
+    "PAYMENT_CANCELLED",
+    "PAYMENT_EXPIRED",
+    "PENDING",
+    "PROVIDER_UNAVAILABLE",
+  ]);
+  assert.equal(
+    entries.find((entry) => entry.errorCode === "PENDING")!.resultingStatus,
+    "PROCESSING",
+  );
+  assert.deepEqual(processingErrorsFor(bill, "MOBILE_MONEY"), []);
+  assert.deepEqual(processingErrorsFor(collection, "BALANCE"), []);
+  assert.deepEqual(processingErrorsFor({ ...bill, path: `${bill.path}/quote` }, "BALANCE"), []);
+  const choice = { stage: "processing" as const, errorCode: "PENDING" };
+  assert.deepEqual(simulationHeaders(catalog, bill, choice, "BALANCE"), {
+    "X-Simulate-Error-Code": "PENDING",
+  });
+  assert.deepEqual(
+    simulationHeaders({ ...catalog, environment: "LIVE" }, bill, choice, "BALANCE"),
+    {},
+  );
+  assert.deepEqual(
+    simulationHeaders(catalog, { ...bill, available: false }, choice, "BALANCE"),
+    {},
+  );
+  const original = JSON.stringify(response);
+  assert.match(
+    entries.find((entry) => entry.errorCode === "PENDING")!.description,
+    /Virtual funds stay debited/,
+  );
+  parseApiErrorCatalog(response, "SANDBOX");
+  assert.equal(JSON.stringify(response), original);
 });
 
 test("the fictional demo returns matching LIVE/SANDBOX catalogs and rejects foreign Businesses or environments", async () => {

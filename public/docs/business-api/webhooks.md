@@ -29,3 +29,7 @@ Any 2xx acknowledges delivery. A non-2xx, redirect or transport failure schedule
 The event ID, creation time and raw payload remain fixed. Each attempt has a fresh timestamp/signature, so verify freshness again before acknowledging a duplicate. Delivery can repeat after an acknowledgment is lost. Never depend on ordering across payments. Make your own business-side fulfillment idempotent by payment reference as well as storing unique event IDs.
 
 A webhook is a financial snapshot taken after reconciliation. GET returns the current compact payment state; it does not expose a refund flag. Existing saved events retain their original bytes, including an older schema, across retries; only newly created events use the compact contract. If events stop arriving or all attempts fail, poll the Fondeka reference and investigate the receiver; this version has no public webhook replay/history endpoint.
+
+## Bill payment events
+
+`business_api.bill_payment.completed` and `business_api.bill_payment.failed` use the same authentication and delivery contract. Their `data` keeps the compact payment fields at the top level and adds `billProductCode`, `accountNumber`, `refunded` and an optional delivery-data `receipt`. The action is `BUSINESS_API_BILL_PAYMENT`. Fulfill only completed, correlated bills; a failed bill is not necessarily refunded. See [the bill payment guide](guides/bill-payments.md).

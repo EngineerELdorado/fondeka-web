@@ -1,6 +1,6 @@
 # Fondeka Payment API: your questions answered
 
-Add Mobile Money and crypto payments to your website or application, even while your business is still taking shape.
+Add Mobile Money and crypto payments to your website or application, even while your business is still taking shape. Bill payments are coming soon in production and are currently available only as a local development preview.
 
 Fondeka built this API for **students, freelancers, small businesses and startups that do not yet have the administrative documents needed to integrate directly with many payment aggregators**. You can build and test your payment flow through Fondeka, then use real payments when your account and the relevant payment routes are ready.
 
@@ -8,16 +8,16 @@ This guide explains what you get, why access is paid, how transaction fees work,
 
 **The essentials:**
 
-| Question                                        | Short answer                                                                                                                                                                                           |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| What can I build?                               | Mobile Money and crypto collections and payouts, connected to your own application.                                                                                                                    |
-| Who is it for?                                  | Students, freelancers, independent developers, small businesses and early-stage startups, including projects still preparing company documents.                                                        |
-| Why pay for access?                             | Fondeka simplifies the integration and operational work involved in connecting to payment aggregators.                                                                                                 |
-| What are the transaction fees?                  | On average, approximately 3% for the aggregator plus 2% for Fondeka, combined into one approximately 5% fee per operation. Actual fees vary by operator and payment route.                             |
-| Where can I see detailed fees?                  | In the API area after access is active, through the available payment methods and their current fee information.                                                                                       |
-| Can I test without real money?                  | Yes. Sandbox uses separate credentials, virtual balances and simulated payments.                                                                                                                       |
-| Does paying automatically enable Live payments? | No. Access, identity/account requirements, route availability and Live-payment availability are separate checks.                                                                                       |
-| What happens as my business grows?              | Fondeka monitors business activity and volumes. When direct integration becomes more suitable, we will advise you to work directly with an aggregator and recommend your business to help build trust. |
+| Question                                        | Short answer                                                                                                                                                                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What can I build?                               | Mobile Money and crypto collections and payouts, connected to your application. Bill payments are coming soon.                                                                                                                         |
+| Who is it for?                                  | Students, freelancers, independent developers, small businesses and early-stage startups, including projects still preparing company documents.                                                                                        |
+| Why pay for access?                             | Fondeka simplifies the integration and operational work involved in connecting to payment aggregators.                                                                                                                                 |
+| What are the transaction fees?                  | On average, approximately 3% for the aggregator plus 2% for Fondeka, combined into one approximately 5% fee per operation. Actual collection/payout fees vary by route; bills use configured pricing applied automatically at payment. |
+| Where can I see detailed fees?                  | In the API area after access is active, through the available payment methods and their current fee information.                                                                                                                       |
+| Can I test without real money?                  | Yes. Sandbox uses separate credentials, virtual balances and simulated payments.                                                                                                                                                       |
+| Does paying automatically enable Live payments? | No. Access, identity/account requirements, route availability and Live-payment availability are separate checks.                                                                                                                       |
+| What happens as my business grows?              | Fondeka monitors business activity and volumes. When direct integration becomes more suitable, we will advise you to work directly with an aggregator and recommend your business to help build trust.                                 |
 
 ## Contents
 
@@ -40,7 +40,7 @@ This guide explains what you get, why access is paid, how transaction fees work,
 
 ### 1. What is the Fondeka Payment API?
 
-It is a way for your software to request payments, send supported payouts and check the results through Fondeka.
+It is a way for your software to collect payments, send supported payouts, check the results through Fondeka and prepare for future wallet-funded bill payments.
 
 For example, a customer places an order on your website. Your server asks Fondeka to collect the payment using a supported method. Fondeka processes the request and sends your server an update when the result is known. Your application can then update the order.
 
@@ -77,7 +77,7 @@ You still build your application's checkout, order records, webhook receiver and
 
 ### 6. What payment operations does the API cover?
 
-The published payment guides cover four main flows:
+The published payment guides cover these flows:
 
 | Operation               | What it does                                                                        | Example                                                                            |
 | ----------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -86,7 +86,9 @@ The published payment guides cover four main flows:
 | Crypto collection       | Creates crypto payment instructions for a price expressed in fiat money.            | A customer pays a USD-priced invoice using a supported crypto/network combination. |
 | Crypto payout           | Uses a fiat wallet balance to send the quoted crypto amount to a supported address. | Your application pays an eligible recipient on the selected network.               |
 
-The API also provides payment lookup, wallet balances and tools for Sandbox testing.
+Bill payments are coming soon in production. The local development preview covers eligible electricity, water and TV products paid from your fiat wallet. Discover the products activated for your account and market before offering them to customers.
+
+The API also provides account validation, price quotes, payment lookup, bill receipts, wallet balances and tools for Sandbox testing.
 
 ### 7. What kinds of products can I build with it?
 
@@ -102,7 +104,11 @@ Depending on the offer shown to your account, API access may be included in a Bu
 
 ### 9. Does the API include every feature in the Fondeka app?
 
-The API described here is focused on supported Mobile Money and crypto collections and payouts. The app may offer other products, such as cards or other financial services, with their own rules and interfaces.
+The API covers supported Mobile Money and crypto collections and payouts, with configured bill products currently limited to a local development preview. Bill payments are coming soon in production. The app may offer other products, such as cards or other financial services, with their own rules and interfaces.
+
+For bills, use the catalog’s product code, validate the meter or subscriber and submit the payment directly. The backend calculates fees and debits the fiat balance automatically. Biller-specific inputs use the optional `additionalInfo` object. TV renewals use a subscription returned by lookup; package changes also require the selected offer and option. Gift cards and other categories are excluded from the current bill catalog. The API key and Business ID identify your integration; no customer login or wallet ID is required.
+
+Optional maxFee and maxGrossAmount are automated spend limits; exceeding one rejects the bill before any debit. No separate bill quote, review or confirmation step is needed. HTTP 202 means accepted, so follow the original reference until completion or failure. Bill responses contain the payment status, amounts and available delivery data; bill webhooks identify the product by billProductCode and retain their signing and event names. Receipts can arrive later, and failure does not necessarily mean a refund. The follow-up `/actions` endpoint currently supports `REACTIVATE` for a completed TV subscription without another charge. Sandbox uses virtual funds and nonpayable receipts. See the [bill payments guide](https://web.fondeka.com/docs/business-api/guides/bill-payments.md) for the complete flow.
 
 A feature appearing in the app, or a method name appearing in a technical list, does not automatically mean that it is available through this payment API. Use the current API catalog and guides for your integration.
 
@@ -232,7 +238,7 @@ Once Fondeka confirms the payment and your account's access is active, you can u
 1. **Your Business identity and ID**, used to identify your integration.
 2. **API credential management**, including separate Sandbox and Live credentials, subject to the applicable account rules.
 3. **A separate webhook signing secret**, so your server can verify notifications from Fondeka.
-4. **Guides for the four payment flows**, plus explanations of amounts, payment states and errors.
+4. **Guides for collections, payouts and bill payments**, plus explanations of amounts, payment states and errors.
 5. **The available payment-method and crypto-network catalog**, with the relevant identifiers and current fee information.
 6. **Sandbox tools**, including virtual wallet funding, virtual balances, history and supported test scenarios.
 7. **Dedicated API wallet and transaction views**, with the selected environment kept visible.
@@ -308,7 +314,7 @@ The average explanation is:
 | Fondeka fee                    | Approximately 2% |
 | Consolidated fee per operation | Approximately 5% |
 
-These are averages, not a fixed tariff for every payment. Actual fees can differ from one operator to another and between payment routes, collections, payouts, currencies and amount ranges. The current detailed fee information becomes available in your API area after access is active.
+These are collection/payout averages, not a fixed tariff for every payment. Bill fees are calculated and applied automatically. The payment response includes the amount, fee, gross total and currency for reconciliation. Actual fees can differ from one operator to another and between payment routes, collections, payouts, currencies and amount ranges. The current detailed fee information becomes available in your API area after access is active.
 
 ### 36. Does “3% plus 2%” mean I pay three separate fees?
 
@@ -316,7 +322,7 @@ No. The 3% and 2% explain the average components of the consolidated 5% fee. The
 
 For a simple illustration using a 100-unit fee base, 3 units for the aggregator plus 2 units for Fondeka equals 5 units in total. Fondeka presents the operation's combined fee. The merchant payment response exposes one `fee`, rather than a separate breakdown of the underlying components.
 
-A fee per payment operation does not mean a new payment-processing fee each time you look up that same payment or receive another copy of its notification. Those actions do not create a new collection or payout.
+A fee per payment operation does not mean a new payment-processing fee each time you look up that same payment or receive another copy of its notification. Those actions do not create a new collection, payout or bill purchase.
 
 ### 37. Can you show a simple 5% example?
 
@@ -928,10 +934,12 @@ Useful starting points:
 - [Read the testing guide](https://web.fondeka.com/docs/business-api/testing.md).
 - [Read the webhook guide](https://web.fondeka.com/docs/business-api/webhooks.md).
 - [Read the go-live guide](https://web.fondeka.com/docs/business-api/go-live.md).
+- [Read the bill payments guide](https://web.fondeka.com/docs/business-api/guides/bill-payments.md).
+- [Read about quotes and price limits](https://web.fondeka.com/docs/business-api/payment-quotes-and-price-limits.md).
 - [Download the OpenAPI reference](https://web.fondeka.com/docs/business-api/openapi.v1.json).
 - [Download the Sandbox Postman collection](https://web.fondeka.com/docs/business-api/postman.v1.json).
 - [Contact support](https://www.fondeka.com/support?lang=en).
 - [Read the End User Agreement](https://www.fondeka.com/end-user-agreement?lang=en).
 - [Read the Privacy Policy](https://www.fondeka.com/privacy?lang=en).
 
-Last reviewed: 3 November 2026. Current account offers, enabled routes and the amounts returned for an actual operation determine its applicable conditions.
+Last reviewed: 8 November 2026 (Business API contract 1.6.0). Current account offers, enabled routes and the amounts returned for an actual operation determine its applicable conditions.

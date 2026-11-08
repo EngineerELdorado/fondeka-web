@@ -13,7 +13,7 @@ def verify(raw,timestamp,signature,event_id,secret,environment='SANDBOX',now=Non
     if not isinstance(event,dict) or not isinstance(event.get('data'),dict): raise ValueError('Invalid webhook envelope')
     data=event['data']
     uuid.UUID(event['id'])
-    operation={'BUSINESS_API_COLLECTION':'collection','BUSINESS_API_PAYOUT':'payout'}.get(data.get('action'))
+    operation={'BUSINESS_API_COLLECTION':'collection','BUSINESS_API_PAYOUT':'payout','BUSINESS_API_BILL_PAYMENT':'bill_payment'}.get(data.get('action'))
     if event['id']!=event_id or not operation or data.get('status') not in ('COMPLETED','FAILED') or event.get('type')!='business_api.'+operation+'.'+data['status'].lower() or event.get('environment')!=environment or data.get('environment')!=environment or data.get('service')!='BUSINESS_API' or not isinstance(data.get('fondekaReference'),str) or not data['fondekaReference'].strip():
         raise ValueError('Unexpected webhook envelope')
     return event

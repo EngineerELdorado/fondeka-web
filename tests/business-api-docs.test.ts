@@ -75,6 +75,77 @@ test("published downloads are a complete reviewed release with no extra private 
     );
 });
 
+test("bill HTTP snapshots are compact while webhook snapshots retain the existing envelope", () => {
+  const base = "/business-api/v1/businesses/{businessId}/bill-payments";
+  const accepted =
+    spec.paths[base].post.responses[202].content["*/*"].examples.sandboxAccepted.value;
+  assert.equal(accepted.accountNumber, "CUSTOMER-101");
+  assert.equal(accepted.billProductCode, "SOCODEE");
+  assert.equal(accepted.refunded, false);
+  for (const key of Object.keys(accepted))
+    assert.ok(Object.hasOwn(spec.components.schemas.BillPayment.properties, key), key);
+  for (const key of ["service", "action", "cryptoDetails"])
+    assert.equal(Object.hasOwn(spec.components.schemas.BillPayment.properties, key), false);
+  assert.equal(spec.paths[`${base}/quote`], undefined);
+  assert.equal(spec.components.schemas.PriceQuote, undefined);
+  for (const name of ["BusinessApiBillRequest", "BillPayment", "Payment"]) {
+    assert.equal(spec.components.schemas[name].properties.billProductCode.type, "string");
+    assert.equal(Object.hasOwn(spec.components.schemas[name].properties, "billProductId"), false);
+  }
+  assert.equal(
+    spec.components.schemas.BusinessApiBillWebhookEvent.properties.data.$ref,
+    "#/components/schemas/Payment",
+  );
+  for (const key of ["service", "action", "receipt", "refunded"])
+    assert.ok(Object.hasOwn(spec.components.schemas.Payment.properties, key));
+  assert.equal(portalBusinessApiContract(read("openapi.v1.json")), read("openapi.v1.json"));
+  const formatted = JSON.stringify(spec, null, 2);
+  assert.equal(portalBusinessApiContract(formatted), formatted);
+});
+
+test("bill discovery and extensions use the common 1.6 contract and retain deprecated compatibility aliases", () => {
+  const schemas = spec.components.schemas;
+  assert.deepEqual(Object.keys(schemas.ProductSummary.properties).sort(), [
+    "category",
+    "code",
+    "displayName",
+    "name",
+  ]);
+  for (const name of ["code", "name", "category"])
+    assert.equal(schemas.ProductSummary.properties[name].enum, undefined);
+  for (const name of ["ProductSummary", "Offer", "Option"])
+    assert.equal(Object.hasOwn(schemas[name].properties, "id"), false, name);
+  const request = schemas.BusinessApiBillRequest;
+  assert.deepEqual(request.required, ["accountNumber", "amount", "billProductCode", "currency"]);
+  assert.deepEqual(Object.keys(request.properties).sort(), [
+    "accountNumber",
+    "additionalInfo",
+    "amount",
+    "billProductCode",
+    "currency",
+    "maxFee",
+    "maxGrossAmount",
+    "orderReference",
+  ]);
+  assert.deepEqual(request.properties.additionalInfo.additionalProperties, {});
+  assert.deepEqual(Object.keys(schemas.Account.properties).sort(), [
+    "accountNumber",
+    "additionalInfo",
+    "name",
+  ]);
+  const base = "/business-api/v1/businesses/{businessId}";
+  const actions = spec.paths[`${base}/bill-payments/{reference}/actions`].post;
+  assert.deepEqual(actions.requestBody.content["application/json"].examples.reactivate.value, {
+    action: "REACTIVATE",
+  });
+  assert.equal(actions.deprecated, undefined);
+  assert.equal(spec.paths[`${base}/bill-payments/{reference}/reactivate`].post.deprecated, true);
+  assert.equal(
+    spec.paths[`${base}/bill-products/{billProductCode}/payment-methods`].get.deprecated,
+    true,
+  );
+});
+
 test("all published guide, source example and contract links resolve within the bundle", () => {
   for (const topic of businessApiTopics) {
     assert.ok(topic.en && topic.fr);
@@ -122,10 +193,10 @@ test("documentation links cannot escape the reviewed files, run script URLs or e
 });
 
 test("the downloadable reference exposes merchant-only endpoints and keeps JWT administration outside the contract", () => {
-  assert.equal(spec.info.version, "1.3.0");
+  assert.equal(spec.info.version, "1.6.0");
   assert.equal(spec.openapi, "3.0.3");
   assert.equal(spec.servers[0].url, "https://api.fondeka.com");
-  assert.equal(Object.keys(spec.paths).length, 9);
+  assert.equal(Object.keys(spec.paths).length, 22);
   assert.equal(spec.components.securitySchemes["Business API Key"].in, "header");
   assert.equal(spec.components.securitySchemes["Business API Key"].name, "X-API-Key");
   assert.equal(spec.components.securitySchemes["Business API Key"].type, "apiKey");
@@ -248,11 +319,18 @@ test("the sandbox Postman download has no saved API key and retains sandbox/inte
     assert.equal(checkGuard(key).skipped, true, key);
   assert.equal(checkGuard("fdk_sandbox_example", "CHANGE_ME_ONCE_PER_LOGICAL_RUN").skipped, true);
   assert.equal(postman.auth.type, "apikey");
-  const requests = postman.item.map((item: { request: { url: string } }) =>
-    item.request.url
+  type PostmanItem = { request?: { url: string }; item?: PostmanItem[] };
+  const flatten = (items: PostmanItem[]): { url: string }[] =>
+    items.flatMap((item) => (item.request ? [item.request] : flatten(item.item || [])));
+  assert.deepEqual(
+    postman.item.map((item: { name: string }) => item.name),
+    ["Bill payments", "Payments", "Wallets", "Sandbox wallets", "Reference"],
+  );
+  const requests = flatten(postman.item).map((request) =>
+    request.url
       .replace("{{baseUrl}}", "")
       .split("?")[0]
-      .replace(/\{\{(businessId|reference)\}\}/g, "{$1}")
+      .replace(/\{\{(businessId|reference|billProductCode|offerCode)\}\}/g, "{$1}")
       .replace("/sandbox-wallets/USD/entries", "/sandbox-wallets/{currency}/entries"),
   );
   assert.deepEqual([...new Set(requests)].sort(), Object.keys(spec.paths).sort());

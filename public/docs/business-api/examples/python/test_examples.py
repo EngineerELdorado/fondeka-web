@@ -10,6 +10,12 @@ class ExamplesTest(unittest.TestCase):
         self.signature='v1='+hmac.new(self.secret.encode(),self.timestamp.encode()+b'.'+self.raw,hashlib.sha256).hexdigest()
         self.args={'raw':self.raw,'timestamp':self.timestamp,'signature':self.signature,'event_id':self.event['id'],'secret':self.secret,'now':1800000000}
     def test_exact_utf8_raw_body(self): self.assertEqual(self.event,verify(**self.args))
+    def test_bill_events_use_the_same_signature_and_flat_payment_contract(self):
+        for status in ('COMPLETED','FAILED'):
+            event={**self.event,'type':'business_api.bill_payment.'+status.lower(),'data':{**self.event['data'],'action':'BUSINESS_API_BILL_PAYMENT','status':status,'billProductCode':'SOCODEE','accountNumber':'METER-101','refunded':False,'receipt':{}}}
+            raw=json.dumps(event,ensure_ascii=False).encode()
+            signature='v1='+hmac.new(self.secret.encode(),self.timestamp.encode()+b'.'+raw,hashlib.sha256).hexdigest()
+            self.assertEqual(event,verify(**{**self.args,'raw':raw,'signature':signature}))
     def test_tampering_staleness_environment_and_ownership(self):
         for change in ({'raw':json.dumps(self.event).encode()},{'now':1800000301},{'now':1799999699},{'signature':'v1=00'},{'event_id':'another-event'},{'secret':'another-business-key-secret'},{'environment':'LIVE'}):
             with self.subTest(change=list(change)),self.assertRaises(ValueError): verify(**{**self.args,**change})

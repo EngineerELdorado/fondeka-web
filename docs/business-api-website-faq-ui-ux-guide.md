@@ -18,7 +18,7 @@ The page should help visitors answer three questions quickly:
 2. What will access and actual payments cost?
 3. How can I test, then prepare for Live?
 
-Make the first screen useful before the visitor clicks anything. Explain the audience and the four payment flows briefly, expose search, and offer clear next steps.
+Make the first screen useful before the visitor clicks anything. Explain the audience, collection/payout flows and wallet-funded bills briefly, expose search, and offer clear next steps.
 
 ## 2. What to carry over from the portal
 
@@ -32,6 +32,8 @@ Make the first screen useful before the visitor clicks anything. Explain the aud
 | Progressive disclosure                                        | A short orientation first; detailed answers, examples and technical links available on demand.   |
 | English/French support and comfortable mobile controls        | Equivalent content, flexible layouts and readable text in each language.                         |
 | Full-height API Guides navigation                             | The FAQ menu and white content area expand to fit their content and use ordinary page scrolling. |
+
+The FAQ describes contract 1.6.0, including bill previews and price limits. Bill payments must say “Coming soon” in production; their guide is available only in local development builds until launch. Preserve the 120 question IDs and include bill-related terms in search for question 9. The local bill guide uses additionalInfo for biller inputs and /actions for REACTIVATE. Its catalog covers eligible electricity, water and TV, excluding gift cards. Bill requests use billProductCode and offer paths use offerCode. The backend applies fees automatically without a bill quote, review or confirmation step; the approximate 5% collection/payout illustration is not a bill tariff.
 
 The broader reference is [Fondeka frontend design and UX guide](fondeka-frontend-design-and-ux-guide.md). Use the website's existing framework, header, footer, typography and theme infrastructure to apply these ideas.
 

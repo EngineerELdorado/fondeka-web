@@ -9957,7 +9957,7 @@ button.detail-row:hover {
   padding: 7px 10px;
   font-size: var(--text-sm);
 }
-.guide-future-services {
+.guide-bill-services {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -9967,22 +9967,27 @@ button.detail-row:hover {
   border-radius: 11px;
   background: var(--surface-raised);
 }
-.guide-future-services > svg {
+.guide-bill-services > svg {
   flex-shrink: 0;
   color: var(--violet);
   margin-top: 2px;
 }
-.guide-future-services strong {
+.guide-bill-services strong {
   font-size: var(--text-control);
   color: var(--ink);
 }
-.guide-future-services p {
+.guide-bill-services p {
   margin: 5px 0 0;
   font-size: var(--text-sm);
   color: var(--muted);
   line-height: 1.8;
 }
-.guide-future-services > span {
+.guide-bill-services > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background: var(--surface);
   margin-left: auto;
   flex-shrink: 0;
   border: 1px solid var(--line);
@@ -10215,10 +10220,10 @@ button.detail-row:hover {
   .guide-capability-cards {
     grid-template-columns: minmax(0, 1fr);
   }
-  .guide-future-services {
+  .guide-bill-services {
     flex-wrap: wrap;
   }
-  .guide-future-services > div {
+  .guide-bill-services > div {
     flex: 1;
     min-width: 180px;
   }
@@ -10304,7 +10309,8 @@ button.detail-row:hover {
   background: color-mix(in srgb, var(--guide-soft) 60%, var(--surface));
   border-color: color-mix(in srgb, var(--guide-color) 15%, transparent);
 }
-.guide-path-nav button[aria-current="page"] {
+.guide-path-nav button[aria-current="page"],
+.guide-path-nav button[aria-current="step"] {
   color: var(--guide-color);
   background: var(--guide-soft);
   border-color: color-mix(in srgb, var(--guide-color) 25%, transparent);
@@ -10397,6 +10403,77 @@ button.detail-row:hover {
   justify-items: start;
   gap: 5px;
   min-width: 0;
+}
+.guide-menu-group[data-active="true"] > summary {
+  color: var(--guide-color);
+}
+.guide-bill-actions {
+  display: grid;
+  gap: 3px;
+  margin: 0 7px 8px 12px;
+}
+.guide-bill-actions > button {
+  width: 100%;
+  padding-inline: 6px;
+}
+.guide-menu-reference {
+  margin: 0 7px 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.guide-menu-reference > summary {
+  display: grid;
+  grid-template-columns: 21px minmax(0, 1fr) 24px;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 6px;
+  border-radius: 9px;
+  color: var(--secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+}
+.guide-menu-reference > summary::-webkit-details-marker {
+  display: none;
+}
+.guide-menu-reference > summary:hover,
+.guide-menu-reference[data-active="true"] > summary {
+  color: var(--guide-color);
+  background: var(--guide-soft);
+}
+.guide-menu-reference > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.guide-menu-reference[open] > summary .guide-menu-chevron {
+  transform: rotate(180deg);
+}
+.guide-menu-lessons {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  max-height: min(58vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  margin: 0 0 0 10px;
+  padding: 2px 3px 2px 8px;
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+.guide-menu-lessons button {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 6px;
+  gap: 8px;
+  align-items: center;
+}
+.guide-menu-lessons button > span {
+  flex: 1;
+}
+.guide-menu-lessons button > svg {
+  flex-shrink: 0;
+  color: var(--accent);
 }
 .guide-menu-group-copy > strong {
   font-size: var(--text-control);

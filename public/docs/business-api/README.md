@@ -1,3 +1,5 @@
+> Bill payments are coming soon in production. The bill-payment contract is a local development preview while implementation is being completed.
+
 # Fondeka Business API
 
 Collect and send payments through mobile money and crypto, settling in your account's fiat wallets. Start in sandbox with virtual money, then use live credentials when your integration is ready.
@@ -13,6 +15,8 @@ New API keys start with `fdk_live_` or `fdk_sandbox_`. Existing `fdk_biz_live_` 
 | [Mobile-money payouts](guides/mobile-money-payout.md) | Send funds to a recipient's phone |
 | [Crypto collections](guides/crypto-collection.md) | Create an invoice and receive fiat settlement |
 | [Crypto payouts](guides/crypto-payout.md) | Pay a crypto address from a fiat wallet |
+| [Bill payments](guides/bill-payments.md) | Pay bills through one extensible request and compact responses |
+| [Payment quotes and price limits](payment-quotes-and-price-limits.md) | Preview destination-aware fees and reject price increases |
 | [Amounts, wallets and payment states](concepts.md) | Understand the financial effects |
 | [Webhooks](webhooks.md) | Verify, persist and process terminal events |
 | [Error codes](errors.md) | Discover endpoint errors and select supported sandbox failures |

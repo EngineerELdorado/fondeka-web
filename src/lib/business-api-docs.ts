@@ -27,6 +27,18 @@ export const businessApiTopics = [
     fr: "Décaissements crypto",
   },
   {
+    id: "bill-payments",
+    file: "guides/bill-payments.md",
+    en: "Bill payments",
+    fr: "Paiements de factures",
+  },
+  {
+    id: "payment-quotes",
+    file: "payment-quotes-and-price-limits.md",
+    en: "Quotes and price limits",
+    fr: "Devis et limites de prix",
+  },
+  {
     id: "concepts",
     file: "concepts.md",
     en: "Amounts and payment states",

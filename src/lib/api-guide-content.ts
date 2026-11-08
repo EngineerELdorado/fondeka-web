@@ -1,4 +1,6 @@
 import type { BusinessApiTopic } from "./business-api-docs";
+import { billPaymentsTrack, paymentQuotesTrack } from "./api-guide-bills";
+import { apiGuideAvailable } from "./api-guide-availability";
 export type GuideCopy = readonly [en: string, fr: string];
 export type GuideField = {
   key: string;
@@ -11,9 +13,10 @@ export type GuideExample = {
   fields: GuideField[];
   exampleName?: string;
   incoming?: boolean;
-  paymentAction?: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT";
+  paymentAction?: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT" | "BUSINESS_API_BILL_PAYMENT";
+  completeRequestFields?: boolean;
   responseFocus?: "cryptoDetails";
-  paymentKind?: "MOBILE_MONEY" | "CRYPTO";
+  paymentKind?: "MOBILE_MONEY" | "CRYPTO" | "BALANCE";
 };
 export type GuideLesson = {
   id: string;
@@ -54,7 +57,8 @@ export type GuideTrack = {
     | "webhook"
     | "test"
     | "live"
-    | "history";
+    | "history"
+    | "bills";
   lessons: GuideLesson[];
 };
 const base = "/business-api/v1/businesses/{businessId}";
@@ -210,20 +214,30 @@ export const apiGuideTracks: GuideTrack[] = [
   {
     id: "overview",
     title: ["Payments for your business", "Les paiements pour votre activité"],
-    summary: [
-      "Collect and send mobile-money and crypto payments from your application, with settlement in your account’s fiat wallets.",
-      "Encaissez et envoyez des paiements mobile money et crypto depuis votre application, avec règlement dans les portefeuilles fiat de votre compte.",
-    ],
+    summary: apiGuideAvailable("bill-payments")
+      ? [
+          "Collect and send mobile-money and crypto payments, and pay bills from your account’s fiat wallets.",
+          "Encaissez et envoyez des paiements mobile money et crypto, et payez des factures depuis les portefeuilles fiat de votre compte.",
+        ]
+      : [
+          "Collect and send mobile-money and crypto payments from your application, with settlement in your account’s fiat wallets.",
+          "Encaissez et envoyez des paiements mobile money et crypto depuis votre application, avec règlement dans les portefeuilles fiat de votre compte.",
+        ],
     icon: "map",
     tone: "blue",
     lessons: [
       {
         id: "map",
         title: ["What the API does", "Ce que fait l’API"],
-        summary: [
-          "Mobile money and crypto are available today. Bill payments and other services may be added in future releases.",
-          "Le mobile money et la crypto sont disponibles aujourd’hui. Le paiement de factures et d’autres services pourront être ajoutés dans de futures versions.",
-        ],
+        summary: apiGuideAvailable("bill-payments")
+          ? [
+              "Integrate collections, payouts and wallet-funded electricity, water and TV bills. Discover products and routes for your account before purchasing.",
+              "Intégrez les encaissements, décaissements et factures d’électricité, d’eau et de TV, financés par portefeuille. Découvrez les produits et routes de votre compte avant l’achat.",
+            ]
+          : [
+              "Integrate mobile-money and crypto collections and payouts. Bill payments are coming soon.",
+              "Intégrez les encaissements et décaissements mobile money et crypto. Le paiement de factures sera bientôt disponible.",
+            ],
         flow: paidFlow,
       },
     ],
@@ -533,6 +547,8 @@ export const apiGuideTracks: GuideTrack[] = [
       },
     ],
   },
+  billPaymentsTrack,
+  paymentQuotesTrack,
   {
     id: "concepts",
     title: ["Follow the money", "Suivez les fonds"],
@@ -1073,19 +1089,12 @@ type GuideCatalogLink = {
   id: "payment-methods";
   title: GuideCopy;
 };
-type UpcomingGuide = {
-  kind: "upcoming";
-  id: "electricity" | "tv";
-  title: GuideCopy;
-  icon: "electricity" | "tv";
-  tone: GuideTrack["tone"];
-};
 export type GuideMenuGroup = {
   kind: "group";
   id: "payments" | "bills";
   title: GuideCopy;
   tone: GuideTrack["tone"];
-  children: (GuideMenuLink | UpcomingGuide)[];
+  children: GuideMenuLink[];
 };
 export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLink)[] = [
   { kind: "guide", id: "overview" },
@@ -1100,29 +1109,15 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
       { kind: "guide", id: "mobile-money-payout" },
       { kind: "guide", id: "crypto-collection" },
       { kind: "guide", id: "crypto-payout" },
+      { kind: "guide", id: "payment-quotes" },
     ],
   },
   {
     kind: "group",
     id: "bills",
-    title: ["Pay Bills", "Payer des factures"],
+    title: ["Bill payments", "Paiements de factures"],
     tone: "amber",
-    children: [
-      {
-        kind: "upcoming",
-        id: "electricity",
-        title: ["Electricity", "Électricité"],
-        icon: "electricity",
-        tone: "amber",
-      },
-      {
-        kind: "upcoming",
-        id: "tv",
-        title: ["TV subscription", "Abonnement TV"],
-        icon: "tv",
-        tone: "violet",
-      },
-    ],
+    children: [{ kind: "guide", id: "bill-payments" }],
   },
   { kind: "guide", id: "webhooks" },
   {
@@ -1135,7 +1130,8 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
 export const apiGuideMenuTracks = apiGuideMenuItems
   .flatMap((item) => (item.kind === "group" ? item.children : item.kind === "guide" ? [item] : []))
   .filter((item) => item.kind === "guide")
-  .map((item) => guideTrack(item.id));
+  .map((item) => guideTrack(item.id))
+  .filter((track) => apiGuideAvailable(track.id));
 export function guideTrack(id: string) {
   return apiGuideTracks.find((track) => track.id === id) ?? apiGuideTracks[0];
 }

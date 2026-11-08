@@ -437,5 +437,11 @@
   "Your login has expired. Please sign in again.": "Votre connexion a expiré. Veuillez vous reconnecter.",
   "Fondeka did not return a device challenge.": "Fondeka n’a pas retourné de demande de vérification du navigateur. Veuillez réessayer.",
   "Fondeka did not return a valid device session.": "Fondeka n’a pas retourné de session valide pour ce navigateur. Veuillez réessayer.",
-  "This browser was not approved. Contact Fondeka support or use your trusted device.": "Ce navigateur n’a pas été approuvé. Contactez l’assistance Fondeka ou utilisez votre appareil de confiance."
+  "This browser was not approved. Contact Fondeka support or use your trusted device.": "Ce navigateur n’a pas été approuvé. Contactez l’assistance Fondeka ou utilisez votre appareil de confiance.",
+  "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.": "Les frais ou le montant brut actuels dépassent les limites facultatives de l’appelant. Aucun paiement ni débit n’est accepté.",
+  "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.": "Demandez un devis, envoyez une limite maxFee/maxGrossAmount inférieure ou simulez ce refus en sandbox.",
+  "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, ask Fondeka to enable payments for this business; accepted payments remain readable and replayable.": "Simulez BUSINESS_API_LIVE_PAYMENTS_DISABLED en sandbox. En LIVE, demandez à Fondeka d’activer les paiements pour ce Business ; les paiements acceptés restent consultables et relançables à l’identique.",
+  "Wallet bill payments are unavailable.": "Les paiements de factures depuis le portefeuille sont indisponibles.",
+  "Use an account whose wallet payment method is disabled.": "Utilisez un compte dont le moyen de paiement par portefeuille est désactivé.",
+  "Sandbox: bill processing remains unresolved. Virtual funds stay debited and no terminal webhook is emitted.": "Sandbox : le résultat de la facture reste indéterminé. Les fonds virtuels restent débités et aucun webhook final n’est émis."
 }

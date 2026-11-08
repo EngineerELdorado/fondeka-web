@@ -5,9 +5,11 @@ export type ApiSchema = {
   type?: string;
   description?: string;
   properties?: Record<string, ApiSchema>;
+  additionalProperties?: boolean | ApiSchema;
   required?: string[];
   items?: ApiSchema;
   allOf?: ApiSchema[];
+  oneOf?: ApiSchema[];
   anyOf?: ApiSchema[];
   enum?: string[];
   nullable?: boolean;
@@ -40,6 +42,7 @@ export type ApiParameter = {
 };
 export type ApiOperation = {
   operationId?: string;
+  deprecated?: boolean;
   summary?: string;
   description?: string;
   parameters?: ApiParameter[];
@@ -62,6 +65,28 @@ export function guideOperation(spec: GuideSpec, example: GuideExample): ApiOpera
     ? Object.values(spec.components.callbacks.TerminalPaymentEvent)[0]?.post
     : spec.paths[example.path]?.[example.method.toLowerCase() as "get" | "post"];
   if (!operation) throw new Error("This endpoint is not in the published contract.");
+  if (example.incoming && operation.requestBody) {
+    // The shared callback has collection/payout and bill variants. These guides use
+    // the published collection event; keep its field explorer on that variant.
+    return {
+      ...operation,
+      requestBody: {
+        ...operation.requestBody,
+        content: Object.fromEntries(
+          Object.entries(operation.requestBody.content).map(([type, media]) => [
+            type,
+            {
+              ...media,
+              schema:
+                media.schema?.oneOf?.find(
+                  (schema) => schema.$ref === "#/components/schemas/BusinessApiWebhookEvent",
+                ) || media.schema,
+            },
+          ]),
+        ),
+      },
+    };
+  }
   return operation;
 }
 export function resolveGuideSchema(spec: GuideSpec, value?: ApiSchema, depth = 0): ApiSchema {
@@ -153,6 +178,8 @@ export function guideHeaders(
     if (["X-Simulate-Error-Code", "X-Fondeka-Test-Scenario"].includes(parameter.name)) continue;
     // A signature is not fabricated: use the documented format when no example is published.
     headers[parameter.name] = String(parameter.example ?? `<${parameter.name}>`);
+    if (parameter.name === "Idempotency-Key" && operation.operationId === "createBillPayment")
+      headers[parameter.name] = "bill-order-1-purchase";
   }
   if (operation.requestBody) headers["Content-Type"] = "application/json";
   return { ...headers, ...overrides };
@@ -168,6 +195,8 @@ export function contractCurl(
   const path = example.path
     .replace("{businessId}", "$FONDEKA_BUSINESS_ID")
     .replace("{reference}", "$FONDEKA_REFERENCE")
+    .replace("{billProductCode}", "$FONDEKA_BILL_PRODUCT_CODE")
+    .replace("{offerCode}", "$FONDEKA_OFFER_CODE")
     .replace("{currency}", "USD");
   return [
     `curl --fail-with-body -X ${example.method} "${spec.servers[0].url}${path}"`,
@@ -192,8 +221,8 @@ export const paymentStateGroups: {
   {
     states: ["ACCEPTED"],
     note: [
-      "ACCEPTED means the payment is queued for execution. Keep its reference and original idempotency key, and poll with backoff. Payout funds are reserved or debited at acceptance. An idempotent replay returns the current status, which may already have changed.",
-      "ACCEPTED signifie que le paiement est en file d’attente d’exécution. Conservez sa référence et la clé d’idempotence d’origine, puis espacez les appels de suivi. Les fonds d’un décaissement sont réservés ou débités dès l’acceptation. Une relance idempotente retourne l’état actuel, qui peut déjà avoir changé.",
+      "ACCEPTED means the payment is queued for execution. Keep its reference and original idempotency key, and poll with backoff. Payout funds are reserved or debited at acceptance; bills debit the gross fiat amount once. An idempotent replay returns the current status, which may already have changed.",
+      "ACCEPTED signifie que le paiement est en file d’attente d’exécution. Conservez sa référence et la clé d’idempotence d’origine, puis espacez les appels de suivi. Les fonds d’un décaissement sont réservés ou débités dès l’acceptation ; une facture débite une fois le brut fiat. Une relance idempotente retourne l’état actuel, qui peut déjà avoir changé.",
     ],
     tone: "queued",
   },
@@ -208,16 +237,16 @@ export const paymentStateGroups: {
   {
     states: ["COMPLETED"],
     note: [
-      "Reconcile Business, environment, currency and settlement. Collections credit net once; payouts never debit twice.",
-      "Rapprochez Business, environnement, devise et règlement. Encaissements crédités une fois ; décaissements jamais débités deux fois.",
+      "Reconcile Business, environment, currency and settlement. Collections credit net once; payouts and bills never debit twice. Bill receipt fields can arrive later.",
+      "Rapprochez Business, environnement, devise et règlement. Encaissements crédités une fois ; décaissements et factures jamais débités deux fois. Les reçus de factures peuvent arriver plus tard.",
     ],
     tone: "success",
   },
   {
     states: ["FAILED"],
     note: [
-      "Confirmed failure includes cancellation and expiry. Read failureMessage/failureCode for details. For payouts, check wallet records or contact support; failure does not guarantee a refund.",
-      "L’échec confirmé inclut annulation et expiration. Consultez failureMessage/failureCode. Pour les décaissements, consultez les écritures du portefeuille ou l’assistance ; l’échec ne garantit pas un remboursement.",
+      "Confirmed failure includes cancellation and expiry. Read failureMessage/failureCode for details. Failure does not guarantee a refund: inspect refunded for bills, and wallet records or support for payouts.",
+      "L’échec confirmé inclut annulation et expiration. Consultez failureMessage/failureCode. L’échec ne garantit pas un remboursement : vérifiez refunded pour les factures, et les écritures ou le support pour les décaissements.",
     ],
     tone: "failure",
   },

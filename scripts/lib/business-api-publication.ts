@@ -1,6 +1,6 @@
 import ts from "typescript";
 
-/** Omit the internal payment ID from portal downloads without reformatting the release. */
+/** Publish the merchant contract, preserving source formatting outside reviewed corrections. */
 export function portalBusinessApiContract(source: string): string {
   JSON.parse(source);
   const document = ts.parseJsonText("openapi.v1.json", source);

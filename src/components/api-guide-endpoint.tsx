@@ -432,6 +432,7 @@ function FieldDetail({
             : t("Optional", "Facultatif")}
         </span>
         {schema.deprecated && <span>{t("Deprecated", "Obsolète")}</span>}
+        {field.extension && <span>{t("Example input", "Champ de l’exemple")}</span>}
       </div>
       {note && note !== description.text && <p>{note}</p>}
       {description.text && (
@@ -776,7 +777,7 @@ function EndpointContent({
       ? body.paymentMethodName
       : undefined;
   const catalogProps =
-    setup && example.method === "POST" && example.paymentKind
+    setup && example.method === "POST" && example.paymentKind && example.paymentKind !== "BALANCE"
       ? {
           setup,
           kind: example.paymentKind,
@@ -824,7 +825,9 @@ function EndpointContent({
         )
       : [];
   const showResponseStructure =
-    responseCode.startsWith("2") && responseView === "structure" && cryptoFields.length > 0;
+    responseCode.startsWith("2") &&
+    ((responseBody === undefined && !!responseMedia?.schema) ||
+      (responseView === "structure" && cryptoFields.length > 0));
   const [view, setView] = useState<"json" | "curl">("json");
   const initialScope = example.fields[0]?.in || (body === undefined ? "header" : "body");
   const [scope, setScope] = useState<Scope>(initialScope);
@@ -883,9 +886,13 @@ function EndpointContent({
       spec,
       spec.components.schemas.BusinessApiTransactionResource?.properties?.status,
     ).enum || [];
-  const paymentResource = ["collections", "payouts", "transactions/{reference}"].some((end) =>
-    example.path.endsWith(`/${end}`),
-  );
+  const paymentResource = [
+    "collections",
+    "payouts",
+    "transactions/{reference}",
+    "bill-payments",
+    "bill-payments/{reference}",
+  ].some((end) => example.path.endsWith(`/${end}`));
   const scopeLabels: Record<Scope, string> = {
     body: t("Body", "Corps"),
     header: t("Headers", "En-têtes"),
@@ -1013,20 +1020,25 @@ function EndpointContent({
             }
             selectedKey={scope === "response" ? activeField?.path : undefined}
             caption={
-              showResponseStructure
+              showResponseStructure && example.responseFocus !== "cryptoDetails"
                 ? t(
-                    "Full response structure with field types, not payment values. cryptoDetails is optional and omitted until instructions are ready; keep polling the same fondekaReference. Older snapshots may contain null.",
-                    "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails est facultatif et omis tant que les instructions ne sont pas prêtes ; poursuivez le suivi de la même fondekaReference. D’anciens instantanés peuvent contenir null.",
+                    "Published schema: field types, not returned values. Optional delivery data depends on the product and current status.",
+                    "Schéma publié : types des champs, pas des valeurs retournées. Les données facultatives de livraison dépendent du produit et de l’état actuel.",
                   )
-                : simulatedRejection
+                : showResponseStructure
                   ? t(
-                      "Simulated rejection example: details.simulated is true. This page does not send the payment request.",
-                      "Exemple de refus simulé : details.simulated vaut true. Cette page n’envoie pas la demande de paiement.",
+                      "Full response structure with field types, not payment values. cryptoDetails is optional and omitted until instructions are ready; keep polling the same fondekaReference. Older snapshots may contain null.",
+                      "Structure complète avec les types des champs, pas des valeurs de paiement. cryptoDetails est facultatif et omis tant que les instructions ne sont pas prêtes ; poursuivez le suivi de la même fondekaReference. D’anciens instantanés peuvent contenir null.",
                     )
-                  : t(
-                      "Contract example, not the result of a request in this browser.",
-                      "Exemple du contrat, pas le résultat d’une requête dans ce navigateur.",
-                    )
+                  : simulatedRejection
+                    ? t(
+                        "Simulated rejection example: details.simulated is true. This page does not send the payment request.",
+                        "Exemple de refus simulé : details.simulated vaut true. Cette page n’envoie pas la demande de paiement.",
+                      )
+                    : t(
+                        "Contract example, not the result of a request in this browser.",
+                        "Exemple du contrat, pas le résultat d’une requête dans ce navigateur.",
+                      )
             }
           >
             <div className="guide-code-options">

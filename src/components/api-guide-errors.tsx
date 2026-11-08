@@ -7,8 +7,8 @@ import {
   simulationHeaders,
   type ErrorSimulation,
   type RequestErrorCode,
+  type ApiSimulationKind,
 } from "@/lib/api-error-catalog";
-import type { ApiPaymentKind } from "@/lib/api-catalog";
 import type { useApiErrorCatalog } from "@/lib/use-api-error-catalog";
 import { useI18n } from "@/lib/i18n";
 import { useUiText } from "@/lib/use-ui-text";
@@ -24,7 +24,7 @@ export function ApiGuideErrors({
 }: {
   data: ReturnType<typeof useApiErrorCatalog>;
   setup?: ApiGuideSetup;
-  kind?: ApiPaymentKind;
+  kind?: ApiSimulationKind;
   simulation?: ErrorSimulation;
   onSimulation: (value?: ErrorSimulation) => void;
   onInspect: (entry: RequestErrorCode) => void;
@@ -255,7 +255,10 @@ export function ApiGuideErrors({
                   )}
                 </h5>
                 <small>
-                  <code>GET /transactions/&#123;reference&#125;</code>
+                  <code>
+                    GET /{kind === "BALANCE" ? "bill-payments" : "transactions"}
+                    /&#123;reference&#125;
+                  </code>
                 </small>
                 <dl>
                   <div>
@@ -290,8 +293,8 @@ export function ApiGuideErrors({
                         "HTTP 200 signifie que la consultation a réussi. Le paiement retourné est FAILED dans cette simulation.",
                       )
                     : t(
-                        "HTTP 200 means the lookup succeeded. This fixture stays PROCESSING while awaiting confirmations. Poll the same reference with backoff.",
-                        "HTTP 200 signifie que la consultation a réussi. Ce scénario reste PROCESSING en attendant les confirmations. Espacez les consultations de la même référence.",
+                        "HTTP 200 means the lookup succeeded. This fixture stays PROCESSING with an unresolved outcome. Poll the same reference with backoff.",
+                        "HTTP 200 signifie que la consultation a réussi. Ce scénario reste PROCESSING avec un résultat indéterminé. Espacez les consultations de la même référence.",
                       )}
                 </p>
               </li>
@@ -312,25 +315,35 @@ export function ApiGuideErrors({
           )}
           {!("httpStatus" in active) && (
             <p>
-              {endpoint.path.endsWith("/payouts")
+              {kind === "BALANCE"
                 ? active.resultingStatus === "PROCESSING"
                   ? t(
-                      "The original virtual gross debit stays reserved. There is no automatic refund.",
-                      "Le débit brut virtuel d’origine reste réservé. Aucun remboursement automatique n’a lieu.",
+                      "The virtual bill debit remains held. No terminal webhook or automatic refund is produced by PENDING. Keep the original reference and retry intent.",
+                      "Le débit virtuel de facture reste retenu. PENDING ne produit ni webhook final ni remboursement automatique. Conservez la référence et l’intention d’origine.",
                     )
                   : t(
-                      "Acceptance debits the virtual gross amount once. Failure refunds it once only when the refund policy saved at acceptance permits it. Check PAYOUT_DEBIT and any linked PAYOUT_REFUND in the sandbox wallet entries; the payment response has no refund flag.",
-                      "L’acceptation débite une fois le montant brut virtuel. L’échec le rembourse une seule fois si la politique enregistrée à l’acceptation le permet. Vérifiez PAYOUT_DEBIT et tout PAYOUT_REFUND associé dans les écritures sandbox ; la réponse du paiement n’a pas d’indicateur de remboursement.",
+                      "A failed bill is not proof of refund. Inspect refunded on the bill-specific lookup and receipt; a refund never counts as successful delivery.",
+                      "Une facture échouée ne prouve pas le remboursement. Vérifiez refunded dans la consultation et le reçu ; un remboursement n’est jamais une livraison réussie.",
                     )
-                : active.resultingStatus === "PROCESSING"
-                  ? t(
-                      "The collection receives no wallet credit while confirmations remain pending.",
-                      "L’encaissement ne crédite pas le portefeuille tant que les confirmations restent en attente.",
-                    )
-                  : t(
-                      "A failed collection credits nothing to the wallet.",
-                      "Un encaissement échoué ne crédite pas le portefeuille.",
-                    )}
+                : endpoint.path.endsWith("/payouts")
+                  ? active.resultingStatus === "PROCESSING"
+                    ? t(
+                        "The original virtual gross debit stays reserved. There is no automatic refund.",
+                        "Le débit brut virtuel d’origine reste réservé. Aucun remboursement automatique n’a lieu.",
+                      )
+                    : t(
+                        "Acceptance debits the virtual gross amount once. Failure refunds it once only when the refund policy saved at acceptance permits it. Check PAYOUT_DEBIT and any linked PAYOUT_REFUND in the sandbox wallet entries; the payment response has no refund flag.",
+                        "L’acceptation débite une fois le montant brut virtuel. L’échec le rembourse une seule fois si la politique enregistrée à l’acceptation le permet. Vérifiez PAYOUT_DEBIT et tout PAYOUT_REFUND associé dans les écritures sandbox ; la réponse du paiement n’a pas d’indicateur de remboursement.",
+                      )
+                  : active.resultingStatus === "PROCESSING"
+                    ? t(
+                        "The collection receives no wallet credit while confirmations remain pending.",
+                        "L’encaissement ne crédite pas le portefeuille tant que les confirmations restent en attente.",
+                      )
+                    : t(
+                        "A failed collection credits nothing to the wallet.",
+                        "Un encaissement échoué ne crédite pas le portefeuille.",
+                      )}
             </p>
           )}
           {active.errorCode === "CRYPTO_INVOICE_EXPIRED" && (

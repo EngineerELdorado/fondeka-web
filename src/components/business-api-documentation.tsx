@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowDownToLine,
@@ -24,10 +24,13 @@ import {
   Trophy,
   Webhook,
   Smartphone,
+  ReceiptText,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { businessApiDocsRoot, businessApiTopic } from "@/lib/business-api-docs";
+import { apiGuideAvailable } from "@/lib/api-guide-availability";
+import { billPaymentMainLinks, billPaymentReferenceLessons } from "@/lib/api-guide-bills";
 import {
   apiGuideTracks,
   apiGuideMenuItems,
@@ -63,6 +66,7 @@ const icons = {
   test: Terminal,
   live: ShieldCheck,
   history: History,
+  bills: ReceiptText,
 };
 
 function KnowledgeCheck({ check }: { check: NonNullable<GuideLesson["check"]> }) {
@@ -275,6 +279,7 @@ function LessonContent({
 function ApiGuideOverview() {
   const { t } = useI18n();
   const { update } = useUrlState();
+  const billsAvailable = apiGuideAvailable("bill-payments");
   const channels = [
     {
       icon: Smartphone,
@@ -323,18 +328,44 @@ function ApiGuideOverview() {
           </section>
         ))}
       </div>
-      <div className="guide-future-services">
-        <Sparkles size={20} />
+      <div className="guide-bill-services">
+        <ReceiptText size={20} />
         <div>
-          <strong>{t("Looking ahead", "Et pour la suite")}</strong>
+          <strong>
+            {billsAvailable
+              ? t(
+                  "Pay bills from your fiat wallet",
+                  "Payez vos factures depuis votre portefeuille fiat",
+                )
+              : t(
+                  "Bill payments are coming soon",
+                  "Le paiement de factures sera bientôt disponible",
+                )}
+          </strong>
           <p>
-            {t(
-              "Bill payments and other services may be added in future releases.",
-              "Le paiement de factures et d’autres services pourront être ajoutés dans de futures versions.",
-            )}
+            {billsAvailable
+              ? t(
+                  "Electricity, water and TV. Get the product code, validate the account and submit the payment directly.",
+                  "Électricité, eau et TV. Obtenez le code produit, vérifiez le compte et envoyez directement le paiement.",
+                )
+              : t(
+                  "Electricity, water and TV payments are still in preparation.",
+                  "Les paiements d’électricité, d’eau et de TV sont encore en préparation.",
+                )}
           </p>
         </div>
-        <span>{t("Future services", "Services à venir")}</span>
+        <button
+          type="button"
+          disabled={!billsAvailable}
+          onClick={() => {
+            if (billsAvailable) update({ doc: "bill-payments", lesson: null });
+          }}
+        >
+          {billsAvailable
+            ? t("Bill payments guide", "Guide des factures")
+            : t("Coming soon", "Bientôt disponible")}
+          {billsAvailable && <ArrowUpRight size={13} />}
+        </button>
       </div>
     </>
   );
@@ -347,6 +378,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const { accountKey } = useWorkspace();
   const topic = businessApiTopic(values.get("doc"));
   const track = guideTrack(topic.id);
+  const available = apiGuideAvailable(topic.id);
   const lesson = guideLesson(track, values.get("lesson"));
   const current = `${track.id}:${lesson.id}`;
   const [saved, setSaved] = useState<{ account: string | null; ids: string[] }>({
@@ -380,9 +412,10 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   ).length;
   const index = track.lessons.indexOf(lesson);
   const Icon = icons[track.icon];
-  function selectGuide(id: string) {
+  function selectGuide(id: string, lesson?: string) {
+    if (!apiGuideAvailable(businessApiTopic(id).id)) return;
     setNotice("");
-    update({ doc: id, lesson: null });
+    update({ doc: id, lesson: lesson || null });
   }
   function nextGuide() {
     const next =
@@ -392,6 +425,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
     selectGuide(next.id);
   }
   function completeStep() {
+    if (!available) return;
     const ids = [...new Set([...completed, current])];
     setSaved({ account: accountKey, ids });
     try {
@@ -416,6 +450,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
         </figure>
         <ApiGuideNavigation
           current={topic.id}
+          currentLesson={lesson.id}
           completed={completed}
           onSelect={selectGuide}
           onOpenCatalog={() => setCatalogOpen(true)}
@@ -426,14 +461,18 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
         <label className="guide-mobile-topic">
           <span>{t("API guides", "Guides API")}</span>
           <select
-            value={topic.id}
+            value={
+              available && topic.id === "bill-payments" ? `${topic.id}:${lesson.id}` : topic.id
+            }
             onChange={(event) => {
-              if (event.target.value === "payment-methods") setCatalogOpen(true);
+              if (event.target.value.startsWith("bill-payments:"))
+                selectGuide("bill-payments", event.target.value.slice("bill-payments:".length));
+              else if (event.target.value === "payment-methods") setCatalogOpen(true);
               else if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
                 selectGuide(event.target.value);
             }}
           >
-            {!apiGuideMenuTracks.includes(track) && (
+            {available && !apiGuideMenuTracks.includes(track) && (
               <option value={topic.id} hidden>
                 {topic[language]}
               </option>
@@ -447,20 +486,34 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                 <option key={item.id} value={item.id}>
                   {item.title[language === "fr" ? 1 : 0]}
                 </option>
+              ) : item.id === "bills" && apiGuideAvailable("bill-payments") ? (
+                <Fragment key={item.id}>
+                  <optgroup label={copy(item.title)}>
+                    {billPaymentMainLinks.map((link) => (
+                      <option key={link.id} value={`bill-payments:${link.id}`}>
+                        {completed.includes(`bill-payments:${link.id}`) ? "✓ " : ""}
+                        {copy(link.title)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={`${copy(item.title)} · ${t("Reference", "Référence")}`}>
+                    {billPaymentReferenceLessons.map((step) => (
+                      <option key={step.id} value={`bill-payments:${step.id}`}>
+                        {completed.includes(`bill-payments:${step.id}`) ? "✓ " : ""}
+                        {copy(step.title)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </Fragment>
               ) : (
                 <optgroup key={item.id} label={item.title[language === "fr" ? 1 : 0]}>
-                  {item.children.map((child) =>
-                    child.kind === "guide" ? (
-                      <option key={child.id} value={child.id}>
-                        {businessApiTopic(child.id)[language]}
-                      </option>
-                    ) : (
-                      <option key={child.id} value={`upcoming:${child.id}`} disabled>
-                        {child.title[language === "fr" ? 1 : 0]} ·{" "}
-                        {t("Coming soon", "Bientôt disponible")}
-                      </option>
-                    ),
-                  )}
+                  {item.children.map((child) => (
+                    <option key={child.id} value={child.id} disabled={!apiGuideAvailable(child.id)}>
+                      {businessApiTopic(child.id)[language]}
+                      {!apiGuideAvailable(child.id) &&
+                        ` · ${t("Coming soon", "Bientôt disponible")}`}
+                    </option>
+                  ))}
                 </optgroup>
               ),
             )}
@@ -475,15 +528,22 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             <h2 ref={heading} tabIndex={-1}>
               {copy(track.title)}
             </h2>
-            <p>{copy(track.summary)}</p>
+            <p>
+              {available
+                ? copy(track.summary)
+                : t(
+                    "Coming soon. Bill payments are still in preparation.",
+                    "Bientôt disponible. Les paiements de factures sont encore en préparation.",
+                  )}
+            </p>
           </div>
-          {reviewed === track.lessons.length && (
+          {available && reviewed === track.lessons.length && (
             <span className="guide-achievement" title={t("Guide completed", "Guide terminé")}>
               <Trophy size={21} />
             </span>
           )}
         </header>
-        {track.lessons.length > 1 && (
+        {available && track.id !== "bill-payments" && track.lessons.length > 1 && (
           <nav className="guide-steps" aria-label={t("Guide steps", "Étapes du guide")}>
             <ol>
               {track.lessons.map((item, i) => (
@@ -508,7 +568,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             />
           </nav>
         )}
-        {notice && (
+        {available && notice && (
           <div className="guide-completion" role="status">
             <Trophy size={22} />
             <span>{notice}</span>
@@ -518,18 +578,33 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             </button>
           </div>
         )}
-        <LessonContent
-          key={current}
-          track={track}
-          lesson={lesson}
-          completed={completed.includes(current)}
-          onComplete={completeStep}
-          onPrevious={() => {
-            if (index > 0) update({ lesson: track.lessons[index - 1].id });
-          }}
-          onNextGuide={nextGuide}
-          setup={setup}
-        />
+        {available ? (
+          <LessonContent
+            key={current}
+            track={track}
+            lesson={lesson}
+            completed={completed.includes(current)}
+            onComplete={completeStep}
+            onPrevious={() => {
+              if (index > 0) update({ lesson: track.lessons[index - 1].id });
+            }}
+            onNextGuide={nextGuide}
+            setup={setup}
+          />
+        ) : (
+          <section className="guide-bill-services" role="status">
+            <ReceiptText size={20} aria-hidden="true" />
+            <div>
+              <strong>{t("Coming soon", "Bientôt disponible")}</strong>
+              <p>
+                {t(
+                  "Electricity, water and TV payments will be available here once launched.",
+                  "Les paiements d’électricité, d’eau et de TV seront disponibles ici après leur lancement.",
+                )}
+              </p>
+            </div>
+          </section>
+        )}
       </div>
       {catalogOpen && (
         <ApiGuidePaymentMethods setup={setup} onClose={() => setCatalogOpen(false)} />

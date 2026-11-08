@@ -1,5 +1,6 @@
 import type { ApiEnvironment } from "./types";
 import type { ApiPaymentKind } from "./api-catalog";
+export type ApiSimulationKind = ApiPaymentKind | "BALANCE";
 
 export const simulationHeader = "X-Simulate-Error-Code";
 export type RequestErrorCode = {
@@ -49,6 +50,34 @@ function errorEntry(value: unknown): value is Record<string, unknown> {
   );
 }
 export function parseApiErrorCatalog(value: unknown, environment: ApiEnvironment): ApiErrorCatalog {
+  // The published bill PENDING fixture has no description. Supply display copy
+  // for that one known fixture; keep all validation and simulation checks intact.
+  if (record(value) && Array.isArray(value.endpoints))
+    value = {
+      ...value,
+      endpoints: value.endpoints.map((endpoint) =>
+        record(endpoint) &&
+        endpoint.method === "POST" &&
+        endpoint.path === "/business-api/v1/businesses/{businessId}/bill-payments" &&
+        Array.isArray(endpoint.processingErrors)
+          ? {
+              ...endpoint,
+              processingErrors: endpoint.processingErrors.map((error) =>
+                record(error) &&
+                error.errorCode === "PENDING" &&
+                error.resultingStatus === "PROCESSING" &&
+                error.description == null
+                  ? {
+                      ...error,
+                      description:
+                        "Sandbox: bill processing remains unresolved. Virtual funds stay debited and no terminal webhook is emitted.",
+                    }
+                  : error,
+              ),
+            }
+          : endpoint,
+      ),
+    };
   if (
     !record(value) ||
     value.environment !== environment ||
@@ -114,8 +143,14 @@ export function errorCatalogEndpoint(
     catalog.endpoints.find(matches)
   );
 }
-export function processingErrorsFor(endpoint: ErrorCatalogEndpoint, kind?: ApiPaymentKind) {
-  if (endpoint.method !== "POST" || !/\/(collections|payouts)$/.test(endpoint.path) || !kind)
+export function processingErrorsFor(endpoint: ErrorCatalogEndpoint, kind?: ApiSimulationKind) {
+  const bill = endpoint.path.endsWith("/bill-payments");
+  if (
+    endpoint.method !== "POST" ||
+    !/\/(collections|payouts|bill-payments)$/.test(endpoint.path) ||
+    !kind ||
+    bill !== (kind === "BALANCE")
+  )
     return [];
   const payout = endpoint.path.endsWith("/payouts");
   return endpoint.processingErrors.filter((error) => {
@@ -135,7 +170,7 @@ export function simulationHeaders(
   catalog: ApiErrorCatalog | undefined,
   endpoint: ErrorCatalogEndpoint | undefined,
   selection?: ErrorSimulation,
-  kind?: ApiPaymentKind,
+  kind?: ApiSimulationKind,
 ): Record<string, string> {
   if (
     !catalog ||
@@ -151,7 +186,15 @@ export function simulationHeaders(
   if (
     !entry?.simulatable ||
     !entry.simulationValue ||
-    ["SUCCESS", "PENDING"].includes(entry.simulationValue)
+    entry.simulationValue === "SUCCESS" ||
+    (entry.simulationValue === "PENDING" &&
+      !(
+        selection.stage === "processing" &&
+        kind === "BALANCE" &&
+        endpoint.path.endsWith("/bill-payments") &&
+        "resultingStatus" in entry &&
+        entry.resultingStatus === "PROCESSING"
+      ))
   )
     return {};
   return { [catalog.simulationHeader]: entry.simulationValue };

@@ -321,12 +321,12 @@ export function businessDestination(value: string): string | undefined {
   if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname))
     copy(
       "doc",
-      /^(overview|quickstart|mobile-money-collection|mobile-money-payout|crypto-collection|crypto-payout|concepts|webhooks|testing|go-live|changelog)$/,
+      /^(overview|quickstart|mobile-money-collection|mobile-money-payout|crypto-collection|crypto-payout|bill-payments|payment-quotes|concepts|webhooks|testing|go-live|changelog)$/,
     );
   if ((url.pathname === "/developers/guides" || url.pathname === "/developers") && query.has("doc"))
     copy(
       "lesson",
-      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|crypto-collection-scenarios|crypto-payout-scenarios|error-codes|fund|convert|execute-conversion|history|prepare|release)$/,
+      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|crypto-collection-scenarios|crypto-payout-scenarios|error-codes|fund|convert|execute-conversion|history|prepare|release|discover|product|offers|options|funding-methods|account-lookup|additional-info|quote|television|tv-change|receipt|reactivate|collection-quote|payout-quote)$/,
     );
   if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname)) {
     for (const key of ["business", "businessPage", "apiPage", "apiDetailBusiness"])

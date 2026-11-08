@@ -1,5 +1,10 @@
 import { resolveGuideSchema, type ApiSchema, type GuideSpec } from "./api-guide-contract";
 import type { GuideExample } from "./api-guide-content";
+import {
+  billAdditionalInfoFields,
+  billFieldDefinitions,
+  priceCapFields,
+} from "./api-guide-bill-fields";
 
 export type GuideFieldScope = "body" | "header" | "path" | "query" | "response";
 export type GuideSchemaField = {
@@ -10,6 +15,8 @@ export type GuideSchemaField = {
   required: boolean;
   location: GuideFieldScope;
   component?: string;
+  /** A value in this published example's open extension map, not a declared DTO property. */
+  extension?: boolean;
 };
 
 function componentName(schema?: ApiSchema) {
@@ -102,11 +109,43 @@ export function guidePageFields(
       : example.exampleName === "crypto" || example.responseFocus === "cryptoDetails"
         ? "CRYPTO"
         : undefined);
-  return fields
+  const request = body && typeof body === "object" ? (body as Record<string, unknown>) : undefined;
+  const additionalInfo = request?.additionalInfo;
+  const expanded = fields.flatMap((field): GuideSchemaField[] => {
+    if (
+      field.location !== "body" ||
+      field.path !== "additionalInfo" ||
+      !field.schema.additionalProperties ||
+      example.incoming ||
+      !example.path.includes("/bill-") ||
+      !additionalInfo ||
+      typeof additionalInfo !== "object" ||
+      Array.isArray(additionalInfo)
+    )
+      return [field];
+    return [
+      field,
+      ...Object.entries(additionalInfo).map(([name, value]) => ({
+        name,
+        path: `additionalInfo.${name}`,
+        depth: field.depth + 1,
+        schema: {
+          type: Array.isArray(value) ? "array" : value === null ? "object" : typeof value,
+          example: value,
+          ...(value === null ? { nullable: true } : {}),
+        },
+        required: false,
+        location: "body" as const,
+        extension: true,
+      })),
+    ];
+  });
+  return expanded
     .filter((field) => {
       if (
         field.location === "body" &&
         !example.incoming &&
+        !example.completeRequestFields &&
         body !== undefined &&
         !bodyPaths.has(field.path)
       )
@@ -117,6 +156,15 @@ export function guidePageFields(
     .map((field) => {
       if (field.location !== "body" || example.incoming || !kind) return field;
       const requiredForPage =
+        (kind === "BALANCE" &&
+          (example.exampleName === "tvRenewal" || example.exampleName === "tvChange") &&
+          ([
+            "additionalInfo",
+            "additionalInfo.operation",
+            "additionalInfo.subscriptionNumber",
+          ].includes(field.path) ||
+            (example.exampleName === "tvChange" &&
+              ["additionalInfo.offerCode", "additionalInfo.optionCode"].includes(field.path)))) ||
         field.path === "paymentMethodName" ||
         (field.path === "networkName" && kind === "CRYPTO") ||
         (field.path === "accountRef" &&
@@ -131,7 +179,7 @@ const missingContractDescriptions: Record<string, Record<string, string>> = {
       "The credential environment for this wallet: real funds in LIVE or virtual funds in SANDBOX.",
   },
   BusinessApiTransactionResource: {
-    action: "Identifies whether this payment is a Business API collection or payout.",
+    action: "Identifies a Business API collection, payout or bill payment.",
     service:
       "Identifies the Fondeka service that owns this payment; BUSINESS_API for this resource.",
   },
@@ -177,7 +225,8 @@ const descriptionsFr: Record<string, Record<string, string>> = {
       "Code stable du moyen de paiement. Fournissez ce champ ou paymentMethodId. Un code présent dans la liste n’assure pas sa disponibilité sur la route.",
   },
   BusinessApiTransactionResource: {
-    action: "Indique si ce paiement est un encaissement ou un décaissement de l’API Business.",
+    action:
+      "Indique si ce paiement de l’API Business est un encaissement, un décaissement ou une facture.",
     amount:
       "Montant fiat net après frais. Pour un encaissement terminé, c’est le crédit net réel du portefeuille ; avant confirmation, c’est le devis accepté.",
     cryptoDetails:
@@ -306,6 +355,24 @@ const parameterDescriptionsFr: Record<string, string> = {
     "Code de devise fiat, normalisé en majuscules. Pour la liste des portefeuilles, omettez ce filtre pour tous les retourner.",
   page: "Index de page à partir de zéro ; la première page est 0.",
   size: "Nombre d’écritures par page, entre 1 et 100, avec 20 par défaut.",
+  billProductCode: "Code produit retourné par le catalogue de factures, comme SOCODEE.",
+  offerCode: "Code de l’offre retourné pour le produit choisi.",
+  countryCode:
+    "Code pays du marché. Sans ce filtre, le pays du propriétaire du compte est utilisé.",
+  category:
+    "Filtre de catégorie facultatif, insensible à la casse et représenté comme une chaîne ouverte.",
+  displayCurrency:
+    "Devise fiat demandée pour afficher les montants du catalogue ou de la recherche.",
+  orderReference: "Filtre exact sur votre référence marchande de commande ou facture.",
+};
+
+const parameterDescriptionsEn: Record<string, string> = {
+  billProductCode: "Product code returned by the bill catalog, such as SOCODEE.",
+  offerCode: "Offer code returned for the selected product.",
+  countryCode: "Optional market country code. Defaults to the account owner's country.",
+  category: "Optional case-insensitive category filter represented as an open string.",
+  displayCurrency: "Requested fiat display currency for catalog or lookup prices.",
+  orderReference: "Exact filter on your merchant order or invoice reference.",
 };
 
 const orderReferenceDefinition = [
@@ -314,7 +381,9 @@ const orderReferenceDefinition = [
 ] as const;
 
 const fieldDefinitions: Record<string, Record<string, readonly [string, string]>> = {
+  ...billFieldDefinitions,
   BusinessApiTransactionRequest: {
+    ...priceCapFields,
     orderReference: orderReferenceDefinition,
   },
   BusinessApiTransactionResource: {
@@ -431,6 +500,39 @@ export function guideFieldDescription(
   language: string,
   example?: GuideExample,
 ): { text: string; language: "en" | "fr" } {
+  if (field.extension) {
+    const definition = billAdditionalInfoFields[field.name];
+    return {
+      text: definition
+        ? definition[language === "fr" ? 1 : 0]
+        : language === "fr"
+          ? "Champ fournisseur dans additionalInfo de cet exemple. Le fournisseur choisi doit le prendre en charge. Les valeurs scalaires sont préservées ; objets et tableaux sont encodés en JSON stable."
+          : "Biller input in this example's additionalInfo. The selected provider must support it. Scalar values are preserved; objects and arrays are encoded as stable JSON.",
+      language: language === "fr" ? "fr" : "en",
+    };
+  }
+  const inlineResponse: Record<string, readonly [string, string]> = {
+    fundsChanged: [
+      "Always false for TV reactivation: no new purchase or wallet debit. The command acknowledgement does not change the original bill status.",
+      "Toujours false pour la réactivation TV : aucun nouvel achat ni débit. L’acquittement de commande ne change pas l’état de la facture d’origine.",
+    ],
+    details: [
+      "Available delivery fields for this receipt, with current payment status. tokens, valueReceived or newSubscription depend on the product and can arrive later. Nested TV data excludes internal costs and configuration.",
+      "Champs de livraison disponibles avec l’état actuel. tokens, valueReceived ou newSubscription dépendent du produit et peuvent arriver plus tard. Les données TV imbriquées excluent coûts et configuration internes.",
+    ],
+  };
+  if (
+    !field.component &&
+    field.location === "response" &&
+    example?.path.includes("/bill-payments/")
+  ) {
+    const definition = inlineResponse[field.name] || billFieldDefinitions.BillPayment[field.name];
+    if (definition)
+      return {
+        text: definition[language === "fr" ? 1 : 0],
+        language: language === "fr" ? "fr" : "en",
+      };
+  }
   const definition = field.component && fieldDefinitions[field.component]?.[field.name];
   if (definition)
     return {
@@ -485,6 +587,7 @@ export function guideFieldDescription(
     text:
       field.schema.description ||
       (field.component && missingContractDescriptions[field.component]?.[field.name]) ||
+      (!field.component && parameterDescriptionsEn[field.name]) ||
       "",
     language: "en",
   };

@@ -43,3 +43,13 @@ test('HTTP receiver persists before acknowledgment, deduplicates after restart, 
   const unavailable=join(dir,'unavailable');const broken=await receiver(unavailable);await mkdir(unavailable);
   assert.equal((await fetch(broken,{method:'POST',headers,body:raw})).status,500);
 });
+
+test('bill payment events retain signature, action and environment validation',()=>{
+  for(const status of ['COMPLETED','FAILED']) {
+    const bill={...event,type:`business_api.bill_payment.${status.toLowerCase()}`,data:{...event.data,action:'BUSINESS_API_BILL_PAYMENT',status,billProductCode:"SOCODEE",accountNumber:'METER-101',refunded:status==='FAILED',receipt:{tokens:['SANDBOX-TEST-TOKEN-DO-NOT-USE']}}};
+    const bytes=Buffer.from(JSON.stringify(bill));const signed='v1='+createHmac('sha256',secret).update(timestamp+'.').update(bytes).digest('hex');
+    assert.deepEqual(verify({...args,raw:bytes,signature:signed}),bill);
+    const wrong=Buffer.from(JSON.stringify({...bill,type:'business_api.payout.completed'}));
+    assert.throws(()=>verify({...args,raw:wrong,signature:'v1='+createHmac('sha256',secret).update(timestamp+'.').update(wrong).digest('hex')}));
+  }
+});

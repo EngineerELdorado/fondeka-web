@@ -1,5 +1,17 @@
 # Contract changelog
 
+## 1.6.0 — Unified bill API and compact resources
+
+Uses one direct bill-payment contract with product/account, amount/currency and optional `additionalInfo`. Fees are calculated and applied by the backend without a manual review or confirmation step. Extra inputs map to the existing validated bill request/provider fields; old flat inputs retain their normalized idempotency behavior. Product paths, payloads, payment responses and bill webhooks use `billProductCode`; numeric product IDs are internal only. Discovery has an optional category filter and four-field product resources with open string codes/categories. Offers and options expose codes instead of database IDs, and option paths use the parent offer code. Lookup, offer, option, quote and payment HTTP responses expose concise useful data. Follow-up commands use one extensible `/bill-payments/{reference}/actions` envelope; the existing reactivation URL remains a deprecated alias. Current electricity/water/TV eligibility and gift-card exclusion remain in effect. Financial logic, pricing, wallet funding, provider execution, refunds and signed webhook payloads are unchanged. No new migration is required. See [Bill payments](guides/bill-payments.md).
+
+## 1.5.0 — Bill payments
+
+The bill catalog and all product-specific API operations support only electricity, water and TV in LIVE and SANDBOX. Bill-product resources expose only `id`, `code`, `name`, `displayName` and `category`. Gift cards and other product types are unavailable for new purchases; historical payment reads and idempotent replays remain available.
+
+Adds Business-scoped bill catalog, product input descriptions, offers/options, customer lookup, quotes, wallet-funded idempotent purchases, history, status and receipts. New bill payment webhooks use the existing signed delivery system. Sandbox uses virtual funds and synthetic provider-free fixtures. Apply `20270103_business_api_bill_payments.sql` before deploying matching web/worker builds. Existing collection/payout acceptance, retries and financial actions are preserved. See [Bill payments](guides/bill-payments.md).
+
+End-to-end QA corrected bill-product fee collection, gift-card pricing/commission currency and redemption receipts, active-provider catalog routing, queued status projection and reactivation dedupe per purchase. TV changes validate options against the selected offer. The existing TV review/refund policy is preserved.
+
 ## 1.3.0 — 2026-10-26 — Crypto sandbox processing outcomes
 
 `X-Simulate-Error-Code` gains crypto-specific invoice expiry, invalid destination address, pre-transfer network failure, rejected transfer and pending-confirmation fixtures on the existing collection/payout endpoints. Merchant/portal error catalogs advertise compatible payment method types and operation-specific codes. Read `resultingStatus`: `CRYPTO_CONFIRMATIONS_PENDING` follows ACCEPTED → PROCESSING, retains any payout debit and emits no terminal webhook. Definite failures follow existing polling/webhook/refund policy, with no provider or blockchain calls. Generic simulations, normal payload/access validation, idempotency, LIVE header ignoring and historical sandbox scenarios remain unchanged. Apply `20261126_business_api_crypto_simulations.sql` and deploy matching web/worker builds before using new values. See [the crypto simulation guide](crypto-sandbox-simulations.md).
