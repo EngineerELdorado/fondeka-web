@@ -1,4 +1,4 @@
-> Bill payments are coming soon in production. The bill-payment contract is a local development preview while implementation is being completed.
+> Bill payments are available when enabled for your account. Check the API guides in your portal for availability.
 
 # Fondeka Business API
 

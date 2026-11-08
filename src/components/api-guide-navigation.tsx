@@ -27,15 +27,19 @@ function GuideMenuSection({
   group,
   current,
   renderGuide,
+  billPaymentsApiReady,
 }: {
   group: GuideMenuGroup;
   current: string;
   renderGuide: (id: GuideTrack["id"]) => ReactNode;
+  billPaymentsApiReady: boolean;
 }) {
   const { language, t } = useI18n();
   const [open, setOpen] = useState(group.id === "payments");
   const active = group.children.some((item) => item.id === current);
-  const upcoming = group.children.every((item) => !apiGuideAvailable(item.id));
+  const upcoming = group.children.every(
+    (item) => !apiGuideAvailable(item.id, billPaymentsApiReady),
+  );
   const Icon = group.id === "payments" ? WalletCards : ReceiptText;
   useEffect(() => {
     if (active) setOpen(true);
@@ -194,6 +198,7 @@ export function ApiGuideNavigation({
   onSelect,
   onOpenCatalog,
   icons,
+  billPaymentsApiReady,
 }: {
   current: string;
   currentLesson: string;
@@ -201,11 +206,12 @@ export function ApiGuideNavigation({
   onSelect: (id: string, lesson?: string) => void;
   onOpenCatalog: () => void;
   icons: Record<GuideTrack["icon"], LucideIcon>;
+  billPaymentsApiReady: boolean;
 }) {
   const { language, t } = useI18n();
   function renderGuide(id: GuideTrack["id"]) {
     const item = guideTrack(id);
-    const available = apiGuideAvailable(id);
+    const available = apiGuideAvailable(id, billPaymentsApiReady);
     const Icon = icons[item.icon];
     const count = item.lessons.filter((step) => completed.includes(`${item.id}:${step.id}`)).length;
     const done = available && count === item.lessons.length;
@@ -255,7 +261,7 @@ export function ApiGuideNavigation({
             <span>{item.title[language === "fr" ? 1 : 0]}</span>
           </button>
         ) : item.id === "bills" ? (
-          apiGuideAvailable("bill-payments") ? (
+          apiGuideAvailable("bill-payments", billPaymentsApiReady) ? (
             <BillPaymentMenu
               key={item.id}
               current={current}
@@ -272,6 +278,7 @@ export function ApiGuideNavigation({
             group={item}
             current={current}
             renderGuide={renderGuide}
+            billPaymentsApiReady={billPaymentsApiReady}
           />
         ),
       )}

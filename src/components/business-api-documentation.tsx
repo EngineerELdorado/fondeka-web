@@ -29,12 +29,12 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { businessApiDocsRoot, businessApiTopic } from "@/lib/business-api-docs";
-import { apiGuideAvailable } from "@/lib/api-guide-availability";
+import { apiGuideAvailable, billPaymentGuidesReady } from "@/lib/api-guide-availability";
 import { billPaymentMainLinks, billPaymentReferenceLessons } from "@/lib/api-guide-bills";
 import {
   apiGuideTracks,
   apiGuideMenuItems,
-  apiGuideMenuTracks,
+  availableGuideMenuTracks,
   guideTrack,
   guideLesson,
   parseGuideProgress,
@@ -211,7 +211,9 @@ function LessonContent({
           ))}
         </div>
       )}
-      {track.id === "overview" && <ApiGuideOverview />}
+      {track.id === "overview" && (
+        <ApiGuideOverview billsAvailable={billPaymentGuidesReady(setup)} />
+      )}
       {lesson.check && (
         <details className="guide-optional-check">
           <summary>
@@ -276,10 +278,9 @@ function LessonContent({
     </>
   );
 }
-function ApiGuideOverview() {
+function ApiGuideOverview({ billsAvailable }: { billsAvailable: boolean }) {
   const { t } = useI18n();
   const { update } = useUrlState();
-  const billsAvailable = apiGuideAvailable("bill-payments");
   const channels = [
     {
       icon: Smartphone,
@@ -378,7 +379,9 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const { accountKey } = useWorkspace();
   const topic = businessApiTopic(values.get("doc"));
   const track = guideTrack(topic.id);
-  const available = apiGuideAvailable(topic.id);
+  const billPaymentsApiReady = billPaymentGuidesReady(setup);
+  const available = apiGuideAvailable(topic.id, billPaymentsApiReady);
+  const apiGuideMenuTracks = availableGuideMenuTracks(billPaymentsApiReady);
   const lesson = guideLesson(track, values.get("lesson"));
   const current = `${track.id}:${lesson.id}`;
   const [saved, setSaved] = useState<{ account: string | null; ids: string[] }>({
@@ -413,7 +416,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const index = track.lessons.indexOf(lesson);
   const Icon = icons[track.icon];
   function selectGuide(id: string, lesson?: string) {
-    if (!apiGuideAvailable(businessApiTopic(id).id)) return;
+    if (!apiGuideAvailable(businessApiTopic(id).id, billPaymentsApiReady)) return;
     setNotice("");
     update({ doc: id, lesson: lesson || null });
   }
@@ -455,6 +458,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           onSelect={selectGuide}
           onOpenCatalog={() => setCatalogOpen(true)}
           icons={icons}
+          billPaymentsApiReady={billPaymentsApiReady}
         />
       </aside>
       <div className="guide-content">
@@ -486,7 +490,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                 <option key={item.id} value={item.id}>
                   {item.title[language === "fr" ? 1 : 0]}
                 </option>
-              ) : item.id === "bills" && apiGuideAvailable("bill-payments") ? (
+              ) : item.id === "bills" && billPaymentsApiReady ? (
                 <Fragment key={item.id}>
                   <optgroup label={copy(item.title)}>
                     {billPaymentMainLinks.map((link) => (
@@ -508,9 +512,13 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
               ) : (
                 <optgroup key={item.id} label={item.title[language === "fr" ? 1 : 0]}>
                   {item.children.map((child) => (
-                    <option key={child.id} value={child.id} disabled={!apiGuideAvailable(child.id)}>
+                    <option
+                      key={child.id}
+                      value={child.id}
+                      disabled={!apiGuideAvailable(child.id, billPaymentsApiReady)}
+                    >
                       {businessApiTopic(child.id)[language]}
-                      {!apiGuideAvailable(child.id) &&
+                      {!apiGuideAvailable(child.id, billPaymentsApiReady) &&
                         ` · ${t("Coming soon", "Bientôt disponible")}`}
                     </option>
                   ))}

@@ -399,6 +399,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       status: "ACTIVE",
       kybStatus: "APPROVED",
       defaultBusiness: true,
+      billPaymentsApiReady: false,
     },
   ];
 

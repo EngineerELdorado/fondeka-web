@@ -1,6 +1,6 @@
 # Fondeka Payment API: your questions answered
 
-Add Mobile Money and crypto payments to your website or application, even while your business is still taking shape. Bill payments are coming soon in production and are currently available only as a local development preview.
+Add Mobile Money and crypto payments to your website or application, even while your business is still taking shape. Bill payments are available when enabled for your account; check the API guides in your portal for availability.
 
 Fondeka built this API for **students, freelancers, small businesses and startups that do not yet have the administrative documents needed to integrate directly with many payment aggregators**. You can build and test your payment flow through Fondeka, then use real payments when your account and the relevant payment routes are ready.
 
@@ -10,7 +10,7 @@ This guide explains what you get, why access is paid, how transaction fees work,
 
 | Question                                        | Short answer                                                                                                                                                                                                                           |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What can I build?                               | Mobile Money and crypto collections and payouts, connected to your application. Bill payments are coming soon.                                                                                                                         |
+| What can I build?                               | Mobile Money and crypto collections and payouts, connected to your application. Bill payments are available when enabled for your account.                                                                                                                         |
 | Who is it for?                                  | Students, freelancers, independent developers, small businesses and early-stage startups, including projects still preparing company documents.                                                                                        |
 | Why pay for access?                             | Fondeka simplifies the integration and operational work involved in connecting to payment aggregators.                                                                                                                                 |
 | What are the transaction fees?                  | On average, approximately 3% for the aggregator plus 2% for Fondeka, combined into one approximately 5% fee per operation. Actual collection/payout fees vary by route; bills use configured pricing applied automatically at payment. |
@@ -86,7 +86,7 @@ The published payment guides cover these flows:
 | Crypto collection       | Creates crypto payment instructions for a price expressed in fiat money.            | A customer pays a USD-priced invoice using a supported crypto/network combination. |
 | Crypto payout           | Uses a fiat wallet balance to send the quoted crypto amount to a supported address. | Your application pays an eligible recipient on the selected network.               |
 
-Bill payments are coming soon in production. The local development preview covers eligible electricity, water and TV products paid from your fiat wallet. Discover the products activated for your account and market before offering them to customers.
+When enabled for your account, bill payments cover eligible electricity, water and TV products paid from your fiat wallet. Your portal shows the guides when available and “Coming soon” while access is in preparation. Discover the products activated for your account and market before offering them to customers.
 
 The API also provides account validation, price quotes, payment lookup, bill receipts, wallet balances and tools for Sandbox testing.
 
@@ -104,7 +104,7 @@ Depending on the offer shown to your account, API access may be included in a Bu
 
 ### 9. Does the API include every feature in the Fondeka app?
 
-The API covers supported Mobile Money and crypto collections and payouts, with configured bill products currently limited to a local development preview. Bill payments are coming soon in production. The app may offer other products, such as cards or other financial services, with their own rules and interfaces.
+The API covers supported Mobile Money and crypto collections and payouts, with bill products available when enabled for your account. The app may offer other products, such as cards or other financial services, with their own rules and interfaces.
 
 For bills, use the catalog’s product code, validate the meter or subscriber and submit the payment directly. The backend calculates fees and debits the fiat balance automatically. Biller-specific inputs use the optional `additionalInfo` object. TV renewals use a subscription returned by lookup; package changes also require the selected offer and option. Gift cards and other categories are excluded from the current bill catalog. The API key and Business ID identify your integration; no customer login or wallet ID is required.
 

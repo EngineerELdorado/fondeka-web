@@ -22,7 +22,7 @@ async function publicationFile(directory: string, file: string, portalCopy = fal
   if (file === "openapi.v1.json")
     return Buffer.from(portalBusinessApiContract(bytes.toString("utf8")));
   const previewNotice =
-    "> Bill payments are coming soon in production. The bill-payment contract is a local development preview while implementation is being completed.\n\n";
+    "> Bill payments are available when enabled for your account. Check the API guides in your portal for availability.\n\n";
   // Keep the portal introduction short and omit a link to the backend-only implementation handoff.
   return Buffer.from(
     (["README.md", "guides/bill-payments.md"].includes(file) &&

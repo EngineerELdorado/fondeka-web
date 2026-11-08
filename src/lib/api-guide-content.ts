@@ -214,30 +214,20 @@ export const apiGuideTracks: GuideTrack[] = [
   {
     id: "overview",
     title: ["Payments for your business", "Les paiements pour votre activité"],
-    summary: apiGuideAvailable("bill-payments")
-      ? [
-          "Collect and send mobile-money and crypto payments, and pay bills from your account’s fiat wallets.",
-          "Encaissez et envoyez des paiements mobile money et crypto, et payez des factures depuis les portefeuilles fiat de votre compte.",
-        ]
-      : [
-          "Collect and send mobile-money and crypto payments from your application, with settlement in your account’s fiat wallets.",
-          "Encaissez et envoyez des paiements mobile money et crypto depuis votre application, avec règlement dans les portefeuilles fiat de votre compte.",
-        ],
+    summary: [
+      "Collect and send mobile-money and crypto payments from your application, with settlement in your account’s fiat wallets.",
+      "Encaissez et envoyez des paiements mobile money et crypto depuis votre application, avec règlement dans les portefeuilles fiat de votre compte.",
+    ],
     icon: "map",
     tone: "blue",
     lessons: [
       {
         id: "map",
         title: ["What the API does", "Ce que fait l’API"],
-        summary: apiGuideAvailable("bill-payments")
-          ? [
-              "Integrate collections, payouts and wallet-funded electricity, water and TV bills. Discover products and routes for your account before purchasing.",
-              "Intégrez les encaissements, décaissements et factures d’électricité, d’eau et de TV, financés par portefeuille. Découvrez les produits et routes de votre compte avant l’achat.",
-            ]
-          : [
-              "Integrate mobile-money and crypto collections and payouts. Bill payments are coming soon.",
-              "Intégrez les encaissements et décaissements mobile money et crypto. Le paiement de factures sera bientôt disponible.",
-            ],
+        summary: [
+          "Discover the payment services and routes available for your account before integrating.",
+          "Découvrez les services de paiement et les routes disponibles pour votre compte avant l’intégration.",
+        ],
         flow: paidFlow,
       },
     ],
@@ -1130,8 +1120,10 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
 export const apiGuideMenuTracks = apiGuideMenuItems
   .flatMap((item) => (item.kind === "group" ? item.children : item.kind === "guide" ? [item] : []))
   .filter((item) => item.kind === "guide")
-  .map((item) => guideTrack(item.id))
-  .filter((track) => apiGuideAvailable(track.id));
+  .map((item) => guideTrack(item.id));
+export function availableGuideMenuTracks(billPaymentsApiReady: unknown = false) {
+  return apiGuideMenuTracks.filter((track) => apiGuideAvailable(track.id, billPaymentsApiReady));
+}
 export function guideTrack(id: string) {
   return apiGuideTracks.find((track) => track.id === id) ?? apiGuideTracks[0];
 }

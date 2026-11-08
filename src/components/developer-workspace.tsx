@@ -112,7 +112,7 @@ export function DeveloperWorkspace({ section }: { section: DeveloperSection }) {
             business: selected,
             environment,
             loading: businesses.loading,
-            error: businesses.error,
+            error: businesses.error || businesses.refreshError,
             refresh,
           }}
         />

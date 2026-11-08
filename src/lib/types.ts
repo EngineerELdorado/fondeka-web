@@ -122,6 +122,7 @@ export interface Quote {
 }
 export interface Business {
   id: number;
+  billPaymentsApiReady?: boolean;
   name: string;
   legalName?: string | null;
   status: string;
