@@ -465,9 +465,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
         <label className="guide-mobile-topic">
           <span>{t("API guides", "Guides API")}</span>
           <select
-            value={
-              available && topic.id === "bill-payments" ? `${topic.id}:${lesson.id}` : topic.id
-            }
+            value={topic.id === "bill-payments" ? `${topic.id}:${lesson.id}` : topic.id}
             onChange={(event) => {
               if (event.target.value.startsWith("bill-payments:"))
                 selectGuide("bill-payments", event.target.value.slice("bill-payments:".length));
@@ -490,20 +488,30 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                 <option key={item.id} value={item.id}>
                   {item.title[language === "fr" ? 1 : 0]}
                 </option>
-              ) : item.id === "bills" && billPaymentsApiReady ? (
+              ) : item.id === "bills" ? (
                 <Fragment key={item.id}>
-                  <optgroup label={copy(item.title)}>
+                  <optgroup
+                    disabled={!billPaymentsApiReady}
+                    label={`${copy(item.title)}${billPaymentsApiReady ? "" : ` · ${t("Coming soon", "Bientôt disponible")}`}`}
+                  >
                     {billPaymentMainLinks.map((link) => (
                       <option key={link.id} value={`bill-payments:${link.id}`}>
-                        {completed.includes(`bill-payments:${link.id}`) ? "✓ " : ""}
+                        {billPaymentsApiReady && completed.includes(`bill-payments:${link.id}`)
+                          ? "✓ "
+                          : ""}
                         {copy(link.title)}
                       </option>
                     ))}
                   </optgroup>
-                  <optgroup label={`${copy(item.title)} · ${t("Reference", "Référence")}`}>
+                  <optgroup
+                    disabled={!billPaymentsApiReady}
+                    label={`${copy(item.title)} · ${t("Reference", "Référence")}`}
+                  >
                     {billPaymentReferenceLessons.map((step) => (
                       <option key={step.id} value={`bill-payments:${step.id}`}>
-                        {completed.includes(`bill-payments:${step.id}`) ? "✓ " : ""}
+                        {billPaymentsApiReady && completed.includes(`bill-payments:${step.id}`)
+                          ? "✓ "
+                          : ""}
                         {copy(step.title)}
                       </option>
                     ))}

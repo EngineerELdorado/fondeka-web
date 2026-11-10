@@ -76,11 +76,13 @@ function BillPaymentMenu({
   currentLesson,
   completed,
   onSelect,
+  available,
 }: {
   current: string;
   currentLesson: string;
   completed: string[];
   onSelect: (id: string, lesson?: string) => void;
+  available: boolean;
 }) {
   const { language, t } = useI18n();
   const track = guideTrack("bill-payments");
@@ -123,21 +125,26 @@ function BillPaymentMenu({
         </span>
         <span className="guide-menu-group-copy">
           <strong>{track.title[language === "fr" ? 1 : 0]}</strong>
-          <small>
-            {reviewed} / {track.lessons.length}
-          </small>
+          {available ? (
+            <small>
+              {reviewed} / {track.lessons.length}
+            </small>
+          ) : (
+            <small className="guide-menu-soon">{t("Coming soon", "Bientôt disponible")}</small>
+          )}
         </span>
         <ChevronDown size={14} className="guide-menu-chevron" aria-hidden="true" />
       </summary>
       <div className="guide-bill-menu-items">
         <div className="guide-bill-actions">
           {billPaymentMainLinks.map((item) => {
-            const done = completed.includes(`${track.id}:${item.id}`);
+            const done = available && completed.includes(`${track.id}:${item.id}`);
             const Icon = actionIcons[item.id];
             return (
               <button
                 type="button"
                 key={item.id}
+                disabled={!available}
                 aria-current={active && currentLesson === item.id ? "step" : undefined}
                 onClick={() => onSelect(track.id, item.id)}
               >
@@ -170,11 +177,12 @@ function BillPaymentMenu({
             aria-label={t("Bill payment reference", "Référence des paiements de factures")}
           >
             {billPaymentReferenceLessons.map((lesson) => {
-              const done = completed.includes(`${track.id}:${lesson.id}`);
+              const done = available && completed.includes(`${track.id}:${lesson.id}`);
               return (
                 <li key={lesson.id}>
                   <button
                     type="button"
+                    disabled={!available}
                     aria-current={active && currentLesson === lesson.id ? "step" : undefined}
                     onClick={() => onSelect(track.id, lesson.id)}
                   >
@@ -261,17 +269,14 @@ export function ApiGuideNavigation({
             <span>{item.title[language === "fr" ? 1 : 0]}</span>
           </button>
         ) : item.id === "bills" ? (
-          apiGuideAvailable("bill-payments", billPaymentsApiReady) ? (
-            <BillPaymentMenu
-              key={item.id}
-              current={current}
-              currentLesson={currentLesson}
-              completed={completed}
-              onSelect={onSelect}
-            />
-          ) : (
-            renderGuide("bill-payments")
-          )
+          <BillPaymentMenu
+            key={item.id}
+            current={current}
+            currentLesson={currentLesson}
+            completed={completed}
+            onSelect={onSelect}
+            available={billPaymentsApiReady}
+          />
         ) : (
           <GuideMenuSection
             key={item.id}
