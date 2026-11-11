@@ -8,7 +8,7 @@ import { defaultTheme, resolveTheme, themeChangeEvent, themeStorageKey } from "@
 function subscribe(onChange: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key !== themeStorageKey && event.key !== null) return;
-    const theme = resolveTheme(event.newValue);
+    const theme = resolveTheme(event.newValue, window.location.pathname);
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
     onChange();
@@ -22,7 +22,7 @@ function subscribe(onChange: () => void) {
 }
 
 function getSnapshot() {
-  return resolveTheme(document.documentElement.dataset.theme);
+  return resolveTheme(document.documentElement.dataset.theme, window.location.pathname);
 }
 
 export function ThemeToggle() {
