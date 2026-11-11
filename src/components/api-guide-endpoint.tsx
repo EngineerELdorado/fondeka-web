@@ -18,6 +18,7 @@ import {
   guideOperation,
   guideRequestBody,
   guidePaymentSnippet,
+  publishedGuideErrors,
   publishedExample,
   resolveGuideSchema,
   paymentStateGroups,
@@ -758,7 +759,17 @@ function EndpointContent({
   const [responseExampleName, setResponseExampleName] = useState<string>();
   const requestMedia = guideMedia(operation.requestBody?.content);
   const body = guideRequestBody(spec, example);
-  const errorData = useApiErrorCatalog(setup, example.method, example.path, operation.operationId);
+  const publicGuide = setup?.audience === "public";
+  const accountErrors = useApiErrorCatalog(
+    setup,
+    example.method,
+    example.path,
+    operation.operationId,
+  );
+  const publishedErrors = publicGuide ? publishedGuideErrors(operation, example) : undefined;
+  const errorData = publishedErrors
+    ? { ...accountErrors, catalog: publishedErrors, endpoint: publishedErrors.endpoints[0] }
+    : accountErrors;
   const [simulation, setSimulation] = useState<ErrorSimulation>();
   const [intentKey, setIntentKey] = useState<string>();
   const simulatedHeaders =
@@ -777,7 +788,11 @@ function EndpointContent({
       ? body.paymentMethodName
       : undefined;
   const catalogProps =
-    setup && example.method === "POST" && example.paymentKind && example.paymentKind !== "BALANCE"
+    setup &&
+    !publicGuide &&
+    example.method === "POST" &&
+    example.paymentKind &&
+    example.paymentKind !== "BALANCE"
       ? {
           setup,
           kind: example.paymentKind,
@@ -1207,19 +1222,24 @@ function EndpointContent({
             <ArrowRightLeft size={17} />
             {t("HTTP statuses & errors", "États HTTP et erreurs")}
           </h4>
-          <ApiGuideErrors
-            data={errorData}
-            setup={setup}
-            kind={example.paymentKind}
-            simulation={Object.keys(simulatedHeaders).length ? simulation : undefined}
-            onSimulation={chooseSimulation}
-            onInspect={(entry) => {
-              const status = String(entry.httpStatus);
-              if (guideMedia(operation.responses[status]?.content)?.examples?.[entry.errorCode])
-                chooseResponse(status, false, entry.errorCode);
-            }}
-          />
-          <details className="guide-published-http-responses">
+          {(!publicGuide || publishedErrors) && (
+            <ApiGuideErrors
+              data={errorData}
+              setup={setup}
+              kind={example.paymentKind}
+              simulation={Object.keys(simulatedHeaders).length ? simulation : undefined}
+              onSimulation={chooseSimulation}
+              onInspect={(entry) => {
+                const status = String(entry.httpStatus);
+                if (guideMedia(operation.responses[status]?.content)?.examples?.[entry.errorCode])
+                  chooseResponse(status, false, entry.errorCode);
+              }}
+            />
+          )}
+          <details
+            className="guide-published-http-responses"
+            open={publicGuide && !publishedErrors ? true : undefined}
+          >
             <summary>{t("Published HTTP responses", "Réponses HTTP publiées")}</summary>
             <div className="guide-status-list">
               {responseCodes.map((code) => {

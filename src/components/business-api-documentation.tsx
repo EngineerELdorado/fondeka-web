@@ -272,7 +272,7 @@ function LessonContent({
             </span>
             <ChevronDown size={16} />
           </summary>
-          {referenceOpen && <Reference />}
+          {referenceOpen && <Reference publicGuide={setup.audience === "public"} />}
         </details>
       )}
     </>
@@ -377,6 +377,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const copy = (value: GuideCopy) => value[language === "fr" ? 1 : 0];
   const { values, update } = useUrlState();
   const { accountKey } = useWorkspace();
+  const publicGuide = setup.audience === "public";
   const topic = businessApiTopic(values.get("doc"));
   const track = guideTrack(topic.id);
   const billPaymentsApiReady = billPaymentGuidesReady(setup);
@@ -384,16 +385,20 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const apiGuideMenuTracks = availableGuideMenuTracks(billPaymentsApiReady);
   const lesson = guideLesson(track, values.get("lesson"));
   const current = `${track.id}:${lesson.id}`;
-  const [saved, setSaved] = useState<{ account: string | null; ids: string[] }>({
-    account: null,
+  const storageKey = publicGuide
+    ? "fondeka:public-api-learning:v1"
+    : accountKey
+      ? `fondeka:api-learning:v1:${accountKey}`
+      : null;
+  const [saved, setSaved] = useState<{ key: string | null; ids: string[] }>({
+    key: null,
     ids: [],
   });
-  const completed = saved.account === accountKey ? saved.ids : [];
+  const completed = saved.key === storageKey ? saved.ids : [];
   const [notice, setNotice] = useState("");
   const [catalogOpen, setCatalogOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef(current);
-  const storageKey = accountKey ? `fondeka:api-learning:v1:${accountKey}` : null;
   useEffect(() => {
     let ids: string[] = [];
     try {
@@ -401,8 +406,8 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
     } catch {
       /* Progress is optional. */
     }
-    setSaved({ account: accountKey, ids });
-  }, [accountKey, storageKey]);
+    setSaved({ key: storageKey, ids });
+  }, [storageKey]);
   useEffect(() => {
     if (previous.current !== current) {
       heading.current?.focus({ preventScroll: true });
@@ -430,7 +435,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   function completeStep() {
     if (!available) return;
     const ids = [...new Set([...completed, current])];
-    setSaved({ account: accountKey, ids });
+    setSaved({ key: storageKey, ids });
     try {
       if (storageKey) sessionStorage.setItem(storageKey, JSON.stringify(ids));
     } catch {
@@ -456,7 +461,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           currentLesson={lesson.id}
           completed={completed}
           onSelect={selectGuide}
-          onOpenCatalog={() => setCatalogOpen(true)}
+          onOpenCatalog={publicGuide ? undefined : () => setCatalogOpen(true)}
           icons={icons}
           billPaymentsApiReady={billPaymentsApiReady}
         />
@@ -469,7 +474,8 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             onChange={(event) => {
               if (event.target.value.startsWith("bill-payments:"))
                 selectGuide("bill-payments", event.target.value.slice("bill-payments:".length));
-              else if (event.target.value === "payment-methods") setCatalogOpen(true);
+              else if (!publicGuide && event.target.value === "payment-methods")
+                setCatalogOpen(true);
               else if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
                 selectGuide(event.target.value);
             }}
@@ -485,9 +491,11 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                   {businessApiTopic(item.id)[language]}
                 </option>
               ) : item.kind === "catalog" ? (
-                <option key={item.id} value={item.id}>
-                  {item.title[language === "fr" ? 1 : 0]}
-                </option>
+                !publicGuide && (
+                  <option key={item.id} value={item.id}>
+                    {item.title[language === "fr" ? 1 : 0]}
+                  </option>
+                )
               ) : item.id === "bills" ? (
                 <Fragment key={item.id}>
                   <optgroup
@@ -622,7 +630,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           </section>
         )}
       </div>
-      {catalogOpen && (
+      {!publicGuide && catalogOpen && (
         <ApiGuidePaymentMethods setup={setup} onClose={() => setCatalogOpen(false)} />
       )}
     </div>

@@ -34,9 +34,10 @@ export function ApiGuideErrors({
   const [stage, setStage] = useState<ErrorSimulation["stage"]>("request");
   const [search, setSearch] = useState("");
   const [inspected, setInspected] = useState<ErrorSimulation>();
+  const publicGuide = setup?.audience === "public";
   if (setup?.loading || data.loading) return <Loading rows={3} />;
   if (setup?.error) return <ErrorState message={setup.error} retry={setup.refresh} />;
-  if (!setup?.business)
+  if (!publicGuide && !setup?.business)
     return (
       <Empty
         title={t("Select an owned Business", "Sélectionnez votre Business")}
@@ -88,14 +89,18 @@ export function ApiGuideErrors({
         <span className={`environment-tag ${catalog.environment.toLowerCase()}`}>
           {catalog.environment}
         </span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={t("Refresh error catalog", "Actualiser le catalogue d’erreurs")}
-          onClick={() => void data.refetch()}
-        >
-          <RefreshCw size={15} />
-        </button>
+        {publicGuide ? (
+          <small>{t("Published examples", "Exemples publiés")}</small>
+        ) : (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Refresh error catalog", "Actualiser le catalogue d’erreurs")}
+            onClick={() => void data.refetch()}
+          >
+            <RefreshCw size={15} />
+          </button>
+        )}
       </div>
       {error && <ErrorState message={error} retry={() => void data.refetch()} />}
       {!endpoint.available && (

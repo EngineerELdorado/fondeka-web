@@ -1,4 +1,5 @@
 import type { GuideExample, GuideCopy } from "./api-guide-content";
+import { parseApiErrorCatalog, simulationHeader } from "./api-error-catalog";
 
 export type ApiSchema = {
   $ref?: string;
@@ -48,6 +49,8 @@ export type ApiOperation = {
   parameters?: ApiParameter[];
   requestBody?: { content: Record<string, ApiMedia> };
   responses: Record<string, ApiResponse>;
+  "x-error-codes"?: { SANDBOX?: unknown };
+  "x-processing-errors"?: unknown;
 };
 export type GuideSpec = {
   openapi: string;
@@ -60,6 +63,34 @@ export type GuideSpec = {
     callbacks: { TerminalPaymentEvent: Record<string, { post: ApiOperation }> };
   };
 };
+export function publishedGuideErrors(operation: ApiOperation, example: GuideExample) {
+  const requestErrors = operation["x-error-codes"]?.SANDBOX;
+  if (example.incoming || !requestErrors || !operation.operationId) return;
+  try {
+    return parseApiErrorCatalog(
+      {
+        environment: "SANDBOX",
+        simulationHeader,
+        simulationEnabled: true,
+        endpoints: [
+          {
+            operationId: operation.operationId,
+            method: example.method,
+            path: example.path,
+            available: true,
+            additionalRequestErrorsPossible: true,
+            requestErrors,
+            processingErrors: operation["x-processing-errors"] ?? [],
+          },
+        ],
+      },
+      "SANDBOX",
+    );
+  } catch {
+    // The HTTP response examples still work if an extension is missing or invalid.
+    return;
+  }
+}
 export function guideOperation(spec: GuideSpec, example: GuideExample): ApiOperation {
   const operation = example.incoming
     ? Object.values(spec.components.callbacks.TerminalPaymentEvent)[0]?.post

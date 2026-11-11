@@ -56,3 +56,12 @@ test("the guide sequence includes bill lessons only while the backend marks them
     assert.ok(tracks.some((track) => track.id === "go-live"));
   }
 });
+
+test("public guide readiness uses the global flag rather than Business metadata", () => {
+  const publicSetup = { ...readySetup, audience: "public" as const };
+  assert.equal(billPaymentGuidesReady(publicSetup), false);
+  assert.equal(
+    billPaymentGuidesReady({ ...publicSetup, business: undefined, publicBillPaymentsReady: true }),
+    true,
+  );
+});

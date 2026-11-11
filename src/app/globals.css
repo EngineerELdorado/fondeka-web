@@ -9204,6 +9204,23 @@ button.detail-row:hover {
   font-size: var(--text-base);
   padding: 12px 16px;
 }
+.public-api-guides {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: clamp(16px, 3vw, 40px);
+}
+.public-api-guides.embedded {
+  max-width: none;
+  padding: 0;
+}
+.public-api-guides-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
 .api-docs-heading {
   cursor: default;
 }

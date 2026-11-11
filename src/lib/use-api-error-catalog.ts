@@ -15,7 +15,7 @@ export function useApiErrorCatalog(
   operationId?: string,
 ) {
   const environment = setup?.environment ?? "LIVE";
-  const businessId = setup?.business?.id;
+  const businessId = setup?.audience === "public" ? undefined : setup?.business?.id;
   const query = useQuery<unknown>(
     businessId && !setup?.loading && !setup?.error
       ? apiErrorCatalogPath(businessId, environment)

@@ -3,6 +3,7 @@ import type { ApiGuideSetup } from "./api-guide-setup";
 
 /** Older backends and unavailable setup keep the bill guides closed. */
 export function billPaymentGuidesReady(setup: ApiGuideSetup) {
+  if (setup.audience === "public") return setup.publicBillPaymentsReady === true;
   return !setup.loading && !setup.error && setup.business?.billPaymentsApiReady === true;
 }
 

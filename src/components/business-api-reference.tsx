@@ -47,10 +47,14 @@ function GuideCode({ children }: { children: ReactNode }) {
   );
 }
 
-export default function BusinessApiReference() {
+export default function BusinessApiReference({ publicGuide }: { publicGuide?: boolean }) {
   const { t, language } = useI18n();
   const { values, update } = useUrlState();
   const topic = businessApiTopic(values.get("doc"));
+  const guideHref = (doc: string, hash: string) => {
+    const href = publicGuide ? `/api-guides?lang=${language}` : developerHref("guides", values);
+    return `${href}${href.includes("?") ? "&" : "?"}doc=${doc}${hash}`;
+  };
   const hash = release.files[topic.file];
   const key = `${topic.file}:${hash}`;
   const [state, setState] = useState<{ key?: string; source?: string; error?: boolean }>({});
@@ -142,7 +146,7 @@ export default function BusinessApiReference() {
                     if (link.kind === "topic")
                       return (
                         <a
-                          href={`${developerHref("guides", values)}${developerHref("guides", values).includes("?") ? "&" : "?"}doc=${link.topic.id}${link.hash}`}
+                          href={guideHref(link.topic.id, link.hash)}
                           onClick={(event) => {
                             if (
                               event.button !== 0 ||

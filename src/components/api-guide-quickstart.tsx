@@ -12,6 +12,7 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState<number>();
   const [copyError, setCopyError] = useState(false);
+  const publicGuide = setup.audience === "public";
   const href = guideCredentialHref(setup.business?.id);
   const businessId = href ? setup.business?.id : undefined;
   return (
@@ -20,7 +21,14 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
         <span className="guide-setup-number">1</span>
         <div>
           <h3>{t("Your Business ID", "Votre Business ID")}</h3>
-          {setup.loading ? (
+          {publicGuide ? (
+            <p>
+              {t(
+                "Find your Business ID in the Business portal. Use it in your API endpoint paths.",
+                "Trouvez votre Business ID dans le portail Business. Utilisez-le dans les chemins de vos endpoints API.",
+              )}
+            </p>
+          ) : setup.loading ? (
             <Loading rows={1} />
           ) : setup.error ? (
             <ErrorState message={setup.error} retry={setup.refresh} />
@@ -90,7 +98,13 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
               "Commencez en SANDBOX. Choisissez un nom de clé et votre URL webhook HTTPS publique.",
             )}
           </p>
-          {href && !setup.loading && !setup.error && !demoMode ? (
+          {publicGuide ? (
+            <a className="button primary" href="/login" target="_blank" rel="noopener">
+              <KeyRound size={16} />
+              {t("Sign in to create an API key", "Connectez-vous pour créer une clé API")}
+              <ArrowUpRight size={14} />
+            </a>
+          ) : href && !setup.loading && !setup.error && !demoMode ? (
             <Link className="button primary" href={href}>
               <KeyRound size={16} />
               {t("Create API key", "Créer une clé API")}
@@ -102,7 +116,7 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
               {t("Create API key", "Créer une clé API")}
             </button>
           )}
-          {demoMode && (
+          {!publicGuide && demoMode && (
             <small>
               {t(
                 "Key creation is unavailable in the demo.",

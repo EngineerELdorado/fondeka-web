@@ -1,1 +1,1 @@
-export const languageInitScript = `(function(){try{var l=localStorage.getItem('fondeka-language');if(l==='fr'||l==='en')document.documentElement.lang=l;}catch(e){}})();`;
+export const languageInitScript = `(function(){try{var l=location.pathname==='/api-guides'?new URLSearchParams(location.search).get('lang'):null;l=l||localStorage.getItem('fondeka-language');if(l==='fr'||l==='en')document.documentElement.lang=l;}catch(e){}})();`;

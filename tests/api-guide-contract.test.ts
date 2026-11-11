@@ -18,6 +18,7 @@ import {
   guideMedia,
   guideOperation,
   publishedExample,
+  publishedGuideErrors,
   resolveGuideSchema,
   paymentStateGroups,
   verifiedWebhookCompatibilityExample,
@@ -33,6 +34,15 @@ const examples = apiGuideTracks.flatMap((track) =>
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
+test("every public merchant lesson can show its published sandbox error catalog", () => {
+  for (const example of examples.filter((entry) => !entry.incoming)) {
+    const operation = guideOperation(spec, example);
+    const catalog = publishedGuideErrors(operation, example);
+    assert.ok(catalog, `${example.method} ${example.path}`);
+    assert.equal(catalog.environment, "SANDBOX");
+    assert.ok(catalog.endpoints[0].requestErrors.length > 0);
+  }
+});
 test("the verified-event compatibility example preserves raw events, order references, zero fees and missing pricing", () => {
   for (const data of [
     { fondekaReference: "opaque-new", orderReference: "current-order", fee: 0.3 },

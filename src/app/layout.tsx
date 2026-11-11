@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { WorkspaceProvider } from "@/components/workspace-provider";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { defaultTheme, themeInitScript } from "@/lib/theme";
@@ -46,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
-        <WorkspaceProvider>{children}</WorkspaceProvider>
+        {children}
       </body>
     </html>
   );
