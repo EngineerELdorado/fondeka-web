@@ -1,12 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
-import { resolveTheme, themeInitScript, themeStorageKey } from "../src/lib/theme";
+import {
+  guideThemeStorageKey,
+  resolveTheme,
+  themeInitScript,
+  themeStorageKey,
+} from "../src/lib/theme";
 
-test("public guides default to dark and the portal defaults to light", () => {
+test("both guide areas default to dark and the workspace defaults to light", () => {
   for (const [pathname, expected] of [
     ["/api-guides", "dark"],
-    ["/developers/guides", "light"],
+    ["/developers/guides", "dark"],
+    ["/overview", "light"],
     ["/login", "light"],
     ["", "light"],
   ]) {
@@ -17,17 +23,24 @@ test("public guides default to dark and the portal defaults to light", () => {
   }
 });
 
-test("the theme initialization restores the saved preference before rendering", () => {
-  for (const [pathname, stored, expected] of [
-    ["/api-guides", null, "dark"],
-    ["/api-guides", "invalid", "dark"],
-    ["/api-guides", "light", "light"],
-    ["/api-guides", "dark", "dark"],
-    ["/developers/guides", null, "light"],
-    ["/developers/guides", "invalid", "light"],
-    ["/developers/guides", "light", "light"],
-    ["/developers/guides", "dark", "dark"],
+test("initial rendering uses the guide preference independently of the workspace preference", () => {
+  for (const [pathname, workspaceTheme, guideTheme, expected] of [
+    ["/api-guides", "light", null, "dark"],
+    ["/api-guides", "light", "invalid", "dark"],
+    ["/api-guides", "dark", "light", "light"],
+    ["/api-guides", "light", "dark", "dark"],
+    ["/developers/guides", "light", null, "dark"],
+    ["/developers/guides", "dark", "light", "light"],
+    ["/developers/guides", "light", "dark", "dark"],
+    ["/overview", null, "dark", "light"],
+    ["/overview", "invalid", "dark", "light"],
+    ["/overview", "light", "dark", "light"],
+    ["/overview", "dark", "light", "dark"],
   ]) {
+    const preferences = new Map([
+      [themeStorageKey, workspaceTheme],
+      [guideThemeStorageKey, guideTheme],
+    ]);
     const root = { dataset: {} as Record<string, string>, style: {} as Record<string, string> };
     runInNewContext(themeInitScript, {
       document: { documentElement: root },
@@ -35,8 +48,8 @@ test("the theme initialization restores the saved preference before rendering", 
         location: { pathname },
         localStorage: {
           getItem(key: string) {
-            assert.equal(key, themeStorageKey);
-            return stored;
+            assert.ok(preferences.has(key));
+            return preferences.get(key);
           },
         },
       },
@@ -49,7 +62,8 @@ test("the theme initialization restores the saved preference before rendering", 
 test("blocked browser storage uses the page's default theme", () => {
   for (const [pathname, expected] of [
     ["/api-guides", "dark"],
-    ["/developers/guides", "light"],
+    ["/developers/guides", "dark"],
+    ["/overview", "light"],
   ]) {
     const root = { dataset: {} as Record<string, string>, style: {} as Record<string, string> };
     runInNewContext(themeInitScript, {

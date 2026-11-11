@@ -3,21 +3,18 @@ import { useI18n } from "@/lib/i18n";
 
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
-import { defaultTheme, resolveTheme, themeChangeEvent, themeStorageKey } from "@/lib/theme";
+import {
+  applyTheme,
+  defaultTheme,
+  resolveTheme,
+  themeChangeEvent,
+  themeStorageKeyForPath,
+} from "@/lib/theme";
 
 function subscribe(onChange: () => void) {
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== themeStorageKey && event.key !== null) return;
-    const theme = resolveTheme(event.newValue, window.location.pathname);
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-    onChange();
-  };
   window.addEventListener(themeChangeEvent, onChange);
-  window.addEventListener("storage", onStorage);
   return () => {
     window.removeEventListener(themeChangeEvent, onChange);
-    window.removeEventListener("storage", onStorage);
   };
 }
 
@@ -35,14 +32,12 @@ export function ThemeToggle() {
       ? t("Switch to dark mode", "Passer en mode sombre")
       : t("Switch to light mode", "Passer en mode clair");
   function toggle() {
-    document.documentElement.dataset.theme = nextTheme;
-    document.documentElement.style.colorScheme = nextTheme;
     try {
-      window.localStorage.setItem(themeStorageKey, nextTheme);
+      window.localStorage.setItem(themeStorageKeyForPath(window.location.pathname), nextTheme);
     } catch {
       // The current tab still switches when browser storage is unavailable.
     }
-    window.dispatchEvent(new Event(themeChangeEvent));
+    applyTheme(nextTheme);
   }
   return (
     <button

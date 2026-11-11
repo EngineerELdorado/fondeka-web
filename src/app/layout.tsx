@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { defaultTheme, themeInitScript } from "@/lib/theme";
 import { languageInitScript } from "@/lib/locale";
+import { ThemeController } from "@/components/theme-controller";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <ThemeController />
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
