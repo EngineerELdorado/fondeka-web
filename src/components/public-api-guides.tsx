@@ -18,7 +18,12 @@ function PublicGuideFaq() {
     <a
       className="public-api-faq"
       href={`https://www.fondeka.com/docs/faq?lang=${language}`}
-      aria-label={t("Got questions? Read the API FAQ", "Des questions ? Consultez la FAQ API")}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={t(
+        "Got questions? Read the API FAQ (opens in a new tab)",
+        "Des questions ? Consultez la FAQ API (s’ouvre dans un nouvel onglet)",
+      )}
       data-prompt={showPrompt}
     >
       <span className="public-api-faq-prompt" aria-hidden="true">

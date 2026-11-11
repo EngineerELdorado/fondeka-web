@@ -9223,7 +9223,7 @@ button.detail-row:hover {
   text-decoration: none;
 }
 .public-api-faq:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--violet);
   outline-offset: 4px;
 }
 .public-api-faq-button {
@@ -9235,8 +9235,8 @@ button.detail-row:hover {
   width: 60px;
   height: 60px;
   border-radius: inherit;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--violet);
+  color: var(--violet-soft);
   box-shadow: var(--shadow-hover);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -9244,7 +9244,7 @@ button.detail-row:hover {
   animation: public-api-faq-hop 700ms 550ms 2;
 }
 .public-api-faq:is(:hover, :focus-visible) .public-api-faq-button {
-  background: var(--accent-hover);
+  background: color-mix(in srgb, var(--violet), var(--ink) 12%);
 }
 .public-api-faq-sparkle {
   position: absolute;
@@ -9288,7 +9288,7 @@ button.detail-row:hover {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--accent);
+  color: var(--violet);
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -9329,6 +9329,25 @@ button.detail-row:hover {
 }
 .api-docs-heading {
   cursor: default;
+}
+.api-docs-preferences {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+.api-docs-preferences .theme-toggle {
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  .api-docs-heading:has(.api-docs-preferences) {
+    gap: 10px;
+  }
+  .api-docs-preferences .language-switch select {
+    width: 3.75rem;
+    padding-inline: 8px 23px;
+    font-size: var(--text-sm);
+  }
 }
 @media (max-width: 760px) {
   .developer-mobile-navigation {

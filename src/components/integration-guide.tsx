@@ -1,15 +1,35 @@
 "use client";
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { Code2, Download } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { businessApiDocsRoot } from "@/lib/business-api-docs";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
+import { useUrlState } from "@/lib/use-url-state";
 import release from "../../public/docs/business-api/release.json";
+import { LanguageSwitch } from "./language-switch";
+import { ThemeToggle } from "./theme-toggle";
 import { Loading } from "./ui";
 
 const Documentation = dynamic(() => import("./business-api-documentation"), {
   loading: () => <Loading rows={3} />,
 });
+
+function PublicGuidePreferences() {
+  const { values, update } = useUrlState();
+  const language = values.get("lang");
+
+  useEffect(() => {
+    if (language === "en" || language === "fr") document.documentElement.lang = language;
+  }, [language]);
+
+  return (
+    <div className="api-docs-preferences">
+      <LanguageSwitch onChange={(lang) => update({ lang }, true)} />
+      <ThemeToggle />
+    </div>
+  );
+}
 
 export function IntegrationGuide({ setup }: { setup: ApiGuideSetup }) {
   const { t } = useI18n();
@@ -29,6 +49,7 @@ export function IntegrationGuide({ setup }: { setup: ApiGuideSetup }) {
           </small>
         </span>
         <span className="count-pill">v{release.version}</span>
+        {setup.audience === "public" && <PublicGuidePreferences />}
       </div>
       <div className="api-docs-downloads">
         <code>{release.baseUrl}</code>

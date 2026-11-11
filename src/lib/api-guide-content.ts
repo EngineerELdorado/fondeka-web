@@ -1099,7 +1099,6 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
       { kind: "guide", id: "mobile-money-payout" },
       { kind: "guide", id: "crypto-collection" },
       { kind: "guide", id: "crypto-payout" },
-      { kind: "guide", id: "payment-quotes" },
     ],
   },
   {
