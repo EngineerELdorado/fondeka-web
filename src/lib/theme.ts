@@ -10,14 +10,18 @@ export function themeStorageKeyForPath(pathname: string) {
   return guidePaths.includes(pathname) ? guideThemeStorageKey : themeStorageKey;
 }
 
-export function resolveTheme(value: unknown, pathname = ""): Theme {
+export function resolveTheme(value: unknown, pathname = "", workspaceTheme?: unknown): Theme {
+  if (guidePaths.includes(pathname) && workspaceTheme === "dark") return "dark";
   if (value === "dark" || value === "light") return value;
   return guidePaths.includes(pathname) ? "dark" : defaultTheme;
 }
 
 export function readTheme(pathname: string): Theme {
   try {
-    return resolveTheme(window.localStorage.getItem(themeStorageKeyForPath(pathname)), pathname);
+    const workspaceTheme = window.localStorage.getItem(themeStorageKey);
+    const key = themeStorageKeyForPath(pathname);
+    const saved = key === themeStorageKey ? workspaceTheme : window.localStorage.getItem(key);
+    return resolveTheme(saved, pathname, workspaceTheme);
   } catch {
     return resolveTheme(null, pathname);
   }
@@ -44,8 +48,10 @@ export const themeInitScript = `
   var guides = ${JSON.stringify(guidePaths)}.includes(window.location.pathname);
   var theme = guides ? "dark" : ${JSON.stringify(defaultTheme)};
   try {
-    var saved = window.localStorage.getItem(guides ? ${JSON.stringify(guideThemeStorageKey)} : ${JSON.stringify(themeStorageKey)});
-    if (saved === "dark" || saved === "light") theme = saved;
+    var workspace = window.localStorage.getItem(${JSON.stringify(themeStorageKey)});
+    var saved = guides ? window.localStorage.getItem(${JSON.stringify(guideThemeStorageKey)}) : workspace;
+    if (guides && workspace === "dark") theme = "dark";
+    else if (saved === "dark" || saved === "light") theme = saved;
   } catch (error) {}
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;

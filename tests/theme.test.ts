@@ -23,14 +23,30 @@ test("both guide areas default to dark and the workspace defaults to light", () 
   }
 });
 
-test("initial rendering uses the guide preference independently of the workspace preference", () => {
+test("opening guides preserves the explicit dark workspace preference", () => {
+  for (const pathname of ["/api-guides", "/developers/guides"]) {
+    assert.equal(resolveTheme("light", pathname, "dark"), "dark");
+    assert.equal(resolveTheme("dark", pathname, "dark"), "dark");
+    assert.equal(resolveTheme(null, pathname, "dark"), "dark");
+    assert.equal(resolveTheme("light", pathname, "light"), "light");
+    assert.equal(resolveTheme("light", pathname, null), "light");
+  }
+});
+
+test("initial rendering respects the dark workspace preference and saved guide overrides", () => {
   for (const [pathname, workspaceTheme, guideTheme, expected] of [
     ["/api-guides", "light", null, "dark"],
     ["/api-guides", "light", "invalid", "dark"],
-    ["/api-guides", "dark", "light", "light"],
+    ["/api-guides", "dark", "light", "dark"],
+    ["/api-guides", "dark", null, "dark"],
+    ["/api-guides", "light", "light", "light"],
+    ["/api-guides", null, "light", "light"],
     ["/api-guides", "light", "dark", "dark"],
     ["/developers/guides", "light", null, "dark"],
-    ["/developers/guides", "dark", "light", "light"],
+    ["/developers/guides", "dark", "light", "dark"],
+    ["/developers/guides", "dark", null, "dark"],
+    ["/developers/guides", "light", "light", "light"],
+    ["/developers/guides", null, "light", "light"],
     ["/developers/guides", "light", "dark", "dark"],
     ["/overview", null, "dark", "light"],
     ["/overview", "invalid", "dark", "light"],
