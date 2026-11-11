@@ -9205,21 +9205,127 @@ button.detail-row:hover {
   padding: 12px 16px;
 }
 .public-api-guides {
-  max-width: 1280px;
-  margin-inline: auto;
-  padding: clamp(16px, 3vw, 40px);
+  --guide-gutter: clamp(16px, 3vw, 40px);
+  padding: var(--guide-gutter);
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
-.public-api-guides.embedded {
-  max-width: none;
-  padding: 0;
+.public-api-guides > .api-docs {
+  margin-top: 0;
 }
-.public-api-guides-heading {
+.public-api-faq {
+  position: fixed;
+  right: max(var(--guide-gutter), env(safe-area-inset-right));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: block;
+  border-radius: 50%;
+  color: var(--ink);
+  text-decoration: none;
+}
+.public-api-faq:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.public-api-faq-button {
+  position: relative;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 3px;
+  width: 60px;
+  height: 60px;
+  border-radius: inherit;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-hover);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1;
+  animation: public-api-faq-hop 700ms 550ms 2;
+}
+.public-api-faq:is(:hover, :focus-visible) .public-api-faq-button {
+  background: var(--accent-hover);
+}
+.public-api-faq-sparkle {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--surface);
+  border-radius: 50%;
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.public-api-faq-prompt {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  display: grid;
+  gap: 4px;
+  width: max-content;
+  max-width: min(250px, calc(100vw - 48px));
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 5px var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-hover);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 180ms,
+    transform 180ms,
+    visibility 180ms;
+}
+.public-api-faq-prompt strong {
+  font-size: var(--text-control);
+  line-height: 1.3;
+}
+.public-api-faq-prompt > span {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 5px;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.public-api-faq-prompt svg {
+  flex-shrink: 0;
+}
+.public-api-faq:is([data-prompt="true"], :hover, :focus-visible) .public-api-faq-prompt {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (max-width: 600px) {
+  .public-api-faq-prompt {
+    right: calc(100% + 10px);
+    bottom: 0;
+    max-width: min(225px, calc(100vw - 110px));
+  }
+}
+@keyframes public-api-faq-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  38% {
+    transform: translateY(-5px) rotate(-6deg);
+  }
+  68% {
+    transform: translateY(0) rotate(3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-api-faq-button {
+    animation: none;
+  }
+  .public-api-faq-prompt {
+    transition: none;
+  }
 }
 .api-docs-heading {
   cursor: default;
@@ -10882,6 +10988,9 @@ button.detail-row:hover {
   gap: 14px;
   margin-bottom: 18px;
 }
+.api-catalog-filters[data-public="true"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .api-catalog-filters > label {
   display: grid;
   gap: 6px;
@@ -10892,7 +11001,8 @@ button.detail-row:hover {
   min-height: 44px;
 }
 @media (max-width: 520px) {
-  .api-catalog-filters {
+  .api-catalog-filters,
+  .api-catalog-filters[data-public="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,23 +1,45 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { request } from "./data";
-import { ApiCatalogReader, catalogReadKey, refreshCatalogOnReturn } from "./api-catalog-reader";
+import { publicApiCatalogRoute } from "./api-catalog";
+import {
+  ApiCatalogReader,
+  catalogReadKey,
+  refreshCatalogOnReturn,
+  type CatalogReadScope,
+} from "./api-catalog-reader";
+
+async function readCatalog(path: string, init: RequestInit) {
+  if (!path.startsWith(`${publicApiCatalogRoute}?`)) return request(path, init);
+  const response = await fetch(path, { ...init, credentials: "omit" });
+  if (!response.ok) {
+    const french = new Headers(init.headers).get("Accept-Language") === "fr";
+    throw new Error(
+      french ? "Impossible de charger les moyens de paiement." : "Couldn’t load payment methods.",
+    );
+  }
+  return response.json();
+}
 
 export function useApiCatalog(
   accountKey: string | null,
   businessId: number | undefined,
   currency: string,
   language: "en" | "fr",
+  audience?: "public",
 ) {
-  const [reader] = useState(() => new ApiCatalogReader(request));
+  const [reader] = useState(() => new ApiCatalogReader(readCatalog));
   const state = useSyncExternalStore(reader.subscribe, reader.snapshot, reader.snapshot);
-  const key =
-    accountKey && businessId ? catalogReadKey({ accountKey, businessId, currency, language }) : "";
+  const scope = useMemo<CatalogReadScope | undefined>(() => {
+    if (audience === "public") return { audience, currency, language };
+    if (accountKey && businessId) return { accountKey, businessId, currency, language };
+  }, [accountKey, businessId, currency, language, audience]);
+  const key = scope ? catalogReadKey(scope) : "";
   useEffect(() => {
-    if (accountKey && businessId) void reader.load({ accountKey, businessId, currency, language });
+    if (scope) void reader.load(scope);
     return reader.clear;
-  }, [reader, accountKey, businessId, currency, language]);
+  }, [reader, scope]);
   useEffect(() => refreshCatalogOnReturn(document, () => void reader.refresh()), [reader]);
   return {
     data: state.key === key ? state.data : undefined,

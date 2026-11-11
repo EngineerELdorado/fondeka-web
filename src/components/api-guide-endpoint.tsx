@@ -788,11 +788,7 @@ function EndpointContent({
       ? body.paymentMethodName
       : undefined;
   const catalogProps =
-    setup &&
-    !publicGuide &&
-    example.method === "POST" &&
-    example.paymentKind &&
-    example.paymentKind !== "BALANCE"
+    setup && example.method === "POST" && example.paymentKind && example.paymentKind !== "BALANCE"
       ? {
           setup,
           kind: example.paymentKind,

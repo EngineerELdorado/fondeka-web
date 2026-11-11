@@ -1,86 +1,50 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, MessageCircleQuestionMark, Sparkles } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { useUrlState } from "@/lib/use-url-state";
 import { IntegrationGuide } from "./integration-guide";
 
-function websiteOrigin() {
-  if (!document.referrer) return;
-  const referrer = new URL(document.referrer);
-  if (["https://www.fondeka.com", "https://fondeka.com"].includes(referrer.origin))
-    return referrer.origin;
-  if (
-    process.env.NODE_ENV === "development" &&
-    referrer.protocol === "http:" &&
-    ["localhost", "127.0.0.1"].includes(referrer.hostname)
-  )
-    return referrer.origin;
-}
-
-export function PublicApiGuides({
-  embedded,
-  billPaymentsApiReady,
-}: {
-  embedded: boolean;
-  billPaymentsApiReady: boolean;
-}) {
-  const content = useRef<HTMLElement>(null);
+function PublicGuideFaq() {
   const { t, language } = useI18n();
-  const { values } = useUrlState();
-  const doc = values.get("doc");
-  const lesson = values.get("lesson");
+  const [showPrompt, setShowPrompt] = useState(true);
 
   useEffect(() => {
-    const element = content.current;
-    if (!embedded || !element || window.parent === window) return;
-    const origin = websiteOrigin();
-    if (!origin) return;
-    const send = () =>
-      window.parent.postMessage(
-        {
-          type: "fondeka:public-api-guides",
-          height: Math.ceil(element.getBoundingClientRect().height),
-          doc,
-          lesson,
-        },
-        origin,
-      );
-    send();
-    const observer = new ResizeObserver(send);
-    observer.observe(element);
-    const measure = (event: MessageEvent) => {
-      if (
-        event.origin === origin &&
-        event.source === window.parent &&
-        event.data === "fondeka:public-api-guides:measure"
-      )
-        send();
-    };
-    window.addEventListener("message", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("message", measure);
-    };
-  }, [embedded, doc, lesson]);
+    const timeout = window.setTimeout(() => setShowPrompt(false), 9000);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   return (
-    <main
-      id="main-content"
-      ref={content}
-      className={embedded ? "public-api-guides embedded" : "public-api-guides"}
+    <a
+      className="public-api-faq"
+      href={`https://www.fondeka.com/docs/faq?lang=${language}`}
+      aria-label={t("Got questions? Read the API FAQ", "Des questions ? Consultez la FAQ API")}
+      data-prompt={showPrompt}
     >
-      {!embedded && (
-        <header className="public-api-guides-heading">
-          <h1>{t("API guides", "Guides API")}</h1>
-          <a
-            className="button secondary"
-            href={`https://www.fondeka.com/docs/faq?lang=${language}`}
-          >
-            {t("API FAQ", "FAQ API")}
-          </a>
-        </header>
-      )}
+      <span className="public-api-faq-prompt" aria-hidden="true">
+        <strong>{t("Got questions?", "Des questions ?")}</strong>
+        <span>
+          {t("Find answers in the FAQ", "Trouvez vos réponses dans la FAQ")}
+          <ArrowUpRight size={14} />
+        </span>
+      </span>
+      <span className="public-api-faq-button" aria-hidden="true">
+        <MessageCircleQuestionMark size={23} />
+        <span>FAQ</span>
+        <span className="public-api-faq-sparkle">
+          <Sparkles size={13} />
+        </span>
+      </span>
+    </a>
+  );
+}
+
+export function PublicApiGuides({ billPaymentsApiReady }: { billPaymentsApiReady: boolean }) {
+  const { t } = useI18n();
+
+  return (
+    <main id="main-content" className="public-api-guides">
+      <h1 className="sr-only">{t("API guides", "Guides API")}</h1>
       <IntegrationGuide
         setup={{
           audience: "public",
@@ -90,6 +54,7 @@ export function PublicApiGuides({
           refresh: () => {},
         }}
       />
+      <PublicGuideFaq />
     </main>
   );
 }

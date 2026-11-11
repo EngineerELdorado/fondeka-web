@@ -22,12 +22,18 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
         <div>
           <h3>{t("Your Business ID", "Votre Business ID")}</h3>
           {publicGuide ? (
-            <p>
-              {t(
-                "Find your Business ID in the Business portal. Use it in your API endpoint paths.",
-                "Trouvez votre Business ID dans le portail Business. Utilisez-le dans les chemins de vos endpoints API.",
-              )}
-            </p>
+            <>
+              <p>
+                {t(
+                  "Find your Business ID in the Business portal. Use it in your API endpoint paths.",
+                  "Trouvez votre Business ID dans le portail Business. Utilisez-le dans les chemins de vos endpoints API.",
+                )}
+              </p>
+              <a className="button secondary small" href="/overview" target="_blank" rel="noopener">
+                {t("Open Business portal", "Ouvrir le portail Business")}
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            </>
           ) : setup.loading ? (
             <Loading rows={1} />
           ) : setup.error ? (

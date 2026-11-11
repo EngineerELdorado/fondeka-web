@@ -80,6 +80,7 @@ function CatalogContent({
   preferredMethod,
   accountKey,
   businessId,
+  audience,
 }: {
   catalog?: ApiCatalog;
   checking: boolean;
@@ -90,7 +91,8 @@ function CatalogContent({
   environment: ApiEnvironment;
   preferredMethod?: string;
   accountKey: string | null;
-  businessId: number;
+  businessId?: number;
+  audience?: ApiGuideSetup["audience"];
 }) {
   const { t, language } = useI18n();
   const [search, setSearch] = useState("");
@@ -118,6 +120,7 @@ function CatalogContent({
     localizedFees ? businessId : undefined,
     currency,
     language,
+    localizedFees ? audience : undefined,
   );
   const feeMethod = method && {
     ...method,
@@ -393,6 +396,7 @@ function CatalogContent({
                     payout={payout}
                     currency={currency}
                     environment={environment}
+                    publicGuide={audience === "public"}
                   />
                 )}
                 <CopyIdentifier
@@ -475,10 +479,15 @@ function CatalogContent({
               "Sandbox uses simulated payments. Inactive identifiers remain available for testing; LIVE tariffs are not sandbox fees.",
               "Le sandbox simule les paiements. Les identifiants inactifs restent disponibles pour les tests ; les tarifs LIVE ne sont pas les frais sandbox.",
             )
-          : t(
-              "Configuration flags are a guide. Routing, currencies, fees and account restrictions are still validated by the backend.",
-              "Les indicateurs de configuration vous orientent. Le backend valide toujours le routage, les devises, les frais et les restrictions du compte.",
-            )}
+          : audience === "public"
+            ? t(
+                "These are standard LIVE fees and configured routes. Sign in to see what’s available for your Business.",
+                "Voici les frais LIVE standard et les routes configurées. Connectez-vous pour consulter les options de votre Business.",
+              )
+            : t(
+                "Configuration flags are a guide. Routing, currencies, fees and account restrictions are still validated by the backend.",
+                "Les indicateurs de configuration vous orientent. Le backend valide toujours le routage, les devises, les frais et les restrictions du compte.",
+              )}
       </p>
     </>
   );
@@ -495,15 +504,17 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
   const { t, language } = useI18n();
   const { accountKey, apiEnvironment } = useWorkspace();
   const environment = setup.environment || apiEnvironment;
+  const publicGuide = setup.audience === "public";
   const query = useApiCatalog(
     accountKey,
     !setup.loading && !setup.error ? setup.business?.id : undefined,
     defaultCatalogCurrency,
     language,
+    !setup.loading && !setup.error ? setup.audience : undefined,
   );
   if (setup.loading) return <Loading rows={3} />;
   if (setup.error) return <ErrorState message={setup.error} retry={setup.refresh} />;
-  if (!setup.business)
+  if (!publicGuide && !setup.business)
     return (
       <Empty
         title={t("No Business available", "Aucun Business disponible")}
@@ -515,7 +526,7 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
     );
   return (
     <CatalogContent
-      key={`${accountKey}:${setup.business.id}:${environment}:${kind}`}
+      key={`${setup.audience ?? accountKey}:${setup.business?.id}:${environment}:${kind}`}
       catalog={query.data}
       checking={query.loading}
       error={query.error}
@@ -525,7 +536,8 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
       environment={environment}
       preferredMethod={preferredMethod}
       accountKey={accountKey}
-      businessId={setup.business.id}
+      businessId={setup.business?.id}
+      audience={setup.audience}
     />
   );
 }
@@ -540,13 +552,15 @@ export function ApiGuidePaymentMethods({
   const { t } = useI18n();
   const [kind, setKind] = useState<ApiPaymentKind>("MOBILE_MONEY");
   const [payout, setPayout] = useState(false);
+  const [environment, setEnvironment] = useState<ApiEnvironment>("LIVE");
+  const publicGuide = setup.audience === "public";
   return createPortal(
     <Modal
       title={t("Available payment methods", "Moyens de paiement disponibles")}
       className={`api-catalog-modal ${kind === "CRYPTO" ? "api-catalog-crypto" : ""}`}
       onClose={onClose}
     >
-      <div className="api-catalog-filters">
+      <div className="api-catalog-filters" data-public={publicGuide}>
         <label>
           <span>{t("Payment type", "Type de paiement")}</span>
           <select value={kind} onChange={(event) => setKind(event.target.value as ApiPaymentKind)}>
@@ -564,8 +578,24 @@ export function ApiGuidePaymentMethods({
             <option value="payout">{t("Payouts", "Décaissements")}</option>
           </select>
         </label>
+        {publicGuide && (
+          <label>
+            <span>{t("Environment", "Environnement")}</span>
+            <select
+              value={environment}
+              onChange={(event) => setEnvironment(event.target.value as ApiEnvironment)}
+            >
+              <option value="LIVE">LIVE</option>
+              <option value="SANDBOX">SANDBOX</option>
+            </select>
+          </label>
+        )}
       </div>
-      <CatalogBrowser setup={setup} kind={kind} payout={payout} />
+      <CatalogBrowser
+        setup={publicGuide ? { ...setup, environment } : setup}
+        kind={kind}
+        payout={payout}
+      />
     </Modal>,
     document.body,
   );

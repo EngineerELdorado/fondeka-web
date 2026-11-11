@@ -461,7 +461,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           currentLesson={lesson.id}
           completed={completed}
           onSelect={selectGuide}
-          onOpenCatalog={publicGuide ? undefined : () => setCatalogOpen(true)}
+          onOpenCatalog={() => setCatalogOpen(true)}
           icons={icons}
           billPaymentsApiReady={billPaymentsApiReady}
         />
@@ -474,8 +474,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             onChange={(event) => {
               if (event.target.value.startsWith("bill-payments:"))
                 selectGuide("bill-payments", event.target.value.slice("bill-payments:".length));
-              else if (!publicGuide && event.target.value === "payment-methods")
-                setCatalogOpen(true);
+              else if (event.target.value === "payment-methods") setCatalogOpen(true);
               else if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
                 selectGuide(event.target.value);
             }}
@@ -491,11 +490,9 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                   {businessApiTopic(item.id)[language]}
                 </option>
               ) : item.kind === "catalog" ? (
-                !publicGuide && (
-                  <option key={item.id} value={item.id}>
-                    {item.title[language === "fr" ? 1 : 0]}
-                  </option>
-                )
+                <option key={item.id} value={item.id}>
+                  {item.title[language === "fr" ? 1 : 0]}
+                </option>
               ) : item.id === "bills" ? (
                 <Fragment key={item.id}>
                   <optgroup
@@ -630,7 +627,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           </section>
         )}
       </div>
-      {!publicGuide && catalogOpen && (
+      {catalogOpen && (
         <ApiGuidePaymentMethods setup={setup} onClose={() => setCatalogOpen(false)} />
       )}
     </div>

@@ -212,7 +212,7 @@ export function ApiGuideNavigation({
   currentLesson: string;
   completed: string[];
   onSelect: (id: string, lesson?: string) => void;
-  onOpenCatalog?: () => void;
+  onOpenCatalog: () => void;
   icons: Record<GuideTrack["icon"], LucideIcon>;
   billPaymentsApiReady: boolean;
 }) {
@@ -256,20 +256,18 @@ export function ApiGuideNavigation({
         item.kind === "guide" ? (
           renderGuide(item.id)
         ) : item.kind === "catalog" ? (
-          onOpenCatalog && (
-            <button
-              key={item.id}
-              type="button"
-              data-guide-tone="teal"
-              aria-haspopup="dialog"
-              onClick={onOpenCatalog}
-            >
-              <span className="guide-nav-icon">
-                <ListFilter size={16} aria-hidden="true" />
-              </span>
-              <span>{item.title[language === "fr" ? 1 : 0]}</span>
-            </button>
-          )
+          <button
+            key={item.id}
+            type="button"
+            data-guide-tone="teal"
+            aria-haspopup="dialog"
+            onClick={onOpenCatalog}
+          >
+            <span className="guide-nav-icon">
+              <ListFilter size={16} aria-hidden="true" />
+            </span>
+            <span>{item.title[language === "fr" ? 1 : 0]}</span>
+          </button>
         ) : item.id === "bills" ? (
           <BillPaymentMenu
             key={item.id}

@@ -28,6 +28,7 @@ export type ApiCatalog = {
 };
 
 export const defaultCatalogCurrency = "USD";
+export const publicApiCatalogRoute = "/api/public/business-api/payment-methods";
 
 /** Crypto method currencies are tokens; the fee catalog only accepts fiat currencies. */
 export function catalogFeeCurrency(method?: ApiCatalogMethod) {

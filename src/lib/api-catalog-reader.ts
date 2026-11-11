@@ -1,15 +1,23 @@
-import { apiCatalogPath, parseApiCatalog, type ApiCatalog } from "./api-catalog";
+import {
+  apiCatalogPath,
+  parseApiCatalog,
+  publicApiCatalogRoute,
+  type ApiCatalog,
+} from "./api-catalog";
 
 export type CatalogReadScope = {
-  accountKey: string;
-  businessId: number;
   currency: string;
   language: "en" | "fr";
-};
+} & ({ audience: "public" } | { audience?: "account"; accountKey: string; businessId: number });
+function catalogPath(scope: CatalogReadScope) {
+  return scope.audience === "public"
+    ? `${publicApiCatalogRoute}?${new URLSearchParams({ currency: scope.currency })}`
+    : apiCatalogPath(scope.businessId, scope.currency);
+}
 export const catalogReadKey = (scope: CatalogReadScope) =>
   JSON.stringify([
-    scope.accountKey,
-    apiCatalogPath(scope.businessId, scope.currency),
+    scope.audience === "public" ? null : scope.accountKey,
+    catalogPath(scope),
     scope.language,
   ]);
 type Snapshot = { key: string; loading: boolean; data?: ApiCatalog; error?: string };
@@ -51,7 +59,7 @@ export class ApiCatalogReader {
     pending.task = Promise.resolve().then(async () => {
       if (controller.signal.aborted) return;
       try {
-        const value = await this.read(apiCatalogPath(scope.businessId, scope.currency), {
+        const value = await this.read(catalogPath(scope), {
           signal: controller.signal,
           cache: "no-store",
           headers: { "Accept-Language": scope.language },

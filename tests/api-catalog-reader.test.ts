@@ -16,6 +16,21 @@ const scope: CatalogReadScope = {
 };
 const empty = { paymentMethods: [], cryptoNetworks: [] };
 
+test("public catalog reads are separate from owned Business reads", async () => {
+  const paths: string[] = [];
+  const reader = new ApiCatalogReader(async (path) => {
+    paths.push(path);
+    return empty;
+  });
+  await reader.load(scope);
+  await reader.load({ audience: "public", currency: "cdf", language: "fr" });
+  assert.deepEqual(paths, [
+    "/customer-api/businesses/42/api-catalog?currency=USD",
+    "/api/public/business-api/payment-methods?currency=CDF",
+  ]);
+  assert.deepEqual(reader.snapshot().data, empty);
+});
+
 test("an open catalog reuses its read across view changes and refreshes only when requested or its read scope changes", async () => {
   const calls: string[] = [];
   const reader = new ApiCatalogReader(async (path, init) => {

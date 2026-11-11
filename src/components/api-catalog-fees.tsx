@@ -11,11 +11,13 @@ export function ApiCatalogFees({
   payout,
   currency,
   environment,
+  publicGuide,
 }: {
   method: ApiCatalogMethod;
   payout: boolean;
   currency: string;
   environment: ApiEnvironment;
+  publicGuide?: boolean;
 }) {
   const { t, language } = useI18n();
   if (environment === "SANDBOX")
@@ -71,7 +73,7 @@ export function ApiCatalogFees({
         <span className="environment-tag live">LIVE</span>
         <span>{currency}</span>
       </div>
-      {demoMode && (
+      {demoMode && !publicGuide && (
         <p className="api-catalog-demo-prices">
           {t("Illustrative demo pricing", "Tarifs fictifs de démonstration")}
         </p>
