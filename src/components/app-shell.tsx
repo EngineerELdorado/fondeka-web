@@ -18,6 +18,7 @@ import {
   Store,
   Link2,
   FlaskConical,
+  type LucideIcon,
 } from "lucide-react";
 import { LanguageSwitch } from "./language-switch";
 import { ApiEnvironmentSwitch } from "./api-environment-switch";
@@ -27,6 +28,7 @@ import { demoMode } from "@/lib/auth";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNavigation } from "./mobile-navigation";
 import { DeveloperSectionLinks } from "./developer-section-links";
+import { StoreSectionLinks } from "./store-section-links";
 import { WorkspaceBusinessId } from "./workspace-business-id";
 import { developerSections } from "@/lib/developer-navigation";
 
@@ -34,7 +36,6 @@ const navigation = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/payment-requests", label: "Payment links", icon: Link2 },
   { href: "/stores", label: "Online Stores", icon: Store },
-  { href: "/stores?view=shared", label: "Stores shared with me", icon: Store },
   { href: "/pos", label: "POS", icon: Monitor },
   { href: "/developers", label: "Payments API", icon: Code2 },
 ];
@@ -50,12 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       : pathname;
   const sharedActive =
     pathname === "/stores" && values.get("view") === "shared" && values.get("mode") !== "pos";
-  const activeLink = (href: string) =>
-    href === "/stores?view=shared"
-      ? sharedActive
-      : href === "/stores"
-        ? activePath.startsWith(href) && !sharedActive
-        : activePath.startsWith(href);
+  const activeLink = (href: string) => activePath.startsWith(href);
   const [open, setOpen] = useState(false);
   const workspaceTone = activePath.startsWith("/pos")
     ? "amber"
@@ -64,11 +60,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       : activePath.startsWith("/developers")
         ? "blue"
         : "green";
-  const [developerExpansion, setDeveloperExpansion] = useState<{ path: string; open: boolean }>();
-  const developersOpen =
-    developerExpansion?.path === pathname
-      ? developerExpansion.open
-      : pathname.startsWith("/developers");
   const { logout, notify } = useWorkspace();
   return (
     <div className="app-shell" data-workspace-tone={workspaceTone}>
@@ -92,25 +83,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         <p className="nav-caption">{uiText("WORKSPACE")}</p>
         <nav aria-label={uiText("Main navigation")}>
           {navigation.map(({ href, label, icon: Icon }) =>
-            href === "/developers" ? (
-              <div key={href} className="developer-nav-group">
-                <button
-                  type="button"
-                  className={`nav-item developer-nav-parent ${activePath.startsWith(href) ? "active" : ""}`}
-                  aria-expanded={developersOpen}
-                  aria-controls="developer-submenu"
-                  onClick={() => setDeveloperExpansion({ path: pathname, open: !developersOpen })}
-                >
-                  <Icon size={19} aria-hidden="true" />
-                  <span className="developer-nav-label">{uiText(label)}</span>
-                  <span className="developer-nav-chevron" aria-hidden="true">
-                    <ChevronDown size={16} strokeWidth={2.5} />
-                  </span>
-                </button>
-                <div id="developer-submenu" hidden={!developersOpen}>
+            href === "/developers" || href === "/stores" ? (
+              <SidebarNavigationGroup
+                key={href}
+                id={href === "/stores" ? "stores-submenu" : "developer-submenu"}
+                label={uiText(label)}
+                icon={Icon}
+                active={activeLink(href)}
+                location={pathname + (sharedActive ? "?view=shared" : "")}
+              >
+                {href === "/stores" ? (
+                  <StoreSectionLinks pathname={activePath} onNavigate={() => setOpen(false)} />
+                ) : (
                   <DeveloperSectionLinks pathname={pathname} onNavigate={() => setOpen(false)} />
-                </div>
-              </div>
+                )}
+              </SidebarNavigationGroup>
             ) : (
               <Link
                 key={href}
@@ -237,6 +224,45 @@ export function AppShell({ children }: { children: ReactNode }) {
           void logout().catch(() => notify(uiText("We couldn’t sign you out. Please try again.")));
         }}
       />
+    </div>
+  );
+}
+function SidebarNavigationGroup({
+  id,
+  label,
+  icon: Icon,
+  active,
+  location,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  location: string;
+  children: ReactNode;
+}) {
+  const [expansion, setExpansion] = useState<{ location: string; open: boolean }>();
+  const expanded = expansion?.location === location ? expansion.open : active;
+
+  return (
+    <div className="workspace-nav-group">
+      <button
+        type="button"
+        className={`nav-item workspace-nav-parent ${active ? "active" : ""}`}
+        aria-expanded={expanded}
+        aria-controls={id}
+        onClick={() => setExpansion({ location, open: !expanded })}
+      >
+        <Icon size={19} aria-hidden="true" />
+        <span className="workspace-nav-label">{label}</span>
+        <span className="workspace-nav-chevron" aria-hidden="true">
+          <ChevronDown size={16} strokeWidth={2.5} />
+        </span>
+      </button>
+      <div id={id} hidden={!expanded}>
+        {children}
+      </div>
     </div>
   );
 }

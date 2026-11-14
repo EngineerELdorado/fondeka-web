@@ -107,7 +107,9 @@ export function ApiGuideQuickstart({ setup }: { setup: ApiGuideSetup }) {
           {publicGuide ? (
             <a className="button primary" href="/login" target="_blank" rel="noopener">
               <KeyRound size={16} />
-              {t("Sign in to create an API key", "Connectez-vous pour créer une clé API")}
+              <span>
+                {t("Sign in to create an API key", "Connectez-vous pour créer une clé API")}
+              </span>
               <ArrowUpRight size={14} />
             </a>
           ) : href && !setup.loading && !setup.error && !demoMode ? (

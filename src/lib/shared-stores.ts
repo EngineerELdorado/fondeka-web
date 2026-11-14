@@ -1,5 +1,16 @@
 import type { Store } from "./types";
 import { staffPermissions } from "./commerce";
+import { hasToolAccess, type BusinessToolsAccess } from "./business-tools";
+
+export function sharedStoreView(values: URLSearchParams, access?: BusinessToolsAccess | null) {
+  return (
+    values.get("view") === "shared" ||
+    (!values.has("view") &&
+      !!access &&
+      !hasToolAccess(access, values.get("mode") === "pos" ? "POS" : "ONLINE_STORES") &&
+      access.commerceAccess?.hasSharedStores === true)
+  );
+}
 
 export const sharedStoresEndpoint = "/customer-api/commerce/stores/shared";
 export function sharedStoresPath(page = 0, permission?: string, size = 20) {

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "./ui";
 import { DeveloperSectionLinks } from "./developer-section-links";
+import { StoreSectionLinks } from "./store-section-links";
 
 const tabs = [
   { href: "/overview", label: "Overview", icon: House },
@@ -39,6 +40,7 @@ export function MobileNavigation({
   onLogout: () => void;
 }) {
   const uiText = useUiText();
+  const [storesOpen, setStoresOpen] = useState(false);
   const [expansion, setExpansion] = useState<{ path: string; open: boolean }>();
   const apiOpen =
     expansion?.path === pathname ? expansion.open : pathname.startsWith("/developers");
@@ -47,23 +49,49 @@ export function MobileNavigation({
   return (
     <>
       <nav className="mobile-bottom-nav" aria-label={uiText("Mobile navigation")}>
-        {tabs.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={`mobile-tab ${pathname.startsWith(href) ? "active" : ""} ${href === "/pos" ? "mobile-tab-pos" : ""}`}
-            aria-current={pathname.startsWith(href) ? "page" : undefined}
-          >
-            <span className="mobile-tab-icon">
-              <Icon size={22} strokeWidth={1.8} />
-            </span>
-            <span>{uiText(label)}</span>
-          </Link>
-        ))}
+        {tabs.map(({ href, label, icon: Icon }) => {
+          const active = pathname.startsWith(href);
+          const content = (
+            <>
+              <span className="mobile-tab-icon">
+                <Icon size={22} strokeWidth={1.8} />
+              </span>
+              <span>{uiText(label)}</span>
+            </>
+          );
+          return href === "/stores" ? (
+            <button
+              key={href}
+              type="button"
+              className={`mobile-tab ${active || storesOpen ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              aria-haspopup="dialog"
+              aria-expanded={storesOpen}
+              onClick={() => {
+                onClose();
+                setStoresOpen(true);
+              }}
+            >
+              {content}
+            </button>
+          ) : (
+            <Link
+              key={href}
+              href={href}
+              className={`mobile-tab ${active ? "active" : ""} ${href === "/pos" ? "mobile-tab-pos" : ""}`}
+              aria-current={active ? "page" : undefined}
+            >
+              {content}
+            </Link>
+          );
+        })}
         <button
           type="button"
           className={`mobile-tab ${moreActive || open ? "active" : ""}`}
-          onClick={onOpen}
+          onClick={() => {
+            setStoresOpen(false);
+            onOpen();
+          }}
           aria-label={uiText("More options")}
           aria-haspopup="dialog"
           aria-expanded={open}
@@ -74,6 +102,15 @@ export function MobileNavigation({
           <span>{uiText("More")}</span>
         </button>
       </nav>
+      {storesOpen && (
+        <Modal title={uiText("Online Stores")} variant="sheet" onClose={() => setStoresOpen(false)}>
+          <StoreSectionLinks
+            pathname={pathname}
+            onNavigate={() => setStoresOpen(false)}
+            className="mobile-store-links"
+          />
+        </Modal>
+      )}
       {open && (
         <Modal title={uiText("Your workspace")} variant="sheet" onClose={onClose}>
           <div className="mobile-more-links">
@@ -91,7 +128,7 @@ export function MobileNavigation({
                 <strong>{uiText("Payments API")}</strong>
                 <small>{uiText("API keys and integrations")}</small>
               </span>
-              <span className="developer-nav-chevron" aria-hidden="true">
+              <span className="workspace-nav-chevron" aria-hidden="true">
                 <ChevronDown size={16} strokeWidth={2.5} />
               </span>
             </button>

@@ -13,8 +13,7 @@ import { StoreForm } from "@/components/store-form";
 import { PosStoreChooser } from "@/components/pos-store-chooser";
 import { StoreMedia } from "@/components/store-media";
 import { BusinessToolsGate, useBusinessTools } from "@/components/business-tools-provider";
-import { sharedStoresPath } from "@/lib/shared-stores";
-import { hasToolAccess } from "@/lib/business-tools";
+import { sharedStoresPath, sharedStoreView } from "@/lib/shared-stores";
 import { isStoreOwner, canUseStore, storeTabAllowed } from "@/lib/commerce";
 export default function Stores() {
   const { t } = useI18n();
@@ -24,13 +23,7 @@ export default function Stores() {
     void client.ensureAccess();
   }, [client]);
   const forPos = values.get("mode") === "pos";
-  const access = state.accountAccess;
-  const shared =
-    values.get("view") === "shared" ||
-    (!values.has("view") &&
-      !!access &&
-      !hasToolAccess(access, forPos ? "POS" : "ONLINE_STORES") &&
-      access.commerceAccess?.hasSharedStores === true);
+  const shared = sharedStoreView(values, state.accountAccess);
   const destination = `/stores?view=owned${forPos ? "&mode=pos" : ""}`;
   if (values.get("new") === "1")
     return (

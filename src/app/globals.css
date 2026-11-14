@@ -9146,17 +9146,18 @@ button.detail-row:hover {
   overflow-wrap: anywhere;
 }
 
-/* API is one owner area with three focused child destinations. */
-.developer-nav-group {
+/* Grouped workspace navigation. */
+.workspace-nav-group {
   margin-top: 2px;
 }
-.developer-nav-parent {
+.workspace-nav-parent {
   text-align: left;
 }
-.developer-nav-label {
+.workspace-nav-label {
   flex: 1;
   min-width: 0;
 }
+.workspace-nav-chevron,
 .developer-nav-chevron {
   display: grid;
   place-items: center;
@@ -9169,20 +9170,20 @@ button.detail-row:hover {
   color: var(--muted);
   box-shadow: var(--inset);
 }
-.developer-nav-parent[aria-expanded="true"] .developer-nav-chevron svg,
-.mobile-api-parent[aria-expanded="true"] .developer-nav-chevron svg {
+.workspace-nav-parent[aria-expanded="true"] .workspace-nav-chevron svg,
+.mobile-api-parent[aria-expanded="true"] .workspace-nav-chevron svg {
   transform: rotate(180deg);
 }
-.developer-nav-parent:hover .developer-nav-chevron,
-.mobile-api-parent:hover .developer-nav-chevron {
+.workspace-nav-parent:hover .workspace-nav-chevron,
+.mobile-api-parent:hover .workspace-nav-chevron {
   color: var(--ink);
 }
-.developer-section-links {
+:is(.developer-section-links, .store-section-links) {
   display: grid;
   gap: 3px;
   padding: 3px 0 8px 32px;
 }
-.developer-section-links a {
+:is(.developer-section-links, .store-section-links) a {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -9192,16 +9193,23 @@ button.detail-row:hover {
   font-size: var(--text-control);
   font-weight: 480;
 }
-.developer-section-links a:hover {
+:is(.developer-section-links, .store-section-links) a:hover {
   color: var(--ink);
   background: var(--surface-hover);
 }
-.developer-section-links a.active {
+:is(.developer-section-links, .store-section-links) a.active {
   color: var(--accent);
   border-left: 2px solid var(--accent);
   background: var(--accent-soft);
   font-weight: 600;
   border-radius: 0 7px 7px 0;
+}
+.mobile-store-links {
+  padding: 0;
+}
+.mobile-store-links a {
+  padding: 14px 16px;
+  font-size: var(--text-base);
 }
 .developer-mobile-navigation {
   display: none;
@@ -10198,8 +10206,18 @@ button.detail-row:hover {
   margin-top: 2px;
 }
 .guide-setup-card .button {
+  max-width: 100%;
   min-height: 44px;
   font-size: var(--text-sm);
+  white-space: normal;
+  text-align: center;
+}
+.guide-setup-card .button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.guide-setup-card .button > svg {
+  flex-shrink: 0;
 }
 .guide-business-id {
   display: flex;
