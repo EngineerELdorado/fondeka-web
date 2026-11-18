@@ -1,5 +1,9 @@
 {
   "Business ID": "Business ID",
+  "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.": "Un budget partagé de requêtes ou un quota d’opération sandbox a été atteint. Respectez Retry-After lorsqu’il est présent et espacez les tentatives.",
+  "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.": "Simulez RATE_LIMITED en sandbox. Testez les limites configurées uniquement dans un environnement de test isolé ; ne faites jamais de test de charge en LIVE.",
+  "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.": "La protection d’admission de l’API est temporairement indisponible. Cette tentative refusée n’a soumis aucun paiement.",
+  "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.": "Simulez SERVICE_UNAVAILABLE en sandbox ; pour un refus d’admission réel, respectez Retry-After et conservez la clé d’idempotence du paiement.",
   "The backend returned an outdated Business API payment status. Refresh or contact support.": "Le backend a retourné un ancien état de paiement API Business. Actualisez ou contactez le support.",
   "Payment processing. Long-running payments may need provider or manual reconciliation. Keep this reference and investigate before creating a replacement payment.": "Paiement en cours. Un paiement long peut nécessiter un rapprochement fournisseur ou manuel. Conservez cette référence et vérifiez avant de créer un paiement de remplacement.",
   "Couldn’t refresh balances. Showing the last loaded balances.": "Impossible d’actualiser les soldes. Les derniers soldes chargés sont affichés.",

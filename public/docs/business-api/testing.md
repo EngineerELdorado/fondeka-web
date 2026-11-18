@@ -33,8 +33,10 @@ Merchant endpoint errors contain `message`, `status`, `statusCode`, `errorCode`,
 | 403 | Check Business ownership, access/account restrictions, or use of LIVE credentials on a sandbox operation |
 | 404 | Check Business/environment and exact payment reference |
 | 409 | The idempotency key belongs to different content; recover the original intent before creating a new one |
-| 429 | Back off; observe applicable quotas, including the UTC top-up limit |
-| 500/503 or connection timeout | Preserve the intent/reference and retry with backoff using the same key; reconcile before creating another payment |
+| 429 | Honor `Retry-After` when present; otherwise use `details.retryAfterSeconds` or existing backoff. Observe applicable quotas, including the UTC top-up limit |
+| 500/503 or connection timeout | Preserve the intent/reference and retry with backoff using the same key; honor `Retry-After` when present and reconcile before creating another payment |
+
+See [Retry-After client handling](errors.md#retry-after-client-handling) for the seconds-based header format, fallback behavior and bounded retries. This response header is new in documentation release 1.7.0; clients do not add a request header.
 
 A framework error on an unknown URL outside the documented merchant handlers can have a different shape. Do not infer payment failure from a polling/network error. If a payment remains ACCEPTED or PROCESSING, retain its reference and continue polling with backoff; investigate long-running payments before creating a replacement. Include the payment reference, Business ID and request ID when contacting support, without sharing credentials.
 

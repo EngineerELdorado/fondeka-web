@@ -1,5 +1,11 @@
 # Contract changelog
 
+## 1.7.0 — 2026-11-18 — Shared request rate limits
+
+`Retry-After` is newly documented as an optional response header in this release; it was not part of the published 1.6.0 contract. Its integer value is a minimum delay in seconds. Existing 429 handling remains usable, with the new header providing precise timing. See [client handling and fallbacks](errors.md#retry-after-client-handling).
+
+All merchant endpoints now enforce shared client-IP, Business, API-key and endpoint-family budgets, including quotes and provider account lookups. HTTP 429 `RATE_LIMITED` supplies `Retry-After` and admission details; unavailable shared admission storage returns HTTP 503 `SERVICE_UNAVAILABLE` with retry guidance. Both reject before financial processing. Business budgets span its keys and both LIVE/SANDBOX environments; key rotation does not bypass them. Existing accepted intents, payment idempotency, worker execution and signed provider/client webhooks retain their financial behavior. See [request rate limits](errors.md#request-rate-limits). No database migration is required.
+
 ## 1.6.0 — Unified bill API and compact resources
 
 Uses one direct bill-payment contract with product/account, amount/currency and optional `additionalInfo`. Fees are calculated and applied by the backend without a manual review or confirmation step. Extra inputs map to the existing validated bill request/provider fields; old flat inputs retain their normalized idempotency behavior. Product paths, payloads, payment responses and bill webhooks use `billProductCode`; numeric product IDs are internal only. Discovery has an optional category filter and four-field product resources with open string codes/categories. Offers and options expose codes instead of database IDs, and option paths use the parent offer code. Lookup, offer, option, quote and payment HTTP responses expose concise useful data. Follow-up commands use one extensible `/bill-payments/{reference}/actions` envelope; the existing reactivation URL remains a deprecated alias. Current electricity/water/TV eligibility and gift-card exclusion remain in effect. Financial logic, pricing, wallet funding, provider execution, refunds and signed webhook payloads are unchanged. No new migration is required. See [Bill payments](guides/bill-payments.md).

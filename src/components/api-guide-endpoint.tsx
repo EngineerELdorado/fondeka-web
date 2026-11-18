@@ -1270,6 +1270,29 @@ function EndpointContent({
                 )}
               </small>
             </div>
+            {response.headers?.["Retry-After"] && !example.incoming && (
+              <div className="guide-response-header">
+                <code>Retry-After</code>
+                <p>
+                  {t(
+                    "Optional response header since contract 1.7.0. Its positive integer value is the minimum number of seconds to wait after receiving the response.",
+                    "En-tête de réponse facultatif depuis le contrat 1.7.0. Son entier positif indique le délai minimum en secondes à attendre après réception de la réponse.",
+                  )}
+                </p>
+                <p>
+                  {t(
+                    "For 429 and retryable 503 responses, use a valid Retry-After value. If absent or invalid, use a positive details.retryAfterSeconds value, then fall back to exponential backoff. Older responses and daily quotas can omit both.",
+                    "Pour les réponses 429 et les 503 réessayables, utilisez une valeur Retry-After valide. Si elle est absente ou invalide, utilisez un details.retryAfterSeconds positif, puis le délai exponentiel habituel. Les anciennes réponses et les quotas journaliers peuvent omettre les deux.",
+                  )}
+                </p>
+                <p>
+                  {t(
+                    "Keep any longer backoff delay, add jitter and bound retries. Retry a payment with the same Idempotency-Key and unchanged payload. Keep its existing payment reference and the request ID for investigation.",
+                    "Conservez tout délai de reprise plus long, ajoutez une variation aléatoire et limitez les tentatives. Réessayez un paiement avec la même Idempotency-Key et un contenu identique. Conservez sa référence existante et l’identifiant de requête pour investigation.",
+                  )}
+                </p>
+              </div>
+            )}
             {response.headers?.["X-Request-Id"] && !example.incoming && (
               <p className="guide-response-header">
                 <code>X-Request-Id</code>

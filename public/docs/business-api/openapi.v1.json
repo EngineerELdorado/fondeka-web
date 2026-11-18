@@ -88,6 +88,14 @@
           "format" : "uuid",
           "type" : "string"
         }
+      },
+      "RetryAfter" : {
+        "description" : "When present, minimum seconds to wait before retrying. Admission rate limits return this on 429; unavailable admission protection returns it on 503. Operation-specific daily quotas may omit it.",
+        "schema" : {
+          "format" : "int64",
+          "minimum" : 1,
+          "type" : "integer"
+        }
       }
     },
     "schemas" : {
@@ -1145,9 +1153,9 @@
       "name" : "Fondeka",
       "url" : "https://www.fondeka.com"
     },
-    "description" : "Collect and pay out through mobile money and crypto, and pay bills from account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. The /v1 path is the API major version; info.version versions this documentation contract.",
+    "description" : "Collect and pay out through mobile money and crypto, and pay bills from account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. All merchant endpoints have shared business/API-key request limits. On HTTP 429, honor Retry-After and use backoff; keep payment idempotency keys unchanged. The /v1 path is the API major version; info.version versions this documentation contract.",
     "title" : "Fondeka Business API",
-    "version" : "1.6.0"
+    "version" : "1.7.0"
   },
   "openapi" : "3.0.3",
   "paths" : {
@@ -1355,10 +1363,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -1372,6 +1380,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -1427,6 +1438,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -1436,6 +1457,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -1479,10 +1503,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -1545,12 +1575,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -1575,7 +1612,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       },
       "post" : {
         "callbacks" : {
@@ -1954,10 +1991,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -1971,6 +2008,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -2026,6 +2066,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -2035,6 +2085,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -2126,10 +2179,16 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -2233,12 +2292,19 @@
             "simulatable" : true,
             "simulationValue" : "INSUFFICIENT_FUNDS"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -2325,7 +2391,7 @@
           "simulatable" : true,
           "simulationValue" : "PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "PAYMENT_METHOD_UNAVAILABLE", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "PENDING" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "PAYMENT_METHOD_UNAVAILABLE", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-payments/{reference}" : {
@@ -2511,10 +2577,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2528,6 +2594,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -2583,6 +2652,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -2592,6 +2671,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -2635,10 +2717,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -2701,12 +2789,19 @@
             "simulatable" : true,
             "simulationValue" : "PAYMENT_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -2731,7 +2826,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-payments/{reference}/actions" : {
@@ -2952,10 +3047,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -2969,6 +3064,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3024,6 +3122,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -3033,6 +3141,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3076,10 +3187,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -3142,12 +3259,19 @@
             "simulatable" : true,
             "simulationValue" : "PAYMENT_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -3172,7 +3296,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-payments/{reference}/reactivate" : {
@@ -3377,10 +3501,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -3394,6 +3518,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3449,6 +3576,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -3458,6 +3595,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3501,10 +3641,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -3567,12 +3713,19 @@
             "simulatable" : true,
             "simulationValue" : "PAYMENT_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -3597,7 +3750,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-payments/{reference}/receipt" : {
@@ -3804,10 +3957,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -3821,6 +3974,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3876,6 +4032,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -3885,6 +4051,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -3928,10 +4097,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -3994,12 +4169,19 @@
             "simulatable" : true,
             "simulationValue" : "PAYMENT_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -4024,7 +4206,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products" : {
@@ -4218,10 +4400,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -4235,6 +4417,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -4290,6 +4475,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -4299,6 +4494,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -4342,10 +4540,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -4408,12 +4612,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -4438,7 +4649,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products/{billProductCode}" : {
@@ -4624,10 +4835,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -4641,6 +4852,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -4696,6 +4910,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -4705,6 +4929,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -4748,10 +4975,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -4814,12 +5047,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -4844,7 +5084,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products/{billProductCode}/account-lookup" : {
@@ -5048,10 +5288,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -5065,6 +5305,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -5120,6 +5363,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -5129,6 +5382,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -5172,10 +5428,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -5238,12 +5500,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -5268,7 +5537,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products/{billProductCode}/offers" : {
@@ -5464,10 +5733,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -5481,6 +5750,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -5536,6 +5808,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -5545,6 +5827,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -5588,10 +5873,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -5654,12 +5945,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -5684,7 +5982,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products/{billProductCode}/offers/{offerCode}/options" : {
@@ -5889,10 +6187,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -5906,6 +6204,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -5961,6 +6262,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -5970,6 +6281,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -6013,10 +6327,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -6079,12 +6399,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -6109,7 +6436,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/bill-products/{billProductCode}/payment-methods" : {
@@ -6299,10 +6626,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -6316,6 +6643,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -6371,6 +6701,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -6380,6 +6720,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -6423,10 +6766,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -6489,12 +6838,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -6519,7 +6875,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/collections" : {
@@ -6900,10 +7256,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -6917,6 +7273,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -6972,6 +7331,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -6981,6 +7350,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -7096,10 +7468,16 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -7218,12 +7596,19 @@
             "simulatable" : true,
             "simulationValue" : "DESTINATION_REQUIRED"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -7339,7 +7724,7 @@
           "simulatable" : true,
           "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/collections/quote" : {
@@ -7673,10 +8058,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -7690,6 +8075,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -7745,6 +8133,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -7754,6 +8152,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -7851,10 +8252,16 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -7959,12 +8366,19 @@
             "simulatable" : true,
             "simulationValue" : "DESTINATION_REQUIRED"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8010,7 +8424,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/error-codes" : {
@@ -8213,12 +8627,19 @@
                           "simulatable" : true,
                           "simulationValue" : "DESTINATION_REQUIRED"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8437,12 +8858,19 @@
                           "simulatable" : true,
                           "simulationValue" : "INSUFFICIENT_FUNDS"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8598,12 +9026,19 @@
                           "simulatable" : true,
                           "simulationValue" : "DESTINATION_REQUIRED"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8738,12 +9173,19 @@
                           "simulatable" : true,
                           "simulationValue" : "DESTINATION_REQUIRED"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8850,12 +9292,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -8927,12 +9376,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9004,12 +9460,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9081,12 +9544,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9158,12 +9628,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9235,12 +9712,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9312,12 +9796,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9403,12 +9894,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_PRICE_LIMIT_EXCEEDED"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9570,12 +10068,19 @@
                           "simulatable" : true,
                           "simulationValue" : "INSUFFICIENT_FUNDS"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9675,12 +10180,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9752,12 +10264,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9829,12 +10348,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9906,12 +10432,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -9983,12 +10516,19 @@
                           "simulatable" : true,
                           "simulationValue" : "PAYMENT_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10060,12 +10600,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10137,12 +10684,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10242,12 +10796,19 @@
                           "simulatable" : true,
                           "simulationValue" : "WALLET_BALANCE_LIMIT_EXCEEDED"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10319,12 +10880,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10431,12 +10999,19 @@
                           "simulatable" : true,
                           "simulationValue" : "INSUFFICIENT_FUNDS"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10508,12 +11083,19 @@
                           "simulatable" : true,
                           "simulationValue" : "BUSINESS_NOT_FOUND"
                         }, {
-                          "description" : "A request or sandbox funding quota was reached.",
+                          "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                           "errorCode" : "RATE_LIMITED",
-                          "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                          "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                           "httpStatus" : 429,
                           "simulatable" : true,
                           "simulationValue" : "RATE_LIMITED"
+                        }, {
+                          "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                          "errorCode" : "SERVICE_UNAVAILABLE",
+                          "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                          "httpStatus" : 503,
+                          "simulatable" : true,
+                          "simulationValue" : "SERVICE_UNAVAILABLE"
                         }, {
                           "description" : "Unexpected server failure; payment outcome must be reconciled.",
                           "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10688,10 +11270,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -10705,6 +11287,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -10760,6 +11345,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -10769,6 +11364,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -10812,10 +11410,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -10878,12 +11482,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -10908,7 +11519,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/payouts" : {
@@ -11320,10 +11931,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -11337,6 +11948,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -11392,6 +12006,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -11401,6 +12025,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -11534,10 +12161,16 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -11663,12 +12296,19 @@
             "simulatable" : true,
             "simulationValue" : "INSUFFICIENT_FUNDS"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -11791,7 +12431,7 @@
           "simulatable" : true,
           "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_ADDRESS_INVALID", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_TRANSFER_REJECTED", "CRYPTO_CONFIRMATIONS_PENDING" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_ADDRESS_INVALID", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_TRANSFER_REJECTED", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/payouts/quote" : {
@@ -12146,10 +12786,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -12163,6 +12803,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -12218,6 +12861,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -12227,6 +12880,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -12336,10 +12992,16 @@
             "httpStatus" : 400,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -12444,12 +13106,19 @@
             "simulatable" : true,
             "simulationValue" : "DESTINATION_REQUIRED"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -12509,7 +13178,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/convert" : {
@@ -12821,10 +13490,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -12838,6 +13507,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -12893,6 +13565,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -12902,6 +13584,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -12933,10 +13618,16 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -13034,12 +13725,19 @@
             "simulatable" : true,
             "simulationValue" : "INSUFFICIENT_FUNDS"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -13064,7 +13762,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "WALLET_BALANCE_LIMIT_EXCEEDED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "WALLET_BALANCE_LIMIT_EXCEEDED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/convert/quote" : {
@@ -13297,10 +13995,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -13314,6 +14012,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -13369,6 +14070,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -13378,6 +14089,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -13409,10 +14123,16 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -13475,12 +14195,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -13505,7 +14232,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/top-ups" : {
@@ -13796,10 +14523,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -13813,6 +14540,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -13868,6 +14598,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -13877,6 +14617,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -13908,10 +14651,16 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -14002,12 +14751,19 @@
             "simulatable" : true,
             "simulationValue" : "WALLET_BALANCE_LIMIT_EXCEEDED"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -14032,7 +14788,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "WALLET_BALANCE_LIMIT_EXCEEDED", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "WALLET_BALANCE_LIMIT_EXCEEDED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/{currency}/entries" : {
@@ -14276,10 +15032,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -14293,6 +15049,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -14348,6 +15107,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -14357,6 +15126,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -14388,10 +15160,16 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -14454,12 +15232,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -14484,7 +15269,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/transactions/{reference}" : {
@@ -14686,10 +15471,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -14703,6 +15488,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -14758,6 +15546,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -14767,6 +15565,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -14810,10 +15611,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -14876,12 +15683,19 @@
             "simulatable" : true,
             "simulationValue" : "PAYMENT_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -14906,7 +15720,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "PAYMENT_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/wallets" : {
@@ -15104,10 +15918,10 @@
               "application/json" : {
                 "examples" : {
                   "RATE_LIMITED" : {
-                    "description" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+                    "description" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
                     "value" : {
                       "errorCode" : "RATE_LIMITED",
-                      "message" : "A request or sandbox funding quota was reached.",
+                      "message" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 429,
                       "statusCode" : 429
@@ -15121,6 +15935,9 @@
             },
             "description" : "A configured request or operation limit was reached.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -15176,6 +15993,16 @@
                       "status" : 503,
                       "statusCode" : 503
                     }
+                  },
+                  "SERVICE_UNAVAILABLE" : {
+                    "description" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+                    "value" : {
+                      "errorCode" : "SERVICE_UNAVAILABLE",
+                      "message" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 503,
+                      "statusCode" : 503
+                    }
                   }
                 },
                 "schema" : {
@@ -15185,6 +16012,9 @@
             },
             "description" : "Service temporarily unavailable. Retry with backoff and the same idempotency key.",
             "headers" : {
+              "Retry-After" : {
+                "$ref" : "#/components/headers/RetryAfter"
+              },
               "X-Request-Id" : {
                 "$ref" : "#/components/headers/RequestId"
               }
@@ -15228,10 +16058,16 @@
             "httpStatus" : 404,
             "simulatable" : false
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
+            "simulatable" : false
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
             "simulatable" : false
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
@@ -15294,12 +16130,19 @@
             "simulatable" : true,
             "simulationValue" : "BUSINESS_NOT_FOUND"
           }, {
-            "description" : "A request or sandbox funding quota was reached.",
+            "description" : "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.",
             "errorCode" : "RATE_LIMITED",
-            "howToTest" : "Exercise the configured sandbox quota with distinct intents; never load-test LIVE to trigger this.",
+            "howToTest" : "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.",
             "httpStatus" : 429,
             "simulatable" : true,
             "simulationValue" : "RATE_LIMITED"
+          }, {
+            "description" : "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.",
+            "errorCode" : "SERVICE_UNAVAILABLE",
+            "howToTest" : "Simulate SERVICE_UNAVAILABLE in sandbox; for real admission failures, honor Retry-After and retain the payment idempotency key.",
+            "httpStatus" : 503,
+            "simulatable" : true,
+            "simulationValue" : "SERVICE_UNAVAILABLE"
           }, {
             "description" : "Unexpected server failure; payment outcome must be reconciled.",
             "errorCode" : "SOMETHING_WENT_WRONG",
@@ -15324,7 +16167,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL" ]
       }
     }
   },

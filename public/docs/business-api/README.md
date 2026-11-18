@@ -20,6 +20,8 @@ New API keys start with `fdk_live_` or `fdk_sandbox_`. Existing `fdk_biz_live_` 
 | [Amounts, wallets and payment states](concepts.md) | Understand the financial effects |
 | [Webhooks](webhooks.md) | Verify, persist and process terminal events |
 | [Error codes](errors.md) | Discover endpoint errors and select supported sandbox failures |
+| [Request rate limits](errors.md#request-rate-limits) | Handle HTTP 429, Retry-After and shared request budgets |
+| [Retry-After handling](errors.md#retry-after-client-handling) | Read the response header, wait in seconds and retry the same intent safely |
 | [Testing and troubleshooting](testing.md) | Simulate outcomes, fund wallets and retry safely |
 | [Go live](go-live.md) | Prepare production credentials and operations |
 | [Changelog](changelog.md) | Track the published contract |

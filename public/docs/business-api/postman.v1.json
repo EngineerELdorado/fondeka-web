@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Fondeka Business API v1 — Sandbox",
-    "description": "Generated from the merchant contract. Set apiKey locally, businessId and a unique intent. Keep intent on retries. Async payments need polling; running the collection once does not wait for completion. Synthetic fixtures only.",
+    "description": "Generated from the merchant contract. Set apiKey locally, businessId and a unique intent. Keep intent on retries. Honor Retry-After on HTTP 429/503 and use backoff; do not immediately rerun a throttled collection. Async payments need polling; running the collection once does not wait for completion. Synthetic fixtures only.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -82,7 +82,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments",
-            "description": "List this Business's bill payments. Uses the authenticated Business and credential environment; responses are not cached."
+            "description": "List this Business's bill payments. Uses the authenticated Business and credential environment; responses are not cached.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -116,7 +116,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments",
-            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.",
+            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountNumber\": \"CUSTOMER-101\",\n  \"additionalInfo\": {\n    \"invoiceId\": \"INVOICE-1\"\n  },\n  \"amount\": 10,\n  \"billProductCode\": \"REGIDESO\",\n  \"currency\": \"USD\"\n}",
@@ -159,7 +159,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments",
-            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.",
+            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountNumber\": \"CUSTOMER-101\",\n  \"amount\": 10,\n  \"billProductCode\": \"SOCODEE\",\n  \"currency\": \"USD\",\n  \"orderReference\": \"bill-order-1\"\n}",
@@ -202,7 +202,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments",
-            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.",
+            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountNumber\": \"SUBSCRIBER-101\",\n  \"additionalInfo\": {\n    \"offerCode\": \"SANDBOX_OFFER\",\n    \"operation\": \"TV_CHANGE\",\n    \"optionCode\": \"SANDBOX_OPTION\",\n    \"subscriptionNumber\": \"SANDBOX_SUBSCRIPTION\"\n  },\n  \"amount\": 12,\n  \"billProductCode\": \"CANAL_PLUS_DRC\",\n  \"currency\": \"USD\"\n}",
@@ -245,7 +245,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments",
-            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.",
+            "description": "Atomically accept an idempotent bill purchase, debit its gross amount and enqueue durable provider execution. HTTP 202 is acceptance. Reuse the same Idempotency-Key and normalized payload after timeouts. Completion/failure arrives by the existing signed webhook delivery system as business_api.bill_payment.completed/failed.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountNumber\": \"SUBSCRIBER-101\",\n  \"additionalInfo\": {\n    \"operation\": \"TV_RENEW\",\n    \"subscriptionNumber\": \"SANDBOX_SUBSCRIPTION\"\n  },\n  \"amount\": 10,\n  \"billProductCode\": \"CANAL_PLUS_DRC\",\n  \"currency\": \"USD\"\n}",
@@ -280,7 +280,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments/{{reference}}",
-            "description": "Scope is the exact Business and credential environment. ACCEPTED/PROCESSING retain the original request; never submit a replacement while outcome is uncertain. FAILED does not necessarily mean refunded; inspect refunded separately."
+            "description": "Scope is the exact Business and credential environment. ACCEPTED/PROCESSING retain the original request; never submit a replacement while outcome is uncertain. FAILED does not necessarily mean refunded; inspect refunded separately.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -310,7 +310,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments/{{reference}}/actions",
-            "description": "Extensible action envelope for an existing payment. REACTIVATE currently refreshes an owned, completed TV subscription using its captured details. No new charge or payment; existing command deduplication and provider behavior are preserved.",
+            "description": "Extensible action envelope for an existing payment. REACTIVATE currently refreshes an owned, completed TV subscription using its captured details. No new charge or payment; existing command deduplication and provider behavior are preserved.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"action\": \"REACTIVATE\"\n}",
@@ -345,7 +345,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments/{{reference}}/reactivate",
-            "description": "Queues the existing TV channel reactivation command for this Business's completed bill, using its captured subscriber and subscription. No new payment, wallet debit or bill-status change. Repeats deduplicate while the command is retained; sandbox simulates success without a provider call. This command does not generate another bill-payment webhook."
+            "description": "Queues the existing TV channel reactivation command for this Business's completed bill, using its captured subscriber and subscription. No new payment, wallet debit or bill-status change. Repeats deduplicate while the command is retained; sandbox simulates success without a provider call. This command does not generate another bill-payment webhook.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -371,7 +371,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-payments/{{reference}}/receipt",
-            "description": "Returns only allowlisted delivery fields. Tokens are present when supplied by the provider. A sandbox token is a nonpayable test marker."
+            "description": "Returns only allowlisted delivery fields. Tokens are present when supplied by the provider. A sandbox token is a nonpayable test marker.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -397,7 +397,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products",
-            "description": "Account-aware catalog limited to electricity, water and TV. Gift cards and other product types are excluded in LIVE and SANDBOX. Defaults to the API owner's country; countryCode can select another market. Optional category filters the same catalog; future categories use this route. Sandbox reads only local catalog data."
+            "description": "Account-aware catalog limited to electricity, water and TV. Gift cards and other product types are excluded in LIVE and SANDBOX. Defaults to the API owner's country; countryCode can select another market. Optional category filters the same catalog; future categories use this route. Sandbox reads only local catalog data.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -423,7 +423,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}",
-            "description": "Read a bill product. Uses the authenticated Business and credential environment; responses are not cached."
+            "description": "Read a bill product. Uses the authenticated Business and credential environment; responses are not cached.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -453,7 +453,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}/account-lookup",
-            "description": "Read-only customer lookup, including TV subscription metadata. No payment is started. SANDBOX returns explicitly synthetic account details without provider calls.",
+            "description": "Read-only customer lookup, including TV subscription metadata. No payment is started. SANDBOX returns explicitly synthetic account details without provider calls.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountNumber\": \"METER-101\",\n  \"displayCurrency\": \"USD\"\n}",
@@ -488,7 +488,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}/offers",
-            "description": "Get bill offers or fixed denominations. Uses the authenticated Business and credential environment; responses are not cached."
+            "description": "Get bill offers or fixed denominations. Uses the authenticated Business and credential environment; responses are not cached.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -514,7 +514,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}/offers/{{offerCode}}/options",
-            "description": "Get options for a bill product's offer. Uses the authenticated Business and credential environment; responses are not cached."
+            "description": "Get options for a bill product's offer. Uses the authenticated Business and credential environment; responses are not cached.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -540,7 +540,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}/payment-methods",
-            "description": "Deprecated compatibility lookup. API bills debit the existing FONDEKA_BALANCE fiat balance in the chosen currency. No wallet ID or provider route is accepted."
+            "description": "Deprecated compatibility lookup. API bills debit the existing FONDEKA_BALANCE fiat balance in the chosen currency. No wallet ID or provider route is accepted.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -575,7 +575,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections/quote",
-            "description": "Calculate current collection pricing using the same destination, route, fees and gross-based tier rules as payment acceptance. Creates no payment, wallet, provider invoice, reservation or idempotency intent. No Idempotency-Key is required. The LIVE launch switch does not block pricing. Copy fee/grossAmount into maxFee/maxGrossAmount on payment creation to reject a later price increase.",
+            "description": "Calculate current collection pricing using the same destination, route, fees and gross-based tier rules as payment acceptance. Creates no payment, wallet, provider invoice, reservation or idempotency intent. No Idempotency-Key is required. The LIVE launch switch does not block pricing. Copy fee/grossAmount into maxFee/maxGrossAmount on payment creation to reject a later price increase.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
@@ -614,7 +614,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections/quote",
-            "description": "Calculate current collection pricing using the same destination, route, fees and gross-based tier rules as payment acceptance. Creates no payment, wallet, provider invoice, reservation or idempotency intent. No Idempotency-Key is required. The LIVE launch switch does not block pricing. Copy fee/grossAmount into maxFee/maxGrossAmount on payment creation to reject a later price increase.",
+            "description": "Calculate current collection pricing using the same destination, route, fees and gross-based tier rules as payment acceptance. Creates no payment, wallet, provider invoice, reservation or idempotency intent. No Idempotency-Key is required. The LIVE launch switch does not block pricing. Copy fee/grossAmount into maxFee/maxGrossAmount on payment creation to reject a later price increase.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
@@ -653,7 +653,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts/quote",
-            "description": "Calculate current payout pricing for this exact recipient, including same-source eligibility and the winning fallback provider. Does not require a funded wallet, reserve funds or submit a payout. Pricing and availability are rechecked at acceptance. Copy fee/grossAmount into maxFee/maxGrossAmount to prevent a new payment accepting a higher price; expired or changed quotes are not reservations.",
+            "description": "Calculate current payout pricing for this exact recipient, including same-source eligibility and the winning fallback provider. Does not require a funded wallet, reserve funds or submit a payout. Pricing and availability are rechecked at acceptance. Copy fee/grossAmount into maxFee/maxGrossAmount to prevent a new payment accepting a higher price; expired or changed quotes are not reservations.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
@@ -692,7 +692,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts/quote",
-            "description": "Calculate current payout pricing for this exact recipient, including same-source eligibility and the winning fallback provider. Does not require a funded wallet, reserve funds or submit a payout. Pricing and availability are rechecked at acceptance. Copy fee/grossAmount into maxFee/maxGrossAmount to prevent a new payment accepting a higher price; expired or changed quotes are not reservations.",
+            "description": "Calculate current payout pricing for this exact recipient, including same-source eligibility and the winning fallback provider. Does not require a funded wallet, reserve funds or submit a payout. Pricing and availability are rechecked at acceptance. Copy fee/grossAmount into maxFee/maxGrossAmount to prevent a new payment accepting a higher price; expired or changed quotes are not reservations.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
@@ -735,7 +735,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
-            "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
+            "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
@@ -778,7 +778,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/collections",
-            "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.",
+            "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
@@ -813,7 +813,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/transactions/{{reference}}",
-            "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Use fondekaReference from submission; the URL path is unchanged. Crypto payment instructions are omitted until available. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund."
+            "description": "Read the current payment state using its opaque reference and a key belonging to the same Business and environment. Use fondekaReference from submission; the URL path is unchanged. Crypto payment instructions are omitted until available. Poll with backoff until instructions or a terminal result are available. Status is ACCEPTED, PROCESSING, COMPLETED or FAILED. FAILED does not imply a refund.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -847,7 +847,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
-            "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.",
+            "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"networkName\": \"TRC20\",\n  \"orderReference\": \"crypto-order-0001\",\n  \"paymentMethodName\": \"USDT\"\n}",
@@ -890,7 +890,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/payouts",
-            "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.",
+            "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
@@ -930,7 +930,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/wallets?currency=USD",
-            "description": "LIVE keys read the owning account's real fiat wallets; SANDBOX keys read isolated virtual wallets. Businesses under the same account share balances within their environment. An absent wallet queried by currency has zero balance."
+            "description": "LIVE keys read the owning account's real fiat wallets; SANDBOX keys read isolated virtual wallets. Businesses under the same account share balances within their environment. An absent wallet queried by currency has zero balance.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -969,7 +969,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/top-ups",
-            "description": "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account/currency wallet per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.",
+            "description": "SANDBOX only. Add virtual funds synchronously. Maximum 1,000,000 per call and 100 new top-ups per account/currency wallet per UTC day. Replaying an existing identical intent does not consume another quota slot. No provider or real wallet is used.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 100,\n  \"currency\": \"USD\"\n}",
@@ -1008,7 +1008,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/convert/quote",
-            "description": "SANDBOX only. Return QUOTED with no conversion id. Uses configurable synthetic FX fixtures and zero fees. A quote does not reserve funds or lock a rate. Source and target currencies must differ and have configured fixture rates.",
+            "description": "SANDBOX only. Return QUOTED with no conversion id. Uses configurable synthetic FX fixtures and zero fees. A quote does not reserve funds or lock a rate. Source and target currencies must differ and have configured fixture rates.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 10,\n  \"sourceCurrency\": \"USD\",\n  \"targetCurrency\": \"EUR\"\n}",
@@ -1051,7 +1051,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/convert",
-            "description": "SANDBOX only. Atomically debit source and credit target using current synthetic rates. Return COMPLETED with a conversion id and both balances. Idempotent across this account's Businesses/keys; conflicting reuse returns 409. No real money, provider call or payment webhook is involved.",
+            "description": "SANDBOX only. Atomically debit source and credit target using current synthetic rates. Return COMPLETED with a conversion id and both balances. Idempotent across this account's Businesses/keys; conflicting reuse returns 409. No real money, provider call or payment webhook is involved.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"amount\": 10,\n  \"sourceCurrency\": \"USD\",\n  \"targetCurrency\": \"EUR\"\n}",
@@ -1086,7 +1086,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/sandbox-wallets/USD/entries",
-            "description": "SANDBOX only. Read append-only account wallet entries, newest sequence first. Includes top-ups, payment credits, payout debits/refunds and conversion entries. LIVE credentials are rejected with 403."
+            "description": "SANDBOX only. Read append-only account wallet entries, newest sequence first. Includes top-ups, payment credits, payout debits/refunds and conversion entries. LIVE credentials are rejected with 403.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {
@@ -1117,7 +1117,7 @@
               }
             ],
             "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/error-codes",
-            "description": "Read endpoint-specific HTTP request errors and supported asynchronous payment outcomes. The authenticated key determines the environment. X-Simulate-Error-Code selects an immediate request rejection, a deferred payment failure, or a crypto confirmation hold that remains PROCESSING without a terminal webhook. Check resultingStatus, paymentMethodTypes and the operation before selecting a scenario. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider."
+            "description": "Read endpoint-specific HTTP request errors and supported asynchronous payment outcomes. The authenticated key determines the environment. X-Simulate-Error-Code selects an immediate request rejection, a deferred payment failure, or a crypto confirmation hold that remains PROCESSING without a terminal webhook. Check resultingStatus, paymentMethodTypes and the operation before selecting a scenario. Real authentication, ownership and access checks run first. LIVE keys ignore the header. This read submits no payment and calls no provider.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header."
           },
           "event": [
             {

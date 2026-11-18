@@ -9,6 +9,67 @@ Use `statusCode` (and `status`) for the HTTP status, and a meaningful business c
 
 HTTP 202 is acceptance, not completion. The public payment status is `ACCEPTED`, `PROCESSING`, `COMPLETED` or `FAILED`. Polling a failed payment still returns HTTP 200: inspect `status` and `failureCode`.
 
+## Request rate limits
+
+Every `/business-api/**` endpoint has shared request limits in LIVE and SANDBOX. The API first applies a client-IP budget before authentication, then checks the authenticated Business, API key and endpoint-family budgets together. All keys belonging to a Business share its Business and endpoint-family budgets, including across LIVE/SANDBOX. Switching keys, payment methods, product codes, quote endpoints or environment does not reset those shared budgets. Limits are shared across web processes.
+
+Default sustained refill rates and immediate burst capacities:
+
+| Budget | Requests/minute | Burst |
+| --- | ---: | ---: |
+| Client IP, before authentication | 600 | 60 |
+| Business, all endpoints | 300 | 30 |
+| API key, all endpoints | 180 | 20 |
+| Quotes, shared by all `POST .../quote` endpoints | 60 | 5 |
+| Bill account lookups, `POST .../account-lookup` | 30 | 3 |
+| Other writes, including payment submissions and replays | 30 | 5 |
+| Reads, including payment status and catalogs | 180 | 30 |
+
+These are continuously replenished budgets, not fixed minute windows. A request must fit every applicable budget. Operators can tune the configured rates. A rejected quote does not consume authenticated Business/key/read capacity; status reads have their own endpoint-family budget.
+
+An admission rejection returns HTTP 429 `RATE_LIMITED`, `Retry-After` in seconds, `Cache-Control: no-store`, and a server-generated `X-Request-Id` matching the JSON `requestId`. Example response headers:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+Retry-After: 1
+Cache-Control: no-store
+X-Request-Id: 22222222-2222-4222-8222-222222222222
+```
+
+Response body:
+
+```json
+{
+  "message": "Too many API requests. Wait before retrying; use the same idempotency key for a payment retry.",
+  "status": 429,
+  "statusCode": 429,
+  "errorCode": "RATE_LIMITED",
+  "requestId": "22222222-2222-4222-8222-222222222222",
+  "details": { "retryAfterSeconds": 1, "scope": "quotes", "limitPerMinute": 60, "burst": 5 }
+}
+```
+
+Wait at least `Retry-After`, use backoff with jitter and reduce concurrency. Cache catalog reads and debounce price lookups. A rate-rejected attempt does not enter payment processing, reserve an idempotency intent, debit funds, submit to a provider or enqueue a payment webhook. Retrying an earlier accepted intent must retain its original `Idempotency-Key`; a 429 does not cancel or refund that existing payment. Poll its existing reference or wait for its signed webhook.
+
+If shared admission storage is unavailable, new API attempts return HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` before financial processing. Existing background payment processing and provider callbacks continue independently. The existing operation-specific sandbox daily quotas remain in effect and may return 429 without this admission detail/header contract. Simulating `RATE_LIMITED` tests client error handling; it does not consume or bypass real rate budgets.
+
+### Retry-After client handling
+
+`Retry-After` is an **optional response header**, documented starting with contract release **1.7.0**. The previously published 1.6.0 contract documented `429 RATE_LIMITED` without this header. Clients do not send it in their requests, and its value is calculated for each rate-limited attempt rather than fixed for an endpoint.
+
+Fondeka sends a positive integer number of **seconds to wait after receiving the response**. For example, `Retry-After: 2` means wait at least two seconds before the next attempt; it is not an absolute timestamp or a millisecond value.
+
+For HTTP 429 and retryable HTTP 503 responses:
+
+1. Read a valid positive integer from `Retry-After`.
+2. If the header is absent or invalid, use a valid positive `details.retryAfterSeconds` when available. Otherwise keep the existing exponential-backoff policy. Older responses and operation-specific quotas can omit both fields.
+3. Wait at least that duration. Add jitter and retain any longer delay required by the client's backoff policy; avoid immediate retry loops.
+4. Retry a payment with the **same `Idempotency-Key` and unchanged payload**. Do not generate a replacement intent because of a rate limit. Quotes and reads retain their existing header requirements.
+5. Bound retries. If attempts remain unsuccessful, retain the request ID and any existing payment reference for investigation.
+
+Clients already handling 429 with backoff remain compatible. Reading the new header improves retry timing; it does not change payment request fields, authentication, successful response formats or the outcome of an earlier accepted payment.
+
 ## Discover errors for an endpoint
 
 ```http

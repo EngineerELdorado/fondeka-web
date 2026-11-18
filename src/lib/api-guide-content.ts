@@ -1,6 +1,7 @@
 import type { BusinessApiTopic } from "./business-api-docs";
 import { billPaymentsTrack, paymentQuotesTrack } from "./api-guide-bills";
 import { apiGuideAvailable } from "./api-guide-availability";
+import release from "../../public/docs/business-api/release.json";
 export type GuideCopy = readonly [en: string, fr: string];
 export type GuideField = {
   key: string;
@@ -1018,6 +1019,20 @@ export const apiGuideTracks: GuideTrack[] = [
             "Keep secrets server-side. Sandbox clients deliberately reject LIVE keys; deploy your reviewed production integration explicitly.",
             "Gardez les secrets côté serveur. Les clients sandbox refusent les clés LIVE ; déployez explicitement votre intégration de production validée.",
           ],
+          [
+            "Request budgets are shared across a Business’s keys and LIVE/SANDBOX environments. Cache catalogs, debounce quotes and reduce concurrency. A rate-rejected attempt creates no new payment. Keep any earlier accepted payment reference.",
+            "Les budgets de requêtes sont partagés entre les clés d’un Business et les environnements LIVE/SANDBOX. Mettez les catalogues en cache, espacez les devis et réduisez la concurrence. Une tentative refusée par la limite ne crée aucun paiement. Conservez la référence de tout paiement déjà accepté.",
+          ],
+          [
+            "On HTTP 429 or a retryable 503, honor a valid positive Retry-After response header in seconds. Fall back to details.retryAfterSeconds, then exponential backoff. Keep any longer delay, add jitter, bound retries and retain the same Idempotency-Key and payload for payment retries.",
+            "Sur HTTP 429 ou un 503 réessayable, respectez un en-tête de réponse Retry-After entier positif en secondes. À défaut, utilisez details.retryAfterSeconds, puis un délai exponentiel. Conservez tout délai plus long, ajoutez une variation aléatoire, limitez les tentatives et gardez la même Idempotency-Key et le même contenu pour les paiements.",
+          ],
+        ],
+        resources: [
+          {
+            label: ["Rate limits and error handling", "Limites de requêtes et gestion des erreurs"],
+            file: "errors.md",
+          },
         ],
         check: {
           question: [
@@ -1041,8 +1056,8 @@ export const apiGuideTracks: GuideTrack[] = [
     id: "changelog",
     title: ["What’s in v1", "Ce que contient v1"],
     summary: [
-      "Documentation contract 1.0.0 · 23 October 2026",
-      "Contrat documentaire 1.0.0 · 23 octobre 2026",
+      `Documentation contract ${release.version}`,
+      `Contrat documentaire ${release.version}`,
     ],
     icon: "history",
     tone: "blue",
