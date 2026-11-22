@@ -18,6 +18,7 @@ import { Loading, ErrorState, Modal } from "./ui";
 import { MediaUpload } from "./media-upload";
 import { TrainingMaterialOpener } from "./training-material-opener";
 import { TrainingPreview } from "./training-preview";
+import { FileDetails } from "./file-details";
 
 type Lesson = TrainingMaterial & { key: string };
 type Module = Omit<TrainingModule, "materials"> & { key: string; materials: Lesson[] };
@@ -219,12 +220,36 @@ function CurriculumWorkspace({
       const payload = trainingPayload(baseline.version, modules);
       lock.current = true;
       setBusy(true);
-      const saved = parseTrainingCurriculum(
+      const response = parseTrainingCurriculum(
         await request(trainingPath(initial.productId, true), {
           method: "PUT",
           body: JSON.stringify(payload),
         }),
       );
+      // Draft assets may not have been inspected by the backend yet. Keep successful-upload
+      // details for this editing session; only the existing fileName write field is sent.
+      const localFiles = new Map(
+        modules
+          .flatMap((row) => row.materials)
+          .filter((row) => row.assetKey)
+          .map((row) => [row.assetKey, row]),
+      );
+      const saved = {
+        ...response,
+        modules: response.modules.map((row) => ({
+          ...row,
+          materials: row.materials.map((lesson) => {
+            const local = lesson.assetKey ? localFiles.get(lesson.assetKey) : undefined;
+            return local
+              ? {
+                  ...lesson,
+                  contentType: lesson.contentType ?? local.contentType,
+                  fileSize: lesson.fileSize ?? local.fileSize,
+                }
+              : lesson;
+          }),
+        })),
+      };
       const moduleIndex = modules.findIndex((item) => item.key === selected?.module);
       const materialIndex =
         module?.materials.findIndex((item) => item.key === selected?.material) ?? -1;
@@ -283,6 +308,14 @@ function CurriculumWorkspace({
     return (
       <TrainingPreview
         productId={initial.productId}
+        fileMetadata={
+          new Map(
+            baseline.modules
+              .flatMap((row) => row.materials)
+              .filter((lesson) => lesson.assetKey)
+              .map((lesson) => [lesson.assetKey!, lesson]),
+          )
+        }
         onClose={() => {
           setPreviewing(false);
           requestAnimationFrame(() => previewButton.current?.focus());
@@ -464,6 +497,9 @@ function CurriculumWorkspace({
                       onClick={() => setSelected({ module: item.key, material: lesson.key })}
                     >
                       {lesson.title || t("Untitled material", "Ressource sans titre")}
+                      {lesson.type === "FILE" && lesson.assetKey && (
+                        <FileDetails compact assetKey={lesson.assetKey} metadata={lesson} />
+                      )}
                       <small>
                         {lesson.type}
                         <TrainingPublicationBadge published={lesson.published && item.published} />
@@ -593,6 +629,8 @@ function CurriculumWorkspace({
                           assetKey: null,
                           linkUrl: null,
                           fileName: null,
+                          contentType: null,
+                          fileSize: null,
                         })
                       }
                     >
@@ -611,25 +649,29 @@ function CurriculumWorkspace({
                       />
                       <small>
                         {t(
-                          "Links open on the provider’s site. They are not embedded.",
-                          "Les liens s’ouvrent sur le site du fournisseur. Ils ne sont pas intégrés.",
+                          "YouTube videos play in the lesson player. Other links open on the provider’s site.",
+                          "Les vidéos YouTube se lisent dans le lecteur de la leçon. Les autres liens s’ouvrent sur le site du fournisseur.",
                         )}
                       </small>
                     </label>
                   ) : (
                     <>
                       <MediaUpload
+                        key={material.key}
                         kind="training"
                         productId={initial.productId}
                         scope="commerce-training-assets"
                         label={t("Lesson file", "Fichier de la leçon")}
                         value={material.assetKey}
+                        fileMetadata={material}
                         maxBytes={250 * 1024 * 1024}
                         onBusy={setUploading}
-                        onChange={(assetKey, _duration, fileName) =>
+                        onChange={(assetKey, _duration, fileName, metadata) =>
                           patchMaterial({
                             assetKey: assetKey || null,
                             fileName: assetKey ? fileName || material.fileName : null,
+                            contentType: assetKey ? metadata?.contentType || null : null,
+                            fileSize: assetKey ? (metadata?.fileSize ?? null) : null,
                           })
                         }
                         helper={t(
@@ -637,7 +679,6 @@ function CurriculumWorkspace({
                           "Fichier de leçon privé · Jusqu’à 250 Mio. Les médias promotionnels se gèrent dans les paramètres du produit.",
                         )}
                       />
-                      {material.fileName && <p className="muted">{material.fileName}</p>}
                     </>
                   )}
                   <label>
@@ -697,6 +738,7 @@ function CurriculumWorkspace({
                         productId={initial.productId}
                         materialId={material.id}
                         title={material.title}
+                        fileMetadata={material}
                         author
                       />
                     )}

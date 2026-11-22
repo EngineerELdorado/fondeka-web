@@ -18,6 +18,8 @@ import {
   type GuidedStep,
 } from "./guided-flow";
 import { ProductFeeMode } from "./product-fee-mode";
+import type { FileMetadata } from "@/lib/file-metadata";
+import { FileDetails } from "./file-details";
 type Draft = {
   feeApplicationMode: "INHERIT" | "EXCLUSIVE" | "INCLUSIVE";
   name: string;
@@ -32,6 +34,7 @@ type Draft = {
   fulfillmentUrl: string;
   instructions: string;
   asset: string;
+  assetMetadata?: FileMetadata;
 };
 export function ProductCreateFlow({
   store,
@@ -300,10 +303,13 @@ export function ProductCreateFlow({
                       disabled={uploading}
                       label={t("Digital file", "Fichier numérique")}
                       value={value.asset}
+                      fileMetadata={value.assetMetadata}
                       scope="commerce-digital-assets"
                       storeId={store.id}
                       onBusy={setUploading}
-                      onChange={(asset) => set({ asset })}
+                      onChange={(asset, _duration, _name, metadata) =>
+                        set({ asset, assetMetadata: asset ? metadata : undefined })
+                      }
                     />
                   )}
                   <FlowField
@@ -388,6 +394,9 @@ export function ProductCreateFlow({
                       ? t("Digital file attached", "Fichier numérique joint")
                       : t("No access link", "Aucun lien d’accès"))}
             </p>
+            {value.type === "DIGITAL" && value.asset && (
+              <FileDetails metadata={value.assetMetadata || {}} assetKey={value.asset} />
+            )}
             {["DIGITAL", "SERVICE"].includes(value.type) && value.instructions && (
               <p>{value.instructions}</p>
             )}

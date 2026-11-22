@@ -30,6 +30,9 @@ export function receiptText(order: Order, language = "en") {
     order.commerceSubtotalAmount != null
       ? `${fr ? "Sous-total des produits" : "Product subtotal"}: ${amount(order.commerceSubtotalAmount, order.paymentCurrency || order.totalCurrency)}`
       : "",
+    order.discount
+      ? `${fr ? "Avant remise" : "Before discount"}: ${amount(order.subtotalBeforeDiscountAmount, order.discountCurrency)}\n${fr ? "Remise" : "Discount"}: ${amount(order.discountAmount, order.discountCurrency)} · ${order.discount.reason}`
+      : "",
     buyerFee != null
       ? `${fr ? "Frais ajoutés au total" : "Fees added to buyer total"}: ${amount(buyerFee, order.feeCurrency || order.paymentCurrency || order.totalCurrency)}`
       : "",
@@ -37,6 +40,10 @@ export function receiptText(order: Order, language = "en") {
     `${fr ? "Payé" : "Paid"}: ${amount(order.amountPaid, order.amountPaidCurrency)}`,
     `${fr ? "Solde dû" : "Balance due"}: ${amount(order.balanceDue ?? order.outstandingAmount, order.balanceDueCurrency ?? order.outstandingCurrency)}`,
     order.paymentDueDate ? `${fr ? "Échéance" : "Due date"}: ${order.paymentDueDate}` : "",
+    ...(order.payments || []).flatMap((payment) => [
+      `${fr ? "Paiement reçu" : "Payment received"}: ${amount(payment.amount, payment.currency)} · ${payment.method} · ${new Date(payment.receivedAt).toLocaleString(language)}`,
+      payment.reference ? `${fr ? "Référence" : "Reference"}: ${payment.reference}` : "",
+    ]),
     order.posPaymentStatus || order.status,
   ]
     .filter(Boolean)

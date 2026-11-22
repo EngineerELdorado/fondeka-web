@@ -8,6 +8,8 @@ export interface Page<T> {
 
 export interface Store {
   id: number;
+  posFeatures?: import("./pos-management").PosFeatures;
+  posCorrectionPolicy?: import("./pos-management").CorrectionPolicy;
   name: string;
   slug: string;
   description?: string;
@@ -28,6 +30,7 @@ export interface Store {
     canViewSales: boolean;
     canManageCustomers: boolean;
     canViewReports: boolean;
+    canManageExpenses?: boolean;
     canViewCustomerOrderHistory: boolean;
     canManageStore: boolean;
     canManageStaff: boolean;
@@ -94,6 +97,14 @@ export interface PaymentInput {
 }
 export interface Order {
   id: number;
+  version?: number;
+  posActions?: import("./pos-management").PosActions;
+  payments?: import("./pos-management").PosPaymentEntry[];
+  auditTrail?: import("./pos-management").PosAuditEntry[];
+  discount?: import("./pos-management").PosDiscount;
+  discountAmount?: number;
+  discountCurrency?: string;
+  subtotalBeforeDiscountAmount?: number;
   reference: string;
   storeId: number;
   storeName?: string;
@@ -107,6 +118,7 @@ export interface Order {
 }
 export interface PosInput {
   items: { productId: number; quantity: number }[];
+  discount?: import("./pos-management").PosDiscount;
   billingCurrency: string;
   paymentCurrency: string;
   paymentMode: "CASH" | "FONDEKA";
@@ -114,6 +126,10 @@ export interface PosInput {
   buyerName?: string;
 }
 export interface Quote {
+  discount?: import("./pos-management").PosDiscount;
+  discountAmount?: number;
+  discountCurrency?: string;
+  subtotalBeforeDiscountAmount?: number;
   totalAmount: number;
   totalCurrency: string;
   feeAmount: number;
@@ -388,6 +404,17 @@ export interface PosInput {
   paymentDueDate?: string;
 }
 export interface SalesReport {
+  timeZone?: string;
+  expensesAmount?: number;
+  expenseCount?: number;
+  salesAfterExpensesAmount?: number;
+  receiptsAfterExpensesAmount?: number;
+  expensesByCategory?: { category: string; amount: number; count: number }[];
+  discountAmount?: number;
+  voidedOrderCount?: number;
+  voidedSalesAmount?: number;
+  paymentsReceivedAmount?: number;
+  paymentsReceivedCurrency?: string;
   period: string;
   currency: string;
   availableCurrencies: string[];

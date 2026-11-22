@@ -11,6 +11,7 @@ export type TrainingMaterial = {
   linkUrl?: string | null;
   fileName?: string | null;
   contentType?: string | null;
+  fileSize?: number | null;
   completed?: boolean;
   completedAt?: string | null;
 };
@@ -76,13 +77,14 @@ export function trainingHttpsUrl(value: string) {
 export function trainingPreviewCurriculum(
   source: TrainingCurriculum,
   completedIds: ReadonlySet<string> = new Set(),
+  includeDrafts = false,
 ): TrainingCurriculum {
   const modules = source.modules
-    .filter((module) => module.published)
+    .filter((module) => includeDrafts || module.published)
     .map((module) => ({
       ...module,
       materials: module.materials
-        .filter((material) => material.published)
+        .filter((material) => includeDrafts || material.published)
         .map((material) => ({
           ...material,
           assetKey: null,

@@ -182,8 +182,10 @@ export function clearCollectionRecovery(keepAccount?: string) {
   try {
     for (const key of Object.keys(sessionStorage))
       if (
-        key.startsWith("fondeka-collection:") &&
-        (!keepAccount || !key.startsWith(`fondeka-collection:${keepAccount}:`))
+        ["fondeka-collection:", "fondeka-pos-command:", "fondeka-report-job:"].some(
+          (prefix) =>
+            key.startsWith(prefix) && (!keepAccount || !key.startsWith(`${prefix}${keepAccount}:`)),
+        )
       )
         sessionStorage.removeItem(key);
   } catch {

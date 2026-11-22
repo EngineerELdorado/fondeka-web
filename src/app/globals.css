@@ -13050,3 +13050,412 @@ button.detail-row:hover {
     flex: 1;
   }
 }
+
+/* POS management and the server-generated report presentation. */
+.pos-discount,
+.pos-policy-card,
+.sale-management {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.pos-discount legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+.sale-update-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.pos-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pos-section-title > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.pos-section-title > div {
+  flex: 1;
+  min-width: 0;
+}
+.pos-section-title h3 {
+  margin: 0 0 6px;
+}
+.pos-section-title p {
+  margin: 0;
+  line-height: 1.6;
+}
+.pos-policy-card .form-stack > p {
+  line-height: 1.7;
+}
+.sale-balance-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 36px;
+  padding: 14px 0 20px;
+}
+.sale-balance-strip > div {
+  display: grid;
+  gap: 6px;
+}
+.sale-balance-strip small {
+  color: var(--muted);
+}
+.sale-balance-strip strong {
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+.sale-management .panel-heading {
+  padding: 0;
+  margin-bottom: 4px;
+}
+.sale-action-option {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.sale-management > .parity-actions {
+  align-items: flex-start;
+}
+.sale-action-option > .button {
+  width: 100%;
+}
+.sale-action-option > p {
+  margin: 8px 0 0;
+}
+.sale-management > .muted {
+  line-height: 1.7;
+  margin: 14px 0;
+}
+.sale-management > h3 {
+  margin-top: 24px;
+}
+.sale-timeline {
+  padding: 0;
+  list-style: none;
+  margin: 18px 0;
+}
+.sale-timeline li {
+  padding: 12px 0 12px 18px;
+  border-left: 2px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.sale-timeline p {
+  margin: 6px 0;
+  font-size: var(--text-sm);
+}
+.sale-timeline small {
+  color: var(--muted);
+}
+.sale-audit summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 12px 0;
+}
+.sale-quantity-row {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 14px;
+  align-items: center;
+}
+.correction-preview {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--surface-raised);
+  margin: 16px 0;
+}
+.report-export-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.report-export-dialog .report-export-status {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.report-export-status p {
+  margin: 8px 0;
+}
+.report-export-dialog .parity-actions {
+  margin-bottom: 0;
+}
+@media (max-width: 600px) {
+  .pos-discount,
+  .pos-policy-card,
+  .sale-management {
+    padding: 15px;
+  }
+  .sale-management .parity-actions {
+    align-items: stretch;
+  }
+  .sale-management .parity-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* File identity remains visible after the native upload input resets. */
+.file-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+  max-width: 100%;
+  margin: 10px 0;
+}
+.file-details > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.file-details-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.file-details-copy strong {
+  font-size: var(--text-control);
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.file-details-copy small {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.file-details--compact {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.file-details--compact .file-details-copy {
+  gap: 2px;
+}
+.file-details--compact .file-details-copy strong {
+  font-weight: 400;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.file-details--compact .file-details-copy small {
+  font-size: var(--text-xs);
+}
+.media-upload .file-details {
+  margin: 0;
+}
+.training-preview-options {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 16px;
+}
+.training-preview-options p {
+  margin: 8px 0 0;
+  line-height: 1.65;
+}
+.training-preview .training-module summary .badge {
+  margin-left: 10px;
+}
+
+.training-video-dialog {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+}
+.training-video-stage {
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0d1420;
+  margin: 16px 0;
+}
+.training-video-stage iframe,
+.training-video-stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.training-video-stage video {
+  object-fit: contain;
+}
+.training-video-help {
+  margin: 12px 0;
+  line-height: 1.65;
+}
+@media (max-width: 600px) {
+  .training-video-dialog .modal-inner {
+    padding: 16px;
+  }
+  .training-video-dialog .modal-header h2 {
+    overflow-wrap: anywhere;
+  }
+  .training-video-stage {
+    border-radius: 8px;
+  }
+}
+
+/* Store expense register */
+.expense-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.expense-totals {
+  padding: 0 24px;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.expense-totals > div {
+  padding: 16px 0;
+  display: grid;
+  gap: 6px;
+}
+.expense-totals strong {
+  font-size: 22px;
+}
+.expense-checkbox {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px;
+  align-items: center;
+}
+.expense-checkbox input {
+  width: 16px;
+  height: 16px;
+}
+.expense-wide {
+  grid-column: 1 / -1;
+}
+.expense-form {
+  display: grid;
+  gap: 16px;
+}
+.expense-history article {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.expense-report {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+}
+.expense-report h3,
+.expense-report p {
+  margin: 0;
+}
+.expense-report .report-metric {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.expense-report .report-metric strong {
+  font-size: 22px;
+}
+@media (max-width: 600px) {
+  .expense-totals {
+    padding: 0 16px;
+  }
+  .expense-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.expense-intro {
+  padding: 0 24px;
+  margin: 0 0 12px;
+  max-width: 90ch;
+  line-height: 1.6;
+}
+@media (max-width: 600px) {
+  .expense-intro {
+    padding: 0 16px;
+  }
+}
+
+.expense-register-table td {
+  vertical-align: top;
+}
+.expense-register-table small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.expense-register-description {
+  min-width: 180px;
+  max-width: 300px;
+  overflow-wrap: anywhere;
+}
+.expense-register-amount {
+  white-space: nowrap;
+}
+.expense-register-controls {
+  min-width: 220px;
+}
+.expense-register-controls .expense-actions {
+  gap: 10px 16px;
+}
+.expense-recorded {
+  color: var(--green);
+  font-size: var(--text-sm);
+}
+@media (max-width: 700px) {
+  .expense-register-table,
+  .expense-register-table tbody {
+    display: block;
+  }
+  .expense-register-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .expense-register-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 16px;
+    gap: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .expense-register-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .expense-register-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .expense-register-table .expense-register-description,
+  .expense-register-table .expense-register-controls {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .expense-register-table .expense-register-description {
+    order: -1;
+  }
+}

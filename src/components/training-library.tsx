@@ -263,6 +263,7 @@ function LearnerSession({ productId }: { productId: number }) {
                       productId={productId}
                       materialId={material.id!}
                       title={material.title}
+                      fileMetadata={material}
                       onAccessLost={() => {
                         setMutation(undefined);
                         void query.refetch();

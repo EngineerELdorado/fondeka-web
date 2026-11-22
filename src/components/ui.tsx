@@ -40,7 +40,7 @@ export function Badge({ value }: { value?: string }) {
     ? "green"
     : ["PENDING", "PENDING_APPROVAL", "PROCESSING", "PARTIALLY_PAID"].includes(status)
       ? "amber"
-      : ["FAILED", "REJECTED", "CANCELLED", "EXPIRED"].includes(status)
+      : ["FAILED", "REJECTED", "CANCELLED", "EXPIRED", "VOIDED"].includes(status)
         ? "red"
         : "gray";
   return (

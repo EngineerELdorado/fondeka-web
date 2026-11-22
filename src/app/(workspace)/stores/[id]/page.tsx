@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
+  Wallet,
   Package,
   QrCode,
   ReceiptText,
@@ -27,10 +28,13 @@ import { ProductForm } from "@/components/product-form";
 import { ProductImage } from "@/components/product-image";
 import { MediaVideo } from "@/components/media-video";
 import { CustomersPanel, StaffPanel } from "@/components/store-people";
+import { ExpensesPanel } from "@/components/store-expenses";
 import { ReportsPanel, SalesPanel } from "@/components/store-sales";
 import { LinkSharing } from "@/components/link-sharing";
 import { StoreMedia } from "@/components/store-media";
 import { StoreDescription } from "@/components/store-description";
+import { StoreDeleteDialog } from "@/components/store-delete-dialog";
+import { StorePosPolicy } from "@/components/store-pos-policy";
 import { TrainingEditor } from "@/components/training-editor";
 import { hasToolAccess } from "@/lib/business-tools";
 import { useBusinessTools, useToolNavigation } from "@/components/business-tools-provider";
@@ -39,6 +43,7 @@ const storeTabIcons: Record<string, LucideIcon> = {
   sales: ReceiptText,
   customers: Users,
   reports: BarChart3,
+  expenses: Wallet,
   staff: ShieldCheck,
   settings: Settings2,
 };
@@ -68,6 +73,7 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
     ["products", t("Products", "Produits")],
     ["sales", t("Sales", "Ventes")],
     ["customers", t("Customers", "Clients")],
+    ["expenses", t("Expenses", "Dépenses")],
     ["reports", t("Reports", "Rapports")],
     ["staff", t("Team", "Équipe")],
     ["settings", t("Settings", "Paramètres")],
@@ -93,10 +99,9 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
       ? `/customer-api/commerce/products/${productId}`
       : null,
   );
-  async function mutate(mode: "delete" | "publish") {
+  async function publish() {
     if (!s || busy) return;
     if (
-      mode === "publish" &&
       toolNavigation.enabled &&
       businessAccess.accountAccess &&
       !hasToolAccess(businessAccess.accountAccess, "ONLINE_STORES")
@@ -111,30 +116,16 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
     setBusy(true);
     setError("");
     try {
-      const current =
-        mode === "publish" ? await request<Store>("/customer-api/commerce/stores/" + id) : s;
-      await request(
-        `/customer-api/commerce/stores/${id}`,
-        mode === "delete"
-          ? { method: "DELETE" }
-          : {
-              method: "PATCH",
-              body: JSON.stringify(
-                storeUpdateInput(current, { status: "ACTIVE", visibility: "PUBLIC" }),
-              ),
-            },
-      );
+      const current = await request<Store>("/customer-api/commerce/stores/" + id);
+      await request(`/customer-api/commerce/stores/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(storeUpdateInput(current, { status: "ACTIVE", visibility: "PUBLIC" })),
+      });
       invalidateQueryPaths([
         "/customer-api/commerce/stores?",
         "/customer-api/commerce/stores/" + id,
       ]);
-      notify(
-        t(
-          mode === "delete" ? "Store deleted." : "Store published.",
-          mode === "delete" ? "Boutique supprimée." : "Boutique publiée.",
-        ),
-      );
-      if (mode === "delete") router.push(posOnly ? "/stores?mode=pos" : "/stores");
+      notify(t("Store published.", "Boutique publiée."));
     } catch (e) {
       setError(
         e instanceof Error
@@ -382,8 +373,10 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                 <SalesPanel store={s} />
               ) : tab === "customers" ? (
                 <CustomersPanel store={s} />
+              ) : tab === "expenses" ? (
+                <ExpensesPanel key={s.id} store={s} />
               ) : tab === "reports" ? (
-                <ReportsPanel storeId={s.id} />
+                <ReportsPanel store={s} />
               ) : tab === "staff" ? (
                 <StaffPanel storeId={s.id} />
               ) : (
@@ -403,7 +396,7 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                       <button
                         className="button primary"
                         disabled={busy}
-                        onClick={() => void mutate("publish")}
+                        onClick={() => void publish()}
                       >
                         {t("Publish", "Publier")}
                       </button>
@@ -412,32 +405,7 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
                       {t("Delete store", "Supprimer la boutique")}
                     </button>
                   </div>
-                  {deleting && (
-                    <div className="confirmation-box">
-                      <p>
-                        {t(
-                          "Delete this store? It will no longer be available to customers or your team.",
-                          "Supprimer cette boutique ? Elle ne sera plus accessible aux clients ni à votre équipe.",
-                        )}
-                      </p>
-                      <div className="parity-actions">
-                        <button
-                          className="button secondary"
-                          onClick={() => setDeleting(false)}
-                          disabled={busy}
-                        >
-                          {t("Back", "Retour")}
-                        </button>
-                        <button
-                          className="button danger"
-                          disabled={busy}
-                          onClick={() => void mutate("delete")}
-                        >
-                          {t("Confirm deletion", "Confirmer la suppression")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <StorePosPolicy key={`${s.id}:${s.posCorrectionPolicy?.version}`} store={s} />
                   {error && (
                     <p role="alert" className="form-error">
                       {error}
@@ -448,6 +416,17 @@ export default function StoreDetail({ params }: { params: Promise<{ id: string }
             </section>
             {editing && isStoreOwner(s) && (
               <StoreForm store={s} onClose={() => setEditing(false)} />
+            )}
+            {deleting && isStoreOwner(s) && (
+              <StoreDeleteDialog
+                store={s}
+                onClose={() => setDeleting(false)}
+                onDeleted={() => {
+                  invalidateQueryPaths(["/customer-api/commerce/stores"]);
+                  notify(t("Store deleted.", "Boutique supprimée."));
+                  router.push(posOnly ? "/stores?mode=pos" : "/stores");
+                }}
+              />
             )}
             {productId && product.loading && <Loading rows={2} />}{" "}
             {product.error && <ErrorState message={product.error} retry={refresh} />}{" "}

@@ -9,6 +9,8 @@ import { demoMode } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { trainingAssetKey } from "@/lib/training";
 import { StorageUploadError, storageUploadCopy, uploadToStorage } from "@/lib/storage-upload";
+import type { FileMetadata } from "@/lib/file-metadata";
+import { FileDetails } from "./file-details";
 interface Presign {
   url: string;
   method: string;
@@ -34,10 +36,11 @@ export function MediaUpload({
   helper,
   ownerName,
   compact = false,
+  fileMetadata,
 }: {
   label: string;
   value?: string | null;
-  onChange: (url: string, duration?: number, fileName?: string) => void;
+  onChange: (url: string, duration?: number, fileName?: string, metadata?: FileMetadata) => void;
   scope: string;
   storeId?: number;
   productId?: number;
@@ -51,6 +54,7 @@ export function MediaUpload({
   helper?: string;
   ownerName?: string;
   compact?: boolean;
+  fileMetadata?: FileMetadata;
 }) {
   const { t } = useI18n();
   const privateFile = kind === "digital" || kind === "training";
@@ -61,6 +65,7 @@ export function MediaUpload({
   const [error, setError] = useState("");
   const [crop, setCrop] = useState<File>();
   const [preview, setPreview] = useState<File>();
+  const [uploaded, setUploaded] = useState<{ key: string; metadata: FileMetadata }>();
   const input = useRef<HTMLInputElement>(null);
 
   const abort = useRef<AbortController | null>(null);
@@ -276,12 +281,12 @@ export function MediaUpload({
           if (mounted.current) setProgress(percentage);
         },
       });
-      if (mounted.current && !controller.signal.aborted)
-        onChange(
-          privateFile ? signed.key : signed.publicUrl!,
-          duration ? Math.round(duration) : undefined,
-          file.name,
-        );
+      if (mounted.current && !controller.signal.aborted) {
+        const key = privateFile ? signed.key : signed.publicUrl!;
+        const metadata = { fileName: file.name, contentType, fileSize: file.size };
+        if (privateFile) setUploaded({ key, metadata });
+        onChange(key, duration ? Math.round(duration) : undefined, file.name, metadata);
+      }
     } catch (e) {
       if (mounted.current && !(e instanceof DOMException && e.name === "AbortError")) {
         if (e instanceof StorageUploadError) {
@@ -333,7 +338,15 @@ export function MediaUpload({
       {!value && kind === "video" && (
         <Video className="media-upload-icon" size={28} strokeWidth={1.4} aria-hidden="true" />
       )}
-      {privateFile && <FileUp size={25} aria-hidden="true" />}
+      {privateFile && !value && <FileUp size={25} aria-hidden="true" />}
+      {privateFile && value && (
+        <FileDetails
+          assetKey={value}
+          metadata={
+            uploaded?.key === value ? { ...fileMetadata, ...uploaded.metadata } : fileMetadata || {}
+          }
+        />
+      )}
       <input
         ref={input}
         className="sr-only"
@@ -397,7 +410,6 @@ export function MediaUpload({
           </button>
         )}
       </div>
-      {privateFile && value && <span className="muted">{t("File added", "Fichier ajouté")}</span>}
       {busy && (
         <div className="media-upload-progress">
           <span role="status">

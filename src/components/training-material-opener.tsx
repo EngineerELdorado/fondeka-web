@@ -9,6 +9,10 @@ import {
 } from "@/lib/training";
 import { useI18n } from "@/lib/i18n";
 import { Modal, Loading } from "./ui";
+import type { FileMetadata } from "@/lib/file-metadata";
+import { FileDetails } from "./file-details";
+import { trainingVideoSource } from "@/lib/training-video";
+import { TrainingVideoPlayer } from "./training-video-player";
 
 export function TrainingMaterialOpener({
   productId,
@@ -17,6 +21,7 @@ export function TrainingMaterialOpener({
   author = false,
   actionLabel,
   onAccessLost,
+  fileMetadata,
 }: {
   productId: number;
   materialId: string;
@@ -24,6 +29,7 @@ export function TrainingMaterialOpener({
   author?: boolean;
   actionLabel?: string;
   onAccessLost?: () => void;
+  fileMetadata?: FileMetadata;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -86,6 +92,7 @@ export function TrainingMaterialOpener({
     setError("");
     setBusy(false);
   };
+  const video = access ? trainingVideoSource(access) : undefined;
   return (
     <>
       <button
@@ -100,23 +107,50 @@ export function TrainingMaterialOpener({
           (author ? t("Preview", "Aperçu") : t("Open material", "Ouvrir la ressource"))}
       </button>
       {open && (
-        <Modal title={title} onClose={close}>
+        <Modal
+          title={title}
+          onClose={close}
+          className={video ? "training-video-dialog" : undefined}
+        >
           {busy ? (
             <Loading rows={2} />
           ) : access ? (
             <>
-              <p>{access.fileName || t("Your material is ready.", "Votre ressource est prête.")}</p>
+              {access.type === "FILE" ? (
+                <FileDetails
+                  metadata={{
+                    ...fileMetadata,
+                    fileName: access.fileName ?? fileMetadata?.fileName,
+                    contentType: access.contentType ?? fileMetadata?.contentType,
+                  }}
+                />
+              ) : !video ? (
+                <p>{t("Your material is ready.", "Votre ressource est prête.")}</p>
+              ) : null}
+              {video && <TrainingVideoPlayer key={video.src} source={video} title={title} />}
+              {video?.kind === "YOUTUBE" && (
+                <p className="muted small training-video-help">
+                  {t(
+                    "If the video is unavailable here, you can open it on YouTube.",
+                    "Si la vidéo est indisponible ici, vous pouvez l’ouvrir sur YouTube.",
+                  )}
+                </p>
+              )}
               <a
-                className="button primary"
+                className={`button ${video ? "secondary" : "primary"}`}
                 href={access.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 referrerPolicy="no-referrer"
               >
                 <ExternalLink size={16} />
-                {access.type === "FILE"
-                  ? t("Open file", "Ouvrir le fichier")
-                  : t("Open link", "Ouvrir le lien")}
+                {video?.kind === "YOUTUBE"
+                  ? t("Open on YouTube", "Ouvrir sur YouTube")
+                  : video?.kind === "FILE"
+                    ? t("Open original video", "Ouvrir la vidéo originale")
+                    : access.type === "FILE"
+                      ? t("Open file", "Ouvrir le fichier")
+                      : t("Open link", "Ouvrir le lien")}
               </a>
             </>
           ) : (

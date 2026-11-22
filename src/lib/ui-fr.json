@@ -1,5 +1,18 @@
 {
   "Business ID": "Business ID",
+  "Enter a valid amount in this currency.": "Saisissez un montant valide dans cette devise.",
+  "Enter a valid positive amount.": "Saisissez un montant positif valide.",
+  "Choose a discount type.": "Choisissez un type de remise.",
+  "The discount must be less than 100%.": "La remise doit être inférieure à 100 %.",
+  "Enter a discount reason (up to 500 characters).": "Saisissez le motif de la remise (500 caractères maximum).",
+  "The discount was not confirmed. Recalculate the sale before continuing.": "La remise n’a pas été confirmée. Recalculez la vente avant de continuer.",
+  "Enter correction windows in whole hours.": "Saisissez les délais de correction en heures entières.",
+  "Use 0–8760 hours; the owner window must cover the staff window.": "Utilisez 0 à 8760 heures ; le délai propriétaire doit couvrir celui de l’équipe.",
+  "The sale update could not be verified. Retry the same request.": "La modification n’a pas pu être vérifiée. Réessayez la même demande.",
+  "The report job could not be verified. Retry the same request.": "La génération du rapport n’a pas pu être vérifiée. Réessayez la même demande.",
+  "The saved operation could not be read. Contact support before submitting another update.": "L’opération enregistrée n’a pas pu être lue. Contactez l’assistance avant toute nouvelle modification.",
+  "Enable session storage before saving this update so a lost response can be recovered safely.": "Autorisez le stockage de session avant d’enregistrer cette modification pour pouvoir récupérer son résultat si la réponse est perdue.",
+  "The update could not be confirmed.": "La modification n’a pas pu être confirmée.",
   "A shared request-rate budget or sandbox operation quota was reached. Honor Retry-After when present and retry with backoff.": "Un budget partagé de requêtes ou un quota d’opération sandbox a été atteint. Respectez Retry-After lorsqu’il est présent et espacez les tentatives.",
   "Simulate RATE_LIMITED in sandbox. Test actual configured rate limits only in an isolated test environment; never load-test LIVE.": "Simulez RATE_LIMITED en sandbox. Testez les limites configurées uniquement dans un environnement de test isolé ; ne faites jamais de test de charge en LIVE.",
   "API admission protection is temporarily unavailable. No payment was submitted by this rejected attempt.": "La protection d’admission de l’API est temporairement indisponible. Cette tentative refusée n’a soumis aucun paiement.",
@@ -448,5 +461,11 @@
   "Simulate BUSINESS_API_LIVE_PAYMENTS_DISABLED in sandbox. For LIVE, ask Fondeka to enable payments for this business; accepted payments remain readable and replayable.": "Simulez BUSINESS_API_LIVE_PAYMENTS_DISABLED en sandbox. En LIVE, demandez à Fondeka d’activer les paiements pour ce Business ; les paiements acceptés restent consultables et relançables à l’identique.",
   "Wallet bill payments are unavailable.": "Les paiements de factures depuis le portefeuille sont indisponibles.",
   "Use an account whose wallet payment method is disabled.": "Utilisez un compte dont le moyen de paiement par portefeuille est désactivé.",
-  "Sandbox: bill processing remains unresolved. Virtual funds stay debited and no terminal webhook is emitted.": "Sandbox : le résultat de la facture reste indéterminé. Les fonds virtuels restent débités et aucun webhook final n’est émis."
+  "Sandbox: bill processing remains unresolved. Virtual funds stay debited and no terminal webhook is emitted.": "Sandbox : le résultat de la facture reste indéterminé. Les fonds virtuels restent débités et aucun webhook final n’est émis.",
+  "Expenses": "Dépenses",
+  "Check the expense details.": "Vérifiez les détails de la dépense.",
+  "Choose a valid payment date, today or earlier.": "Choisissez une date de paiement valide, aujourd’hui ou avant.",
+  "Enter an expense description and check the field lengths.": "Saisissez une description de la dépense et vérifiez la longueur des champs.",
+  "The expense amount is too large.": "Le montant de la dépense est trop élevé.",
+  "The expense could not be confirmed. Recover the saved request before recording another expense.": "La dépense n’a pas pu être confirmée. Récupérez la demande enregistrée avant de saisir une autre dépense."
 }

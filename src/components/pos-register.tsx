@@ -31,6 +31,8 @@ import { PosCatalog } from "./pos-catalog";
 import { PaymentMethodWidget } from "./payment-method-widget";
 import { parseCommerceQuote, type CommercePaymentQuote } from "@/lib/commerce-payments";
 import type { PaymentSelection } from "@/lib/business-tools";
+import { assertDiscountQuote, discountInput, hasPosFeature } from "@/lib/pos-management";
+import { DiscountFields, emptyDiscount, type DiscountDraft } from "./pos-discount";
 export function PosRegister({ store }: { store: Store }) {
   const { t } = useI18n();
   const { refresh, notify } = useWorkspace();
@@ -64,6 +66,7 @@ export function PosRegister({ store }: { store: Store }) {
   const [cashStatus, setCashStatus] = useState<PosInput["paymentStatus"]>("PAID");
   const [paid, setPaid] = useState("");
   const [due, setDue] = useState("");
+  const [discount, setDiscount] = useState<DiscountDraft>(emptyDiscount);
   const [confirmed, setConfirmed] = useState(false);
   const [receipt, setReceipt] = useState<Order>();
   const [external, setExternal] = useState<Order>();
@@ -156,6 +159,9 @@ export function PosRegister({ store }: { store: Store }) {
       paymentCurrency: currency,
       paymentMode: mode,
       paymentStatus: mode === "FONDEKA" ? "PAID" : cashStatus,
+      ...(discount.enabled
+        ? { discount: discountInput(discount.type, discount.value, discount.reason, billing) }
+        : {}),
       ...(customer
         ? {
             customerId: customer.id,
@@ -194,6 +200,7 @@ export function PosRegister({ store }: { store: Store }) {
           paymentDueDate: undefined,
         }),
       });
+      assertDiscountQuote(payload(mode).discount, q);
       setQuote(q);
       setConfirmed(false);
     } catch (e) {
@@ -217,6 +224,7 @@ export function PosRegister({ store }: { store: Store }) {
           t("Quote expired. Calculate the sale again.", "Le devis a expiré. Recalculez la vente."),
         );
       const body = payload(mode);
+      assertDiscountQuote(body.discount, quote);
       if (
         mode === "FONDEKA" &&
         (!paymentPreview ||
@@ -244,6 +252,7 @@ export function PosRegister({ store }: { store: Store }) {
       setCart([]);
       setQuote(undefined);
       setCustomer(undefined);
+      setDiscount(emptyDiscount);
       invalidateQueryPaths([
         `/customer-api/commerce/stores/${store.id}/products`,
         `/customer-api/commerce/stores/${store.id}/pos/products/search`,
@@ -292,7 +301,13 @@ export function PosRegister({ store }: { store: Store }) {
     paid,
     due,
   };
-  const saleKey = JSON.stringify(payload("FONDEKA"));
+  // Incomplete discount fields are validated on Next; they must not break rendering.
+  let saleKey = "";
+  try {
+    saleKey = JSON.stringify(payload("FONDEKA"));
+  } catch {
+    /* The field validation explains the missing value. */
+  }
   const preview = paymentPreview?.saleKey === saleKey ? paymentPreview : undefined;
   function setDecision(patch: Partial<SaleDecision>) {
     if (patch.mode) {
@@ -402,6 +417,16 @@ export function PosRegister({ store }: { store: Store }) {
               </select>
             </label>
           </div>
+          <DiscountFields
+            value={discount}
+            onChange={(value) => {
+              setDiscount(value);
+              invalidate();
+            }}
+            currency={billing}
+            available={hasPosFeature(store, "discounts")}
+            disabled={busy || uncertain}
+          />
         </div>
       ),
     },
@@ -445,6 +470,15 @@ export function PosRegister({ store }: { store: Store }) {
                   : "—"}
             </p>
           </FlowReview>
+          {quote?.discount && (
+            <FlowReview title={t("Customer discount", "Remise client")}>
+              <p>
+                {money(quote.subtotalBeforeDiscountAmount, billing)} −{" "}
+                {money(quote.discountAmount, quote.discountCurrency || billing)}
+              </p>
+              <p>{quote.discount.reason}</p>
+            </FlowReview>
+          )}
         </>
       ),
     },
@@ -764,6 +798,11 @@ export function PosRegister({ store }: { store: Store }) {
             {canUseStore(store, "PRODUCTS") && (
               <Link className="text-button" href={`/stores/${store.id}?tab=products`}>
                 {t("Manage products", "Gérer les produits")}
+              </Link>
+            )}
+            {canUseStore(store, "SALES") && (
+              <Link className="text-button" href={`/stores/${store.id}?tab=sales`}>
+                {t("Sales & balances", "Ventes et soldes")}
               </Link>
             )}
           </div>

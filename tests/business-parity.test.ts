@@ -59,7 +59,7 @@ const store: Store = {
 };
 test("owner routes expose only the contract methods, not arbitrary customer/admin financial operations", () => {
   const routes: [string, string[]][] = [
-    ["commerce/stores/7", ["GET", "PATCH", "DELETE"]],
+    ["commerce/stores/7", ["GET", "PATCH"]],
     ["payment_requests/9", ["GET", "PUT", "DELETE"]],
     ["payment_requests/9/collect", ["POST"]],
     ["payment_requests/9/payments", ["GET"]],

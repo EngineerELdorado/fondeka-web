@@ -297,7 +297,10 @@ export function businessDestination(value: string): string | undefined {
     query.set("request", url.searchParams.get("request")!);
   if (/^\/stores(?:\/\d+)?$/.test(url.pathname)) {
     const tab = url.searchParams.get("tab");
-    if (tab && ["products", "sales", "customers", "reports", "staff", "settings"].includes(tab))
+    if (
+      tab &&
+      ["products", "sales", "customers", "expenses", "reports", "staff", "settings"].includes(tab)
+    )
       query.set("tab", tab);
     for (const key of ["page", "product", "customer", "customerSalesPage", "training"])
       if (/^\d+$/.test(url.searchParams.get(key) || "")) query.set(key, url.searchParams.get(key)!);

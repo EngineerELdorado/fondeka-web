@@ -1,4 +1,5 @@
 "use client";
+import { ExpenseReportMetrics } from "./store-expenses";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useQuery } from "@/lib/use-query";
@@ -12,6 +13,9 @@ import type { Order, Page, SalesReport, Store } from "@/lib/types";
 import { useWorkspace } from "./workspace-provider";
 import { Badge, Loading, ErrorState, Empty, Modal, Pagination } from "./ui";
 import { CollectionDialog } from "./collection-dialog";
+import { SaleManagement } from "./sale-management";
+import { ReportExportButton } from "./store-report-export";
+import { invalidateQueryPaths } from "@/lib/query-cache";
 export function SalesPanel({ store, customerId }: { store: Store; customerId?: number }) {
   const storeId = store.id;
   const { t } = useI18n();
@@ -52,8 +56,11 @@ export function SalesPanel({ store, customerId }: { store: Store; customerId?: n
                   t("Reference", "Référence"),
                   t("Customer", "Client"),
                   t("Amount", "Montant"),
+                  t("Paid", "Payé"),
+                  t("Balance due", "Solde dû"),
                   t("Date", "Date"),
                   t("Status", "Statut"),
+                  t("Actions", "Actions"),
                 ].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
@@ -69,9 +76,28 @@ export function SalesPanel({ store, customerId }: { store: Store; customerId?: n
                   </td>
                   <td>{o.buyerName || t("Walk-in customer", "Client de passage")}</td>
                   <td className="amount">{money(o.totalAmount, o.totalCurrency)}</td>
+                  <td className="amount">
+                    {money(o.amountPaid, o.amountPaidCurrency || o.totalCurrency)}
+                  </td>
+                  <td className="amount">
+                    {money(
+                      o.balanceDue ?? o.outstandingAmount,
+                      o.balanceDueCurrency || o.outstandingCurrency || o.totalCurrency,
+                    )}
+                  </td>
                   <td>{date(o.createdAt)}</td>
                   <td>
                     <Badge value={o.posPaymentStatus || o.status} />
+                  </td>
+                  <td>
+                    <button
+                      className="button secondary"
+                      onClick={() => update({ sale: o.reference })}
+                    >
+                      {o.channel === "POS"
+                        ? t("Manage sale", "Gérer la vente")
+                        : t("View details", "Voir les détails")}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -109,13 +135,16 @@ export function SaleDetail({
   const scopedPos =
     store.accessType === "STAFF" && order.channel === "POS" && canUseStore(store, "POS");
   const details = useQuery<Order>(
-    scopedPos
+    order.channel === "POS" && canUseStore(store, "POS")
       ? posOrderPath(store.id, order.reference)
       : order.accessToken
         ? `/customer-api/commerce/orders/${encodeURIComponent(order.reference)}?${new URLSearchParams({ accessToken: order.accessToken })}`
         : null,
   );
-  const sale = details.data || order;
+  const [updatedSale, setUpdatedSale] = useState<Order>();
+  const current = details.data || order;
+  const sale =
+    updatedSale && (updatedSale.version ?? -1) >= (current.version ?? -1) ? updatedSale : current;
   const [collect, setCollect] = useState(false);
   const transaction = useQuery<{
     reference?: string;
@@ -197,6 +226,26 @@ export function SaleDetail({
       </div>
       {details.loading && <Loading rows={2} />}{" "}
       {details.error && <ErrorState message={details.error} retry={refresh} />}
+      {sale.channel === "POS" && (
+        <SaleManagement
+          store={store}
+          sale={sale}
+          onUpdated={(value) => {
+            setUpdatedSale(value);
+            invalidateQueryPaths([
+              `/customer-api/commerce/stores/${store.id}/orders`,
+              `/customer-api/commerce/stores/${store.id}/customers`,
+              `/customer-api/commerce/stores/${store.id}/pos/orders`,
+              `/customer-api/commerce/stores/${store.id}/pos/products`,
+              `/customer-api/commerce/stores/${store.id}/products`,
+              `/customer-api/commerce/stores/${store.id}/reports`,
+              "/customer-api/commerce/orders",
+            ]);
+            notify(t("Sale updated.", "Vente mise à jour."));
+            void details.refetch();
+          }}
+        />
+      )}
       <dl className="detail-list">
         {[
           [t("Store", "Boutique"), sale.storeName],
@@ -269,6 +318,26 @@ export function SaleDetail({
           </strong>
         </div>
       ))}
+      {sale.discount && (
+        <div className="correction-preview">
+          <div className="detail-row">
+            <span>{t("Before discount", "Avant remise")}</span>
+            <strong>
+              {money(
+                sale.subtotalBeforeDiscountAmount,
+                sale.discountCurrency || sale.totalCurrency,
+              )}
+            </strong>
+          </div>
+          <div className="detail-row">
+            <span>{t("Customer discount", "Remise client")}</span>
+            <strong>
+              − {money(sale.discountAmount, sale.discountCurrency || sale.totalCurrency)}
+            </strong>
+          </div>
+          <p className="muted small">{sale.discount.reason}</p>
+        </div>
+      )}
       {transaction.data && (
         <div className="info-box">
           <strong>
@@ -313,7 +382,8 @@ export function SaleDetail({
     </Modal>
   );
 }
-export function ReportsPanel({ storeId }: { storeId: number }) {
+export function ReportsPanel({ store }: { store: Store }) {
+  const storeId = store.id;
   const { t } = useI18n();
   const { values, update } = useUrlState();
   const { refresh } = useWorkspace();
@@ -324,7 +394,13 @@ export function ReportsPanel({ storeId }: { storeId: number }) {
   let query = "";
   let error = "";
   try {
-    query = reportQuery(period, currency, from, to);
+    query = reportQuery(
+      period,
+      currency,
+      from,
+      to,
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    );
   } catch {
     error = t("Choose a valid date range.", "Choisissez une période valide.");
   }
@@ -336,9 +412,14 @@ export function ReportsPanel({ storeId }: { storeId: number }) {
     <>
       <div className="panel-heading">
         <h2>{t("Reports", "Rapports")}</h2>
-        <button className="text-button" onClick={refresh}>
-          {t("Refresh", "Actualiser")}
-        </button>
+        <div className="heading-actions">
+          <button className="text-button" onClick={refresh}>
+            {t("Refresh", "Actualiser")}
+          </button>
+          {r && !error && !report.loading && !report.error && (
+            <ReportExportButton key={storeId} store={store} report={r} />
+          )}
+        </div>
       </div>
       <div className="parity-filters inset">
         <label>
@@ -391,8 +472,9 @@ export function ReportsPanel({ storeId }: { storeId: number }) {
         r && (
           <div className="report-content">
             <p className="muted">
-              {r.fromDate} — {r.toDate} · {r.currency}
+              {r.fromDate} — {r.toDate} · {r.currency} · {r.timeZone}
             </p>
+            <ExpenseReportMetrics report={r} />
             <div className="report-grid">
               {[
                 [t("Sales", "Ventes"), money(r.totalSalesAmount, r.currency)],
@@ -403,6 +485,20 @@ export function ReportsPanel({ storeId }: { storeId: number }) {
                   money(r.merchantProceedsAmount, r.currency),
                 ],
                 [t("Orders", "Commandes"), r.orderCount],
+                ...(r.discountAmount != null
+                  ? [[t("Discounts", "Remises"), money(r.discountAmount, r.currency)]]
+                  : []),
+                ...(r.voidedOrderCount != null
+                  ? [[t("Voided sales", "Ventes annulées"), r.voidedOrderCount]]
+                  : []),
+                ...(r.paymentsReceivedAmount != null
+                  ? [
+                      [
+                        t("Payments received in period", "Paiements reçus sur la période"),
+                        money(r.paymentsReceivedAmount, r.paymentsReceivedCurrency || r.currency),
+                      ],
+                    ]
+                  : []),
                 [
                   t("Paid / partial / credit", "Payées / partielles / à crédit"),
                   `${r.paidOrderCount} / ${r.partialOrderCount} / ${r.creditOrderCount}`,

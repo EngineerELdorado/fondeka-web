@@ -426,11 +426,13 @@ test("workspace startup reads once and menu/deep-link navigation immediately reu
     "/overview",
     "/stores",
     "/stores/42?tab=products",
+    "/stores/42?tab=expenses",
     "/pos?store=42",
     "/payment-requests?request=7",
     "/developers",
     "/stores",
   ]) {
+    assert.equal(businessDestination(destination), destination);
     const entering = subject.enter(destination);
     assert.equal(subject.getSnapshot().loading, false);
     assert.equal(mayMountOwnerData(subject.getSnapshot(), destination, true), true);

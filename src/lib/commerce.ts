@@ -14,7 +14,14 @@ export function normalizePayerFields(fields: PayerField[]) {
     return { key, label, required: field.required === true };
   });
 }
-export const staffPermissions = ["POS", "REPORTS", "PRODUCTS", "SALES", "CUSTOMERS"] as const;
+export const staffPermissions = [
+  "POS",
+  "REPORTS",
+  "PRODUCTS",
+  "SALES",
+  "CUSTOMERS",
+  "EXPENSES",
+] as const;
 export function isStoreOwner(store: Store) {
   return store.accessType === "OWNER";
 }
@@ -26,6 +33,7 @@ export function canUseStore(store: Store, permission: string) {
     SALES: "canViewSales",
     CUSTOMERS: "canManageCustomers",
     REPORTS: "canViewReports",
+    EXPENSES: "canManageExpenses",
   }[permission.toUpperCase()] as keyof NonNullable<Store["capabilities"]> | undefined;
   if (store.capabilities) return !!key && store.capabilities[key] === true;
   return (
@@ -55,8 +63,13 @@ export function storeTabAllowed(store: Store, tab: string) {
     ? canManageStore(store, tab === "staff" ? "canManageStaff" : "canManageStore")
     : canUseStore(
         store,
-        { products: "PRODUCTS", sales: "SALES", customers: "CUSTOMERS", reports: "REPORTS" }[tab] ||
-          "",
+        {
+          products: "PRODUCTS",
+          sales: "SALES",
+          customers: "CUSTOMERS",
+          reports: "REPORTS",
+          expenses: "EXPENSES",
+        }[tab] || "",
       );
 }
 export function validateCashSale(input: PosInput, total: number) {
@@ -77,11 +90,18 @@ export function validateCashSale(input: PosInput, total: number) {
   )
     throw new Error("The amount received must be greater than zero and less than the total.");
 }
-export function reportQuery(period: string, currency: string, from?: string, to?: string) {
+export function reportQuery(
+  period: string,
+  currency: string,
+  from?: string,
+  to?: string,
+  timeZone?: string,
+) {
   if (period === "custom" && (!from || !to || from > to))
     throw new Error("Choose a valid date range.");
   return new URLSearchParams({
     ...(currency ? { currency } : {}),
+    ...(timeZone ? { timeZone } : {}),
     ...(period === "custom" ? { from: from!, to: to! } : { period }),
   }).toString();
 }

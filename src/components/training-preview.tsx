@@ -12,37 +12,76 @@ import {
 import { useWorkspace } from "./workspace-provider";
 import { Empty, ErrorState, Loading, PageHeading } from "./ui";
 import { TrainingMaterialOpener } from "./training-material-opener";
+import { FileDetails } from "./file-details";
+import type { FileMetadata } from "@/lib/file-metadata";
 
 export function TrainingPreview({
   productId,
   onClose,
+  fileMetadata,
 }: {
   productId: number;
   onClose: () => void;
+  fileMetadata?: ReadonlyMap<string, FileMetadata>;
 }) {
   const { accountKey } = useWorkspace();
   return (
-    <PreviewSession key={`${accountKey}:${productId}`} productId={productId} onClose={onClose} />
+    <PreviewSession
+      key={`${accountKey}:${productId}`}
+      productId={productId}
+      onClose={onClose}
+      fileMetadata={fileMetadata}
+    />
   );
 }
 
-function PreviewSession({ productId, onClose }: { productId: number; onClose: () => void }) {
+function PreviewSession({
+  productId,
+  onClose,
+  fileMetadata,
+}: {
+  productId: number;
+  onClose: () => void;
+  fileMetadata?: ReadonlyMap<string, FileMetadata>;
+}) {
   const { t } = useI18n();
   // Recheck creator access on entry and on focus; never use the paid learner APIs.
   const query = useTrainingQuery<TrainingCurriculum>(trainingPath(productId, true));
   const [current, setCurrent] = useState<string>();
+  const [includeDrafts, setIncludeDrafts] = useState(false);
   const [progress, setProgress] = useState<{ version: number; ids: ReadonlySet<string> }>();
   const lessonHeading = useRef<HTMLHeadingElement>(null);
   let curriculum: TrainingCurriculum | undefined;
+  let hasDrafts = false;
   let error = query.error;
   try {
     if (query.data) {
       const source = parseTrainingCurriculum(query.data);
       if (source.productId !== productId)
         throw new Error(t("Training unavailable.", "Formation indisponible."));
+      hasDrafts = source.modules.some((module) =>
+        module.materials.some((material) => !module.published || !material.published),
+      );
+      const withDetails = {
+        ...source,
+        modules: source.modules.map((module) => ({
+          ...module,
+          materials: module.materials.map((material) => {
+            const local = material.assetKey ? fileMetadata?.get(material.assetKey) : undefined;
+            return local
+              ? {
+                  ...material,
+                  contentType: material.contentType ?? local.contentType,
+                  fileSize: material.fileSize ?? local.fileSize,
+                }
+              : material;
+          }),
+        })),
+      };
       curriculum = trainingPreviewCurriculum(
-        source,
+        withDetails,
         progress?.version === source.version ? progress.ids : undefined,
+        includeDrafts,
       );
     }
   } catch (failure) {
@@ -72,8 +111,8 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
           <strong>{t("Learner preview", "Aperçu apprenant")}</strong>
           <p>
             {t(
-              "Explore the published lessons without signing in or purchasing. Progress here is temporary and resets when you leave.",
-              "Explorez les leçons publiées sans connexion ni achat. La progression est temporaire et se réinitialise en quittant l’aperçu.",
+              "Review the saved lessons as a learner. This private preview does not publish content or change learner progress.",
+              "Consultez les leçons enregistrées comme un apprenant. Cet aperçu privé ne publie aucun contenu et ne modifie pas la progression des apprenants.",
             )}
           </p>
         </div>
@@ -89,6 +128,33 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
       ) : (
         curriculum && (
           <>
+            {hasDrafts && (
+              <div className="training-preview-options">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={includeDrafts}
+                    onChange={(event) => {
+                      setIncludeDrafts(event.target.checked);
+                      setCurrent(undefined);
+                      setProgress(undefined);
+                    }}
+                  />
+                  {t("Include draft lessons", "Inclure les leçons en brouillon")}
+                </label>
+                <p className="muted small">
+                  {includeDrafts
+                    ? t(
+                        "Drafts are visible only in this author preview. Learners still see published lessons only.",
+                        "Les brouillons sont visibles uniquement dans cet aperçu auteur. Les apprenants voient toujours uniquement les leçons publiées.",
+                      )
+                    : t(
+                        "You can review saved drafts before publishing them.",
+                        "Vous pouvez consulter les brouillons enregistrés avant de les publier.",
+                      )}
+                </p>
+              </div>
+            )}
             <PageHeading
               icon={BookOpen}
               title={curriculum.title}
@@ -112,12 +178,33 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
             {!curriculum.totalMaterials ? (
               <Empty
                 icon={BookOpen}
-                title={t("No published lessons yet", "Aucune leçon publiée pour le moment")}
-                description={t(
-                  "Publish a module and at least one material in the curriculum to preview them here. The product can stay in draft.",
-                  "Publiez un module et au moins une ressource dans le programme pour les voir ici. Le produit peut rester en brouillon.",
+                title={
+                  includeDrafts
+                    ? t("No saved lessons yet", "Aucune leçon enregistrée")
+                    : t("No published lessons yet", "Aucune leçon publiée pour le moment")
+                }
+                description={
+                  hasDrafts
+                    ? t(
+                        "Include draft lessons to review your content before publication.",
+                        "Incluez les leçons en brouillon pour consulter votre contenu avant publication.",
+                      )
+                    : t(
+                        "Add a file or link in the curriculum and save it to preview the lesson here.",
+                        "Ajoutez un fichier ou un lien au programme, puis enregistrez-le pour prévisualiser la leçon ici.",
+                      )
+                }
+              >
+                {hasDrafts && (
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => setIncludeDrafts(true)}
+                  >
+                    {t("Preview draft lessons", "Voir les leçons en brouillon")}
+                  </button>
                 )}
-              />
+              </Empty>
             ) : (
               <>
                 <div className="training-progress">
@@ -159,6 +246,9 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
                           <strong>
                             {index + 1}. {module.title}
                           </strong>
+                          {!module.published && (
+                            <span className="badge amber">{t("Draft", "Brouillon")}</span>
+                          )}
                         </summary>
                         {module.description && <p>{module.description}</p>}
                         <ol>
@@ -177,6 +267,9 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
                                 <small>
                                   {item.type === "FILE" ? t("File", "Fichier") : t("Link", "Lien")}
                                 </small>
+                                {(!item.published || !module.published) && (
+                                  <span className="badge amber">{t("Draft", "Brouillon")}</span>
+                                )}
                               </button>
                             </li>
                           ))}
@@ -194,11 +287,13 @@ function PreviewSession({ productId, onClose }: { productId: number; onClose: ()
                           {material.title}
                         </h2>
                         <p className="training-notes">{material.description}</p>
+                        {material.type === "FILE" && <FileDetails metadata={material} />}
                         <TrainingMaterialOpener
                           key={`${curriculum.version}:${material.id}`}
                           productId={productId}
                           materialId={material.id!}
                           title={material.title}
+                          fileMetadata={material}
                           author
                           actionLabel={t("Open material", "Ouvrir la ressource")}
                           onAccessLost={() => void query.refetch()}

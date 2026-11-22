@@ -1,4 +1,13 @@
 const routes: [RegExp, string[]][] = [
+  [/^customer-api\/commerce\/stores\/\d+\/expenses$/, ["GET", "POST"]],
+  [
+    /^customer-api\/commerce\/stores\/\d+\/expenses\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/history$/i,
+    ["GET"],
+  ],
+  [
+    /^customer-api\/commerce\/stores\/\d+\/expenses\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/(corrections|voids)$/i,
+    ["POST"],
+  ],
   [/^customer-api\/commerce\/products\/\d+\/training$/, ["GET", "PUT"]],
   [/^customer-api\/commerce\/products\/\d+\/training\/assets\/presign$/, ["POST"]],
   [
@@ -32,7 +41,19 @@ const routes: [RegExp, string[]][] = [
   [/^customer-api\/crypto-networks\/payment-methods\/\d+\/networks$/, ["GET"]],
   [/^customer-api\/commerce\/stores$/, ["GET", "POST"]],
   [/^customer-api\/commerce\/stores\/shared$/, ["GET"]],
-  [/^customer-api\/commerce\/stores\/\d+$/, ["GET", "PATCH", "DELETE"]],
+  [/^customer-api\/commerce\/stores\/\d+$/, ["GET", "PATCH"]],
+  [/^customer-api\/commerce\/stores\/\d+\/deletion-(challenges|confirmations)$/, ["POST"]],
+  [/^customer-api\/commerce\/stores\/\d+\/pos\/correction-policy$/, ["PATCH"]],
+  [
+    /^customer-api\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+\/(payments|corrections|voids)$/,
+    ["POST"],
+  ],
+  [
+    /^customer-api\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+\/corrections\/quote$/,
+    ["POST"],
+  ],
+  [/^customer-api\/commerce\/stores\/\d+\/reports\/sales\/exports$/, ["POST"]],
+  [/^customer-api\/commerce\/stores\/\d+\/reports\/sales\/exports\/[A-Za-z0-9_-]+$/, ["GET"]],
   [/^customer-api\/commerce\/stores\/\d+\/products$/, ["GET", "POST"]],
   [/^customer-api\/commerce\/products\/\d+$/, ["GET", "PATCH"]],
   [/^customer-api\/commerce\/stores\/\d+\/orders$/, ["GET"]],
@@ -79,6 +100,19 @@ const routes: [RegExp, string[]][] = [
 ];
 export function allowedProxyRoute(path: string, method: string) {
   return routes.some(([pattern, methods]) => pattern.test(path) && methods.includes(method));
+}
+export function forwardsIdempotencyKey(path: string, method: string) {
+  return (
+    method === "POST" &&
+    (/^customer-api\/commerce\/stores\/\d+\/expenses(?:\/[a-f0-9-]{36}\/(?:corrections|voids))?$/i.test(
+      path,
+    ) ||
+      /^customer-api\/businesses\/\d+\/sandbox-wallets\/(top-ups|convert)$/.test(path) ||
+      /^customer-api\/commerce\/stores\/\d+\/pos\/orders\/[A-Za-z0-9_-]+\/(payments|corrections|voids)$/.test(
+        path,
+      ) ||
+      /^customer-api\/commerce\/stores\/\d+\/reports\/sales\/exports$/.test(path))
+  );
 }
 export function proxyBodyLimit(path: string, method: string) {
   return method === "PUT" && /^customer-api\/commerce\/products\/\d+\/training$/.test(path)

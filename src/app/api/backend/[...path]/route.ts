@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allowedProxyRoute, proxyBodyLimit } from "@/lib/proxy-policy";
+import { allowedProxyRoute, forwardsIdempotencyKey, proxyBodyLimit } from "@/lib/proxy-policy";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -42,8 +42,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         "X-Client-Platform": "WEB",
         "X-Device-Platform": "WEB",
         "Accept-Language": request.headers.get("accept-language") || "en",
-        ...(/^customer-api\/businesses\/\d+\/sandbox-wallets\/(top-ups|convert)$/.test(route) &&
-        request.headers.has("idempotency-key")
+        ...(forwardsIdempotencyKey(route, request.method) && request.headers.has("idempotency-key")
           ? { "Idempotency-Key": request.headers.get("idempotency-key")! }
           : {}),
         ...(request.headers.get("x-client-version")

@@ -131,6 +131,53 @@ test("preview preserves lesson order and uses the learner percentage and next-ma
   );
   assert.ok(preview.modules[0].materials.every((item) => item.assetKey === null));
 });
+test("an author can include saved drafts in preview without publishing, exposing sources or writing progress", () => {
+  const source: TrainingCurriculum = {
+    productId: 42,
+    title: "Draft course",
+    version: 2,
+    modules: [
+      {
+        ...module(),
+        published: false,
+        materials: [
+          {
+            id: lessonId,
+            title: "Draft worksheet",
+            type: "FILE",
+            published: false,
+            assetKey: key,
+            fileName: "lesson-one.pdf",
+            contentType: "application/pdf",
+            fileSize: 1572864,
+          },
+          { ...module().materials[0], id: secondId },
+        ],
+      },
+    ],
+    totalMaterials: 2,
+    completedMaterials: 0,
+    progressPercentage: 0,
+    nextMaterialId: lessonId,
+  };
+  const before = structuredClone(source);
+  assert.equal(trainingPreviewCurriculum(source).totalMaterials, 0);
+  const preview = trainingPreviewCurriculum(source, new Set([lessonId]), true);
+  assert.equal(preview.totalMaterials, 2);
+  assert.equal(preview.completedMaterials, 1);
+  assert.equal(preview.modules[0].published, false);
+  assert.equal(preview.modules[0].materials[0].published, false);
+  assert.equal(preview.modules[0].materials[0].fileName, "lesson-one.pdf");
+  assert.equal(preview.modules[0].materials[0].fileSize, 1572864);
+  assert(
+    preview.modules[0].materials.every(
+      (material) => material.assetKey === null && material.linkUrl === null,
+    ),
+  );
+  assert.deepEqual(source, before);
+  assert.equal(trainingPreviewCurriculum(source).totalMaterials, 0);
+  assert.equal(trainingPreviewCurriculum(source, undefined, true).completedMaterials, 0);
+});
 test("training demo exercises draft saves, version conflicts, ID-preserving moves and unrestricted learner progress", () => {
   const products: Product[] = [
     {
@@ -292,6 +339,7 @@ test("curriculum writes retain server IDs and ordered arrays while omitting UI/r
     assetKey: key,
     fileName: "worksheet.pdf",
     contentType: "application/pdf",
+    fileSize: 1572864,
   });
   const payload = trainingPayload(3, [source]);
   assert.equal(payload.version, 3);
