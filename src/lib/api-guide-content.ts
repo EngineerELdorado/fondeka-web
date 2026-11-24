@@ -1,4 +1,5 @@
 import type { BusinessApiTopic } from "./business-api-docs";
+import type { ApiPaymentKind } from "./api-catalog";
 import { billPaymentsTrack, paymentQuotesTrack } from "./api-guide-bills";
 import { apiGuideAvailable } from "./api-guide-availability";
 import release from "../../public/docs/business-api/release.json";
@@ -1105,6 +1106,7 @@ export type GuideMenuGroup = {
   id: "mobile-money" | "crypto" | "bills";
   title: GuideCopy;
   tone: GuideTrack["tone"];
+  catalogKind?: ApiPaymentKind;
   children: GuideMenuLink[];
 };
 export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLink)[] = [
@@ -1115,6 +1117,7 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
     id: "mobile-money",
     title: ["Mobile money payments", "Paiements mobile money"],
     tone: "green",
+    catalogKind: "MOBILE_MONEY",
     children: [
       { kind: "guide", id: "mobile-money-collection" },
       { kind: "guide", id: "mobile-money-payout" },
@@ -1125,6 +1128,7 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
     id: "crypto",
     title: ["Crypto payments", "Paiements cryptos"],
     tone: "blue",
+    catalogKind: "CRYPTO",
     children: [
       { kind: "guide", id: "crypto-collection" },
       { kind: "guide", id: "crypto-payout" },

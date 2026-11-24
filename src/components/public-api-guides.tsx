@@ -5,6 +5,7 @@ import { ArrowUpRight, MessageCircleQuestionMark, Sparkles } from "lucide-react"
 import { useI18n } from "@/lib/i18n";
 import { IntegrationGuide } from "./integration-guide";
 import type { BillPaymentApiAvailability } from "@/lib/types";
+import { normalizeBillPaymentAvailability } from "@/lib/api-guide-availability";
 
 function PublicGuideFaq() {
   const { t, language } = useI18n();
@@ -51,6 +52,50 @@ export function PublicApiGuides({
   billPaymentsApiAvailability: BillPaymentApiAvailability;
 }) {
   const { t } = useI18n();
+  const [availability, setAvailability] = useState(billPaymentsApiAvailability);
+
+  useEffect(() => {
+    let active = true;
+    let pending: AbortController | undefined;
+    async function refreshAvailability() {
+      if (pending || document.visibilityState === "hidden") return;
+      const controller = new AbortController();
+      pending = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch("/api/public/business-api/guide-availability", {
+          cache: "no-store",
+          credentials: "omit",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const status = await response.json();
+        if (active)
+          setAvailability(
+            normalizeBillPaymentAvailability(
+              status?.billPaymentsApiReady,
+              status?.billPaymentsApiAvailability,
+            ),
+          );
+      } catch {
+        // Keep the last successful flags during a temporary outage and retry on the next refresh.
+      } finally {
+        window.clearTimeout(timeout);
+        pending = undefined;
+      }
+    }
+    void refreshAvailability();
+    const interval = window.setInterval(refreshAvailability, 60000);
+    window.addEventListener("focus", refreshAvailability);
+    document.addEventListener("visibilitychange", refreshAvailability);
+    return () => {
+      active = false;
+      pending?.abort();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshAvailability);
+      document.removeEventListener("visibilitychange", refreshAvailability);
+    };
+  }, []);
 
   return (
     <main id="main-content" className="public-api-guides">
@@ -59,7 +104,7 @@ export function PublicApiGuides({
         setup={{
           audience: "public",
           environment: "SANDBOX",
-          publicBillPaymentsAvailability: billPaymentsApiAvailability,
+          publicBillPaymentsAvailability: availability,
           loading: false,
           refresh: () => {},
         }}

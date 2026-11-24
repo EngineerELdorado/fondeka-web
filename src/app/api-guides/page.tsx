@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PublicApiGuides } from "@/components/public-api-guides";
-import release from "../../../public/docs/business-api/release.json";
-import { normalizeBillPaymentAvailability } from "@/lib/api-guide-availability";
+import { fetchPublicBillPaymentAvailability } from "@/lib/public-api-guide-availability";
 
 const guidesUrl = "https://web.fondeka.com/api-guides";
 
@@ -26,20 +25,7 @@ export async function generateMetadata({
 
 async function publicBillPaymentsAvailability() {
   try {
-    const base = process.env.FONDEKA_API_BASE_URL || release.baseUrl;
-    const response = await fetch(
-      `${base.replace(/\/$/, "")}/public/business-api/guide-availability`,
-      {
-        next: { revalidate: 60 },
-        signal: AbortSignal.timeout(2000),
-      },
-    );
-    if (!response.ok) return {};
-    const status = await response.json();
-    return normalizeBillPaymentAvailability(
-      status?.billPaymentsApiReady,
-      status?.billPaymentsApiAvailability,
-    );
+    return await fetchPublicBillPaymentAvailability(2000);
   } catch {
     return {};
   }

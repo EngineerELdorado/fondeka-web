@@ -22,17 +22,20 @@ import { billPaymentMainLinks, billPaymentReferenceLessons } from "@/lib/api-gui
 import { businessApiTopic } from "@/lib/business-api-docs";
 import { apiGuideAvailable, billGuideLessonAvailable } from "@/lib/api-guide-availability";
 import type { BillPaymentApiAvailability } from "@/lib/types";
+import type { ApiPaymentKind } from "@/lib/api-catalog";
 import { useI18n } from "@/lib/i18n";
 
 function GuideMenuSection({
   group,
   current,
   renderGuide,
+  onOpenCatalog,
   billPaymentsApiReady,
 }: {
   group: GuideMenuGroup;
   current: string;
   renderGuide: (id: GuideTrack["id"]) => ReactNode;
+  onOpenCatalog: (kind?: ApiPaymentKind) => void;
   billPaymentsApiReady: boolean;
 }) {
   const { language, t } = useI18n();
@@ -71,6 +74,26 @@ function GuideMenuSection({
       <div className="guide-menu-children">
         {group.children.map((item) => renderGuide(item.id))}
       </div>
+      {group.catalogKind && (
+        <details className="guide-menu-reference">
+          <summary>
+            <BookOpen size={15} aria-hidden="true" />
+            <span>{t("Reference", "Référence")}</span>
+            <ChevronDown size={14} className="guide-menu-chevron" aria-hidden="true" />
+          </summary>
+          <ul className="guide-menu-lessons">
+            <li>
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => onOpenCatalog(group.catalogKind)}
+              >
+                <span>{t("Available payment methods", "Moyens de paiement disponibles")}</span>
+              </button>
+            </li>
+          </ul>
+        </details>
+      )}
     </details>
   );
 }
@@ -232,7 +255,7 @@ export function ApiGuideNavigation({
   currentLesson: string;
   completed: string[];
   onSelect: (id: string, lesson?: string) => void;
-  onOpenCatalog: () => void;
+  onOpenCatalog: (kind?: ApiPaymentKind) => void;
   icons: Record<GuideTrack["icon"], LucideIcon>;
   billPaymentsApiReady: boolean;
   billPaymentsApiAvailability: BillPaymentApiAvailability;
@@ -282,7 +305,7 @@ export function ApiGuideNavigation({
             type="button"
             data-guide-tone="teal"
             aria-haspopup="dialog"
-            onClick={onOpenCatalog}
+            onClick={() => onOpenCatalog()}
           >
             <span className="guide-nav-icon">
               <ListFilter size={16} aria-hidden="true" />
@@ -305,6 +328,7 @@ export function ApiGuideNavigation({
             group={item}
             current={current}
             renderGuide={renderGuide}
+            onOpenCatalog={onOpenCatalog}
             billPaymentsApiReady={billPaymentsApiReady}
           />
         ),

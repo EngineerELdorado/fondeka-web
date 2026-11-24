@@ -53,6 +53,7 @@ import { ApiGuideQuickstart } from "./api-guide-quickstart";
 import { ApiGuideNavigation } from "./api-guide-navigation";
 import { ApiGuidePaymentMethods } from "./api-guide-catalog";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
+import type { ApiPaymentKind } from "@/lib/api-catalog";
 import { useWorkspace } from "./workspace-provider";
 import { Loading } from "./ui";
 
@@ -439,7 +440,10 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   });
   const completed = saved.key === storageKey ? saved.ids : [];
   const [notice, setNotice] = useState("");
-  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogRequest, setCatalogRequest] = useState<{ kind?: ApiPaymentKind }>();
+  function openCatalog(kind?: ApiPaymentKind) {
+    setCatalogRequest({ kind });
+  }
   const heading = useRef<HTMLHeadingElement>(null);
   const previous = useRef(current);
   useEffect(() => {
@@ -510,7 +514,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           currentLesson={lesson.id}
           completed={completed}
           onSelect={selectGuide}
-          onOpenCatalog={() => setCatalogOpen(true)}
+          onOpenCatalog={openCatalog}
           icons={icons}
           billPaymentsApiReady={billPaymentsApiReady}
           billPaymentsApiAvailability={billPaymentsApiAvailability}
@@ -524,7 +528,10 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
             onChange={(event) => {
               if (event.target.value.startsWith("bill-payments:"))
                 selectGuide("bill-payments", event.target.value.slice("bill-payments:".length));
-              else if (event.target.value === "payment-methods") setCatalogOpen(true);
+              else if (event.target.value === "payment-methods") openCatalog();
+              else if (event.target.value === "payment-methods:MOBILE_MONEY")
+                openCatalog("MOBILE_MONEY");
+              else if (event.target.value === "payment-methods:CRYPTO") openCatalog("CRYPTO");
               else if (apiGuideMenuTracks.some((item) => item.id === event.target.value))
                 selectGuide(event.target.value);
             }}
@@ -585,19 +592,28 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                   </optgroup>
                 </Fragment>
               ) : (
-                <optgroup key={item.id} label={item.title[language === "fr" ? 1 : 0]}>
-                  {item.children.map((child) => (
-                    <option
-                      key={child.id}
-                      value={child.id}
-                      disabled={!apiGuideAvailable(child.id, billPaymentsApiReady)}
-                    >
-                      {businessApiTopic(child.id)[language]}
-                      {!apiGuideAvailable(child.id, billPaymentsApiReady) &&
-                        ` · ${t("Coming soon", "Bientôt disponible")}`}
-                    </option>
-                  ))}
-                </optgroup>
+                <Fragment key={item.id}>
+                  <optgroup label={copy(item.title)}>
+                    {item.children.map((child) => (
+                      <option
+                        key={child.id}
+                        value={child.id}
+                        disabled={!apiGuideAvailable(child.id, billPaymentsApiReady)}
+                      >
+                        {businessApiTopic(child.id)[language]}
+                        {!apiGuideAvailable(child.id, billPaymentsApiReady) &&
+                          ` · ${t("Coming soon", "Bientôt disponible")}`}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {item.catalogKind && (
+                    <optgroup label={`${copy(item.title)} · ${t("Reference", "Référence")}`}>
+                      <option value={`payment-methods:${item.catalogKind}`}>
+                        {t("Available payment methods", "Moyens de paiement disponibles")}
+                      </option>
+                    </optgroup>
+                  )}
+                </Fragment>
               ),
             )}
           </select>
@@ -689,8 +705,13 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           </section>
         )}
       </div>
-      {catalogOpen && (
-        <ApiGuidePaymentMethods setup={setup} onClose={() => setCatalogOpen(false)} />
+      {catalogRequest && (
+        <ApiGuidePaymentMethods
+          key={catalogRequest.kind || "generic"}
+          setup={setup}
+          initialKind={catalogRequest.kind}
+          onClose={() => setCatalogRequest(undefined)}
+        />
       )}
     </div>
   );

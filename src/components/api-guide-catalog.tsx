@@ -545,12 +545,14 @@ function CatalogBrowser({ setup, kind, payout, preferredMethod }: CatalogBrowser
 export function ApiGuidePaymentMethods({
   setup,
   onClose,
+  initialKind = "MOBILE_MONEY",
 }: {
   setup: ApiGuideSetup;
   onClose: () => void;
+  initialKind?: ApiPaymentKind;
 }) {
   const { t } = useI18n();
-  const [kind, setKind] = useState<ApiPaymentKind>("MOBILE_MONEY");
+  const [kind, setKind] = useState<ApiPaymentKind>(initialKind);
   const [payout, setPayout] = useState(false);
   const [environment, setEnvironment] = useState<ApiEnvironment>("LIVE");
   const publicGuide = setup.audience === "public";
