@@ -88,6 +88,7 @@ const routes: [RegExp, string[]][] = [
   [/^customer-api\/businesses$/, ["GET"]],
   [/^customer-api\/businesses\/\d+$/, ["GET", "PATCH"]],
   [/^customer-api\/businesses\/\d+\/api-catalog$/, ["GET"]],
+  [/^customer-api\/businesses\/\d+\/api-bill-products$/, ["GET"]],
   [/^customer-api\/businesses\/\d+\/api-error-codes$/, ["GET"]],
   [/^customer-api\/businesses\/\d+\/api-keys$/, ["GET", "POST"]],
   [/^customer-api\/businesses\/\d+\/api-keys\/\d+$/, ["DELETE"]],

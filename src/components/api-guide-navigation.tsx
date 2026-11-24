@@ -121,12 +121,6 @@ function BillPaymentMenu({
   const [open, setOpen] = useState(active);
   const [referenceOpen, setReferenceOpen] = useState(referenceActive);
   const referenceList = useRef<HTMLUListElement>(null);
-  const enabledLessons = track.lessons.filter((lesson) =>
-    billGuideLessonAvailable(lesson, availability),
-  );
-  const reviewed = enabledLessons.filter((lesson) =>
-    completed.includes(`${track.id}:${lesson.id}`),
-  ).length;
   const actionIcons = { request: Zap, television: Tv };
   useEffect(() => {
     if (active) setOpen(true);
@@ -157,11 +151,7 @@ function BillPaymentMenu({
         </span>
         <span className="guide-menu-group-copy">
           <strong>{track.title[language === "fr" ? 1 : 0]}</strong>
-          {available ? (
-            <small>
-              {reviewed} / {enabledLessons.length}
-            </small>
-          ) : (
+          {!available && (
             <small className="guide-menu-soon">{t("Coming soon", "Bientôt disponible")}</small>
           )}
         </span>
@@ -178,7 +168,7 @@ function BillPaymentMenu({
                 type="button"
                 key={item.id}
                 disabled={!enabled}
-                aria-current={active && currentLesson === item.id ? "step" : undefined}
+                aria-current={enabled && active && currentLesson === item.id ? "step" : undefined}
                 onClick={() => onSelect(track.id, item.id)}
               >
                 <span className={`guide-nav-icon${done ? " complete" : ""}`}>
@@ -191,8 +181,7 @@ function BillPaymentMenu({
                   {item.title[language === "fr" ? 1 : 0]}
                   {!enabled && (
                     <small className="guide-menu-soon">
-                      {" "}
-                      · {t("Coming soon", "Bientôt disponible")}
+                      {t("Coming soon", "Bientôt disponible")}
                     </small>
                   )}
                 </span>
@@ -225,7 +214,9 @@ function BillPaymentMenu({
                   <button
                     type="button"
                     disabled={!enabled}
-                    aria-current={active && currentLesson === lesson.id ? "step" : undefined}
+                    aria-current={
+                      enabled && active && currentLesson === lesson.id ? "step" : undefined
+                    }
                     onClick={() => onSelect(track.id, lesson.id)}
                   >
                     <span>{lesson.title[language === "fr" ? 1 : 0]}</span>

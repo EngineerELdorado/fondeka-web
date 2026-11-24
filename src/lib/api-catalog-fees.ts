@@ -60,11 +60,11 @@ const nonnegative = (value: unknown): value is number =>
 const expression = (value: unknown): value is CatalogFeeExpression & Record<string, unknown> =>
   record(value) && nonnegative(value.percentage) && nonnegative(value.flatFee);
 
-function schedule(
+export function validCatalogFeeSchedule(
   value: unknown,
   basis: CatalogFeeSchedule["rangeAmountBasis"],
   currency?: string,
-) {
+): value is CatalogFeeSchedule {
   if (
     !record(value) ||
     !["AVAILABLE", "PARTIAL", "UNAVAILABLE"].includes(String(value.status)) ||
@@ -110,8 +110,8 @@ export function validCatalogFees(
     value === undefined ||
     (record(value) &&
       value.environment === "LIVE" &&
-      schedule(value.collection, "GROSS_AMOUNT", currency) &&
-      schedule(value.payout, "REQUEST_AMOUNT", currency) &&
+      validCatalogFeeSchedule(value.collection, "GROSS_AMOUNT", currency) &&
+      validCatalogFeeSchedule(value.payout, "REQUEST_AMOUNT", currency) &&
       (value.collection as CatalogFeeSchedule).currency ===
         (value.payout as CatalogFeeSchedule).currency)
   );

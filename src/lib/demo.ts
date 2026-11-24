@@ -1004,6 +1004,60 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
         })),
       ),
     };
+  } else if (/^\/businesses\/\d+\/api-bill-products$/.test(route) && method === "GET") {
+    if (route.split("/")[2] !== "1")
+      throw Object.assign(new Error("Business not found."), { status: 404 });
+    const amount = url.searchParams.has("amount") ? Number(url.searchParams.get("amount")) : null;
+    const currency = walletCurrency(url.searchParams.get("currency") ?? "USD");
+    const countryCode = url.searchParams.get("countryCode") || "CD";
+    result = {
+      environment: "LIVE",
+      pricingScope: "ACCOUNT",
+      amount,
+      currency,
+      countryCode,
+      calculatedAt: new Date().toISOString(),
+      binding: false,
+      products:
+        countryCode === "CD"
+          ? ["SOCODEE", "VIRUNGA"].map((code, index) => ({
+              code,
+              name: code,
+              displayName: code,
+              category: "ELECTRICITY",
+              countryCodes: ["CD"],
+              pricing:
+                amount === null
+                  ? null
+                  : {
+                      status: "AVAILABLE",
+                      amount,
+                      fee: Math.round(amount * 3) / 100,
+                      grossAmount: amount + Math.round(amount * 3) / 100,
+                      currency,
+                    },
+              feeSchedule: {
+                status: "AVAILABLE",
+                currency,
+                rangeAmountBasis: "REQUEST_AMOUNT",
+                feeAmountBasis: "REQUEST_AMOUNT",
+                quoteRequired: true,
+                unavailableReason: null,
+                ranges: [
+                  {
+                    minAmount: 0,
+                    maxAmountExclusive: null,
+                    available: true,
+                    fee: { percentage: 3, flatFee: 0, minimum: null },
+                  },
+                ],
+              },
+              ...(index === 0
+                ? { commission: { basis: "NET_AMOUNT", percentage: 1, maxPoints: 50 } }
+                : {}),
+            }))
+          : [],
+    };
   } else if (/^\/businesses\/\d+\/api-catalog$/.test(route) && method === "GET") {
     if (route.split("/")[2] !== "1")
       throw Object.assign(new Error("Business not found."), { status: 404 });

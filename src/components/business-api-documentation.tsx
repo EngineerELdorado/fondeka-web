@@ -52,6 +52,7 @@ import { ApiGuideConfirmation } from "./api-guide-confirmation";
 import { ApiGuideQuickstart } from "./api-guide-quickstart";
 import { ApiGuideNavigation } from "./api-guide-navigation";
 import { ApiGuidePaymentMethods } from "./api-guide-catalog";
+import { ApiGuideBillCatalog } from "./api-guide-bill-catalog";
 import type { ApiGuideSetup } from "@/lib/api-guide-setup";
 import type { ApiPaymentKind } from "@/lib/api-catalog";
 import { useWorkspace } from "./workspace-provider";
@@ -157,14 +158,17 @@ function LessonContent({
   const FlowIcon = icons[track.icon];
   const introduction = track.id === "overview" || track.id === "quickstart";
   const payloadOnly = lesson.presentation === "payload";
+  const billProductDiscovery = track.id === "bill-payments" && lesson.id === "discover";
   return (
     <>
       {!introduction && !payloadOnly && (
         <>
           <div className="guide-lesson-heading">
-            <span>
-              {t("Step", "Étape")} {lessonIndex + 1} / {track.lessons.length}
-            </span>
+            {track.id !== "bill-payments" && (
+              <span>
+                {t("Step", "Étape")} {lessonIndex + 1} / {track.lessons.length}
+              </span>
+            )}
             {completed && (
               <span className="guide-reviewed">
                 <CheckCircle2 size={15} />
@@ -172,8 +176,22 @@ function LessonContent({
               </span>
             )}
             <h3>{copy(lesson.title)}</h3>
-            <p>{copy(lesson.summary)}</p>
+            {copy(lesson.summary) && <p>{copy(lesson.summary)}</p>}
           </div>
+          {billProductDiscovery && (
+            <>
+              <ApiGuideBillCatalog setup={setup} />
+              <div className="guide-api-fetch-heading">
+                <h4>{t("Fetch via API", "Récupérer par API")}</h4>
+                <p>
+                  {t(
+                    "You can also retrieve the product list via the API using the endpoint below.",
+                    "Vous pouvez aussi récupérer la liste des produits par API avec l’endpoint ci-dessous.",
+                  )}
+                </p>
+              </div>
+            </>
+          )}
           {!lesson.confirmation && (
             <ol className="guide-flow" aria-label={t("How it works", "Comment ça marche")}>
               {lesson.flow.map((node, index) => (

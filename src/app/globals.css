@@ -10586,6 +10586,29 @@ button.detail-row:hover {
   width: 100%;
   padding-inline: 6px;
 }
+.guide-bill-actions > button:not(:disabled) {
+  font-weight: 600;
+}
+.guide-bill-actions > button:disabled {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 400;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.guide-bill-actions > button:disabled .guide-nav-icon {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+}
+.guide-bill-actions > button:disabled .guide-menu-soon {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+}
 .guide-menu-reference {
   margin: 0 7px 10px 12px;
   border-top: 1px solid var(--line);
@@ -10851,6 +10874,21 @@ button.detail-row:hover {
   line-height: 1.8;
   margin: 12px 0 0;
 }
+.guide-api-fetch-heading {
+  margin-top: 28px;
+}
+.guide-api-fetch-heading h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-control);
+  font-weight: 600;
+}
+.guide-api-fetch-heading p {
+  margin: 8px 0 0;
+  color: var(--secondary);
+  font-size: var(--text-control);
+  line-height: 1.8;
+}
 .guide-flow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11086,6 +11124,39 @@ button.detail-row:hover {
 }
 .api-catalog-context > button {
   margin-left: auto;
+}
+.api-bill-catalog {
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.api-bill-catalog .api-catalog-context {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+.api-bill-fee-rule + .api-bill-fee-rule {
+  margin-top: 10px;
+}
+.api-bill-catalog td {
+  padding-block: 10px;
+  vertical-align: middle;
+}
+.api-bill-catalog .table-subtitle {
+  display: block;
+  max-width: 220px;
+  white-space: normal;
+}
+.api-bill-product-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.api-bill-catalog-note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: 16px 0 0;
 }
 .api-catalog-fees {
   margin: 18px 0;

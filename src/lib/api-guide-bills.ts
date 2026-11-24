@@ -81,11 +81,8 @@ export const billPaymentsTrack: GuideTrack = {
   lessons: [
     lesson(
       "discover",
-      ["Get bill products", "Obtenir les produits de facturation"],
-      [
-        "Use X-API-Key and your Business ID on your server. The key selects LIVE or SANDBOX on the same paths. countryCode and category are optional; the owner’s country is the default, and category is case-insensitive.",
-        "Utilisez X-API-Key et votre Business ID sur votre serveur. La clé choisit LIVE ou SANDBOX sur les mêmes chemins. countryCode et category sont facultatifs ; le pays du propriétaire est utilisé par défaut et category ignore la casse.",
-      ],
+      ["Get bill products", "Obtenir les produits"],
+      ["", ""],
       example("GET", `${base}/bill-products`),
       [
         [
@@ -96,16 +93,16 @@ export const billPaymentsTrack: GuideTrack = {
     ),
     lesson(
       "product",
-      ["Get a bill product", "Obtenir un produit de facturation"],
+      ["Get a bill product", "Obtenir un produit"],
       [
-        "Returns code, name, displayName and category. Use the product code for your selected market, such as SOCODEE or CANAL_PLUS_DRC.",
-        "Retourne code, name, displayName et category. Utilisez le code produit du marché choisi, comme SOCODEE ou CANAL_PLUS_DRC.",
+        "Returns code, name, displayName and category. Use the product code for your selected market, such as SOCODEE, VIRUNGA or SNEL.",
+        "Retourne code, name, displayName et category. Utilisez le code produit du marché choisi, comme SOCODEE, VIRUNGA ou SNEL.",
       ],
       example("GET", product),
       [
         [
-          "Use the returned code in product paths and billProductCode in payments. For Canal+ in DRC, use CANAL_PLUS_DRC rather than CANAL_PLUS. Numeric product IDs are not accepted.",
-          "Utilisez le code retourné dans les chemins produit et billProductCode dans les paiements. Pour Canal+ en RDC, utilisez CANAL_PLUS_DRC plutôt que CANAL_PLUS. Les identifiants produits numériques ne sont pas acceptés.",
+          "Use the returned code in product paths and billProductCode in payments. Product names and codes may differ. Numeric product IDs are not accepted.",
+          "Utilisez le code retourné dans les chemins produit et billProductCode dans les paiements. Les noms et codes produits peuvent différer. Les identifiants produits numériques ne sont pas acceptés.",
         ],
       ],
     ),
@@ -261,7 +258,9 @@ export const billPaymentMainLinks = [
 ] as const;
 
 export const billPaymentReferenceLessons = billPaymentsTrack.lessons.filter(
-  (lesson) => !billPaymentMainLinks.some((item) => item.id === lesson.id),
+  (lesson) =>
+    !["offers", "options", "additional-info"].includes(lesson.id) &&
+    !billPaymentMainLinks.some((item) => item.id === lesson.id),
 );
 
 export const paymentQuotesTrack: GuideTrack = {

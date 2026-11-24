@@ -34,8 +34,8 @@ const environment = [
 ] as const;
 const identity: Definitions = {
   billProductCode: [
-    "Product code from the catalog, such as SOCODEE or CANAL_PLUS_DRC.",
-    "Code produit du catalogue, comme SOCODEE ou CANAL_PLUS_DRC.",
+    "Product code from the catalog, such as SOCODEE, VIRUNGA or SNEL.",
+    "Code produit du catalogue, comme SOCODEE, VIRUNGA ou SNEL.",
   ],
   accountNumber: [
     "Meter, water customer, TV subscriber or another supported bill account. Send identifiers as strings and validate with account lookup.",

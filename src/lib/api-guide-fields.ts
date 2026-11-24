@@ -355,7 +355,8 @@ const parameterDescriptionsFr: Record<string, string> = {
     "Code de devise fiat, normalisé en majuscules. Pour la liste des portefeuilles, omettez ce filtre pour tous les retourner.",
   page: "Index de page à partir de zéro ; la première page est 0.",
   size: "Nombre d’écritures par page, entre 1 et 100, avec 20 par défaut.",
-  billProductCode: "Code produit retourné par le catalogue de factures, comme SOCODEE.",
+  billProductCode:
+    "Code produit retourné par le catalogue de factures, comme SOCODEE, VIRUNGA ou SNEL.",
   offerCode: "Code de l’offre retourné pour le produit choisi.",
   countryCode:
     "Code pays du marché. Sans ce filtre, le pays du propriétaire du compte est utilisé.",
@@ -367,7 +368,7 @@ const parameterDescriptionsFr: Record<string, string> = {
 };
 
 const parameterDescriptionsEn: Record<string, string> = {
-  billProductCode: "Product code returned by the bill catalog, such as SOCODEE.",
+  billProductCode: "Product code returned by the bill catalog, such as SOCODEE, VIRUNGA or SNEL.",
   offerCode: "Offer code returned for the selected product.",
   countryCode: "Optional market country code. Defaults to the account owner's country.",
   category: "Optional case-insensitive category filter represented as an open string.",
