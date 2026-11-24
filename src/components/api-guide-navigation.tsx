@@ -4,11 +4,12 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  Coins,
   ListFilter,
   ReceiptText,
+  Smartphone,
   Tv,
   Zap,
-  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -35,12 +36,15 @@ function GuideMenuSection({
   billPaymentsApiReady: boolean;
 }) {
   const { language, t } = useI18n();
-  const [open, setOpen] = useState(group.id === "payments");
   const active = group.children.some((item) => item.id === current);
+  const [open, setOpen] = useState(
+    active || (group.id === "mobile-money" && ["overview", "quickstart"].includes(current)),
+  );
   const upcoming = group.children.every(
     (item) => !apiGuideAvailable(item.id, billPaymentsApiReady),
   );
-  const Icon = group.id === "payments" ? WalletCards : ReceiptText;
+  const Icon =
+    group.id === "mobile-money" ? Smartphone : group.id === "crypto" ? Coins : ReceiptText;
   useEffect(() => {
     if (active) setOpen(true);
   }, [current, active]);

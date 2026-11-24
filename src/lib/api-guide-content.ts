@@ -1102,7 +1102,7 @@ type GuideCatalogLink = {
 };
 export type GuideMenuGroup = {
   kind: "group";
-  id: "payments" | "bills";
+  id: "mobile-money" | "crypto" | "bills";
   title: GuideCopy;
   tone: GuideTrack["tone"];
   children: GuideMenuLink[];
@@ -1112,12 +1112,20 @@ export const apiGuideMenuItems: (GuideMenuLink | GuideMenuGroup | GuideCatalogLi
   { kind: "guide", id: "quickstart" },
   {
     kind: "group",
-    id: "payments",
-    title: ["Payments", "Paiements"],
+    id: "mobile-money",
+    title: ["Mobile money payments", "Paiements mobile money"],
     tone: "green",
     children: [
       { kind: "guide", id: "mobile-money-collection" },
       { kind: "guide", id: "mobile-money-payout" },
+    ],
+  },
+  {
+    kind: "group",
+    id: "crypto",
+    title: ["Crypto payments", "Paiements cryptos"],
+    tone: "blue",
+    children: [
       { kind: "guide", id: "crypto-collection" },
       { kind: "guide", id: "crypto-payout" },
     ],
