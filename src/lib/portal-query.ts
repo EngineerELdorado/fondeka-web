@@ -1,5 +1,6 @@
 import type { ApiEnvironment } from "./types";
 import { businessApiPaymentStatuses, isBusinessApiPaymentStatus } from "./business-api-status";
+import { apiTransactionActions } from "./api-transaction-display";
 
 export interface PortalFilters {
   action: string;
@@ -29,6 +30,8 @@ export function portalQuery(
   for (const key of ["action", "status", "currency", "reference", "orderReference"] as const) {
     const value = filters[key].trim();
     if (!value) continue;
+    if (key === "action" && !apiTransactionActions.some((action) => action === value))
+      throw new Error("Choose a supported transaction type or clear the type filter.");
     if (key === "status" && !isBusinessApiPaymentStatus(value))
       throw new Error(
         "Choose ACCEPTED, PROCESSING, COMPLETED or FAILED, or clear the status filter.",

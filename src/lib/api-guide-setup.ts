@@ -1,8 +1,9 @@
-import type { ApiEnvironment, Business } from "./types";
+import type { ApiEnvironment, BillPaymentApiAvailability, Business } from "./types";
 
 export type ApiGuideSetup = {
   audience?: "public";
   publicBillPaymentsReady?: boolean;
+  publicBillPaymentsAvailability?: BillPaymentApiAvailability;
   business?: Business;
   environment?: ApiEnvironment;
   loading: boolean;

@@ -38,7 +38,7 @@ const payout = errorCatalogEndpoint(
 )!;
 
 test("catalog parsing validates environment, header, error stages and distinct operation identities", () => {
-  assert.equal(catalog.endpoints.length, 24);
+  assert.equal(catalog.endpoints.length, 25);
   assert.throws(() => parseApiErrorCatalog(response, "LIVE"));
   for (const bad of [
     null,

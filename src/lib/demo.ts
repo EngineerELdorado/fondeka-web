@@ -399,7 +399,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       status: "ACTIVE",
       kybStatus: "APPROVED",
       defaultBusiness: true,
-      billPaymentsApiReady: false,
+      billPaymentsApiReady: true,
+      billPaymentsApiAvailability: { ELECTRICITY: true, WATER: false, TELEVISION: false },
     },
   ];
 
@@ -1361,8 +1362,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
       throw Object.assign(new Error("Order reference filters must match."), { status: 400 });
     const orderFilter = orderReference ?? legacyOrderReference;
     result = paginate(
-      demoTransactions(apiEnvironment(url.searchParams.get("environment") ?? undefined)).filter(
-        (item) => {
+      demoTransactions(apiEnvironment(url.searchParams.get("environment") ?? undefined))
+        .filter((item) => {
           const tx = item.transaction;
           const params = url.searchParams;
           return (
@@ -1376,8 +1377,8 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
             (!params.get("toDate") ||
               new Date(item.createdAt).getTime() <= Number(params.get("toDate")))
           );
-        },
-      ),
+        })
+        .map(({ receipt: _receipt, ...row }) => row),
       url.searchParams,
     );
   } else if (/^\/businesses\/\d+\/api-transactions\/[A-Za-z0-9_-]+$/.test(route)) {
@@ -1390,7 +1391,7 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   return structuredClone(result) as T;
 }
 
-function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
+function baseDemoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
   if (environment === "SANDBOX")
     return Array.from({ length: 6 }, (_, i) => {
       const status = (
@@ -1465,4 +1466,56 @@ function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[
           : undefined,
     },
   }));
+}
+
+function demoTransactions(environment: ApiEnvironment = "LIVE"): ApiTransaction[] {
+  return baseDemoTransactions(environment).map((row, index) => {
+    const bill = environment === "SANDBOX" ? [0, 4, 5].includes(index) : index >= 10;
+    if (!bill)
+      return {
+        ...row,
+        details: {
+          paymentMethodName: row.transaction.cryptoDetails ? "USDT" : "MPESA_KENYA",
+          paymentMethodDisplayName: row.transaction.cryptoDetails ? "USDT" : "M-Pesa Kenya",
+          accountRef: row.transaction.cryptoDetails ? undefined : "+254700000000",
+        },
+        receipt: { providerReference: `DEMO-PROVIDER-${row.requestId}` },
+      };
+    const tv = environment === "LIVE" && index === 11;
+    return {
+      ...row,
+      transaction: {
+        ...row.transaction,
+        action: "BUSINESS_API_BILL_PAYMENT",
+        cryptoDetails: undefined,
+      },
+      details: {
+        billProductCode: tv ? "CANAL_PLUS_DRC" : "SOCODEE",
+        billProductName: tv ? "Canal+ DRC" : "SOCODEE",
+        billCategory: tv ? "TV" : "ELECTRICITY",
+        accountNumber: tv ? "SUBSCRIBER-101" : "METER-101",
+        operation: tv ? "TV_RENEW" : "PAY",
+        refunded: row.transaction.status === "FAILED",
+      },
+      receipt:
+        row.transaction.status === "COMPLETED"
+          ? {
+              receiptNumber: `DEMO-RECEIPT-${row.requestId}`,
+              ...(tv
+                ? {
+                    newSubscription: {
+                      subscriptionNumber: "SUBSCRIPTION-101",
+                      name: "Monthly package",
+                      expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+                    },
+                  }
+                : {
+                    tokens: ["SANDBOX-TEST-TOKEN-DO-NOT-USE"],
+                    valueReceived: "Synthetic electricity receipt",
+                    units: "15 kWh",
+                  }),
+            }
+          : undefined,
+    };
+  });
 }

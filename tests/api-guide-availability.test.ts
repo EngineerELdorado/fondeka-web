@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { apiGuideAvailable, billPaymentGuidesReady } from "../src/lib/api-guide-availability";
+import {
+  apiGuideAvailable,
+  billGuideLessonAvailable,
+  billPaymentGuideAvailability,
+  billPaymentGuidesReady,
+  normalizeBillPaymentAvailability,
+} from "../src/lib/api-guide-availability";
 import { apiGuideTracks, availableGuideMenuTracks } from "../src/lib/api-guide-content";
 import type { ApiGuideSetup } from "../src/lib/api-guide-setup";
 
@@ -64,4 +70,77 @@ test("public guide readiness uses the global flag rather than Business metadata"
     billPaymentGuidesReady({ ...publicSetup, business: undefined, publicBillPaymentsReady: true }),
     true,
   );
+});
+
+test("electricity can open independently of TV and the legacy whole-bill flag", () => {
+  const availability = { ELECTRICITY: true, TELEVISION: false, WATER: false };
+  const setup = {
+    ...readySetup,
+    business: {
+      ...readySetup.business!,
+      billPaymentsApiReady: false,
+      billPaymentsApiAvailability: availability,
+    },
+  };
+  assert.equal(billPaymentGuidesReady(setup), true);
+  const resolved = billPaymentGuideAvailability(setup);
+  const lessons = apiGuideTracks.find((track) => track.id === "bill-payments")!.lessons;
+  const enabled = lessons.filter((lesson) => billGuideLessonAvailable(lesson, resolved));
+  assert.ok(enabled.some((lesson) => lesson.id === "request"));
+  assert.ok(enabled.some((lesson) => lesson.id === "electricity-estimate"));
+  assert.ok(enabled.some((lesson) => lesson.id === "discover"));
+  assert.ok(!enabled.some((lesson) => lesson.id === "television"));
+  const paymentIndex = enabled.findIndex((lesson) => lesson.id === "request");
+  assert.equal(
+    enabled[paymentIndex + 1].id,
+    "confirmation",
+    "Next skips the disabled TV payment lesson",
+  );
+  assert.equal(
+    billGuideLessonAvailable(
+      lessons.find((lesson) => lesson.id === "television")!,
+      resolved,
+    ),
+    false,
+    "saved TV links remain blocked",
+  );
+});
+
+test("TV-only and future categories keep shared reference available without opening electricity", () => {
+  const tv = { TELEVISION: true, ELECTRICITY: false };
+  assert.equal(billGuideLessonAvailable({ billCategory: "TELEVISION" }, tv), true);
+  assert.equal(billGuideLessonAvailable({ billCategory: "ELECTRICITY" }, tv), false);
+  assert.equal(billGuideLessonAvailable({}, tv), true);
+  const future = normalizeBillPaymentAvailability(false, { INTERNET: true });
+  assert.equal(billGuideLessonAvailable({ billCategory: "INTERNET" }, future), true);
+  assert.equal(billGuideLessonAvailable({}, future), true);
+});
+
+test("explicit maps fail closed for missing, malformed and nonboolean values and override legacy true", () => {
+  for (const value of [null, [], "true", 1, {}, { ELECTRICITY: "true" }, { ELECTRICITY: false }]) {
+    const availability = normalizeBillPaymentAvailability(true, value);
+    assert.equal(billGuideLessonAvailable({ billCategory: "ELECTRICITY" }, availability), false);
+    assert.equal(billGuideLessonAvailable({ billCategory: "TELEVISION" }, availability), false);
+  }
+  assert.equal(
+    billGuideLessonAvailable(
+      { billCategory: "TELEVISION" },
+      normalizeBillPaymentAvailability(true),
+    ),
+    true,
+  );
+  assert.deepEqual(billPaymentGuideAvailability({ ...readySetup, loading: true }), {});
+});
+
+test("public category rollout stays separate from private account overrides", () => {
+  const setup = {
+    ...readySetup,
+    audience: "public" as const,
+    business: { ...readySetup.business!, billPaymentsApiAvailability: { TELEVISION: true } },
+    publicBillPaymentsReady: false,
+    publicBillPaymentsAvailability: { ELECTRICITY: true, TELEVISION: false },
+  };
+  assert.equal(billPaymentGuidesReady(setup), true);
+  assert.equal(billPaymentGuideAvailability(setup).ELECTRICITY, true);
+  assert.equal(billPaymentGuideAvailability(setup).TELEVISION, false);
 });

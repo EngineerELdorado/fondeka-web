@@ -478,6 +478,45 @@
           ]
         },
         {
+          "name": "Estimate electricity received in kWh — electricity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/business-api/v1/businesses/{{businessId}}/bill-products/{{billProductCode}}/electricity-estimate",
+            "description": "Read-only estimate for an available electricity bill product and an amount/currency. Amount is bill principal, excluding fees. Uses the same local currency conversion, provider rounding and configured kWh rate as the fee preview; no provider is called. No account number, Idempotency-Key or funded wallet is required. Creates no payment, token, wallet movement or reservation. estimatedKwh is null when no positive rate is configured; do not display null as zero. Actual delivered energy can differ and is confirmed by the completed payment receipt. SANDBOX uses a synthetic fixture of 5 kWh per requested fiat unit, regardless of currency, without live fees or FX.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10,\n  \"currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP response includes support request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.be.a(\"string\"));",
+                  "if (pm.response.code === 202) { const body=pm.response.json(); if (body.fondekaReference) pm.collectionVariables.set(\"reference\",body.fondekaReference); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Get bill offers or fixed denominations",
           "request": {
             "method": "GET",

@@ -10836,6 +10836,21 @@ button.detail-row:hover {
   gap: 4px;
   margin-left: auto;
 }
+.guide-example-variants {
+  margin: 20px 0;
+}
+.guide-example-variants label {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+  font-size: var(--text-sm);
+}
+.guide-example-variants p {
+  color: var(--secondary);
+  font-size: var(--text-control);
+  line-height: 1.8;
+  margin: 12px 0 0;
+}
 .guide-flow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -13458,4 +13473,54 @@ button.detail-row:hover {
   .expense-register-table .expense-register-description {
     order: -1;
   }
+}
+
+/* Common activity rows keep type-specific context and receipts separate. */
+.api-history-table .table-name {
+  display: block;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.api-history-table td {
+  white-space: normal;
+}
+.api-history-table time {
+  display: block;
+  min-width: 105px;
+  max-width: 170px;
+}
+.api-transaction-context {
+  display: grid;
+  gap: 5px;
+  min-width: 140px;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.api-transaction-context small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.api-transaction-type {
+  white-space: nowrap;
+}
+.api-transaction-receipt {
+  margin-top: 24px;
+}
+.api-transaction-receipt h3 {
+  margin-bottom: 12px;
+  font-size: var(--text-base);
+}
+.api-transaction-receipt dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.receipt-token {
+  font-family: var(--font-geist-mono), monospace;
+  user-select: all;
+  overflow-wrap: anywhere;
 }

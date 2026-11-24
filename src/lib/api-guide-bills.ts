@@ -45,9 +45,29 @@ function lesson(
   summary: GuideLesson["summary"],
   endpoint: GuideExample,
   tips?: GuideLesson["tips"],
+  billCategory?: string,
 ): GuideLesson {
-  return { id, title, summary, flow, example: endpoint, tips };
+  return { id, title, summary, flow, example: endpoint, tips, billCategory };
 }
+
+const payTvExamples: NonNullable<GuideLesson["exampleVariants"]> = [
+  {
+    title: ["Renew subscription", "Renouveler l’abonnement"],
+    summary: [
+      "Choose the subscription from account lookup and send TV_RENEW with subscriptionNumber inside additionalInfo. Use the amount and currency from the subscription; fees are applied automatically.",
+      "Choisissez l’abonnement retourné par la recherche et envoyez TV_RENEW avec subscriptionNumber dans additionalInfo. Utilisez son montant et sa devise ; les frais sont appliqués automatiquement.",
+    ],
+    example: purchase("tvRenewal"),
+  },
+  {
+    title: ["Change subscription", "Changer l’abonnement"],
+    summary: [
+      "Send TV_CHANGE with subscriptionNumber, offerCode and optionCode inside additionalInfo. The option must belong to the selected offer. Use the selected package’s amount and currency; the backend validates them and applies fees.",
+      "Envoyez TV_CHANGE avec subscriptionNumber, offerCode et optionCode dans additionalInfo. L’option doit appartenir à l’offre choisie. Utilisez le montant et la devise du forfait choisi ; le backend les valide et applique les frais.",
+    ],
+    example: purchase("tvChange"),
+  },
+];
 
 export const billPaymentsTrack: GuideTrack = {
   id: "bill-payments",
@@ -129,6 +149,30 @@ export const billPaymentsTrack: GuideTrack = {
       ],
     ),
     lesson(
+      "electricity-estimate",
+      ["Estimate electricity (kWh)", "Estimer l’électricité (kWh)"],
+      [
+        "Check the estimated kWh for an electricity product before paying. Send the bill amount, excluding fees, and its fiat currency. No account number, Idempotency-Key or funded wallet is required.",
+        "Consultez les kWh estimés d’un produit d’électricité avant de payer. Envoyez le montant de la facture, hors frais, et sa devise fiat. Aucun numéro de compte, Idempotency-Key ou portefeuille alimenté n’est requis.",
+      ],
+      example("POST", `${product}/electricity-estimate`, "electricity"),
+      [
+        [
+          "estimatedKwh uses the current bill route’s configured rate, currency conversion and provider rounding. If it is null, show “Estimate unavailable”, never zero. Only electricity products are supported; use a product code from the catalog.",
+          "estimatedKwh utilise le taux configuré de la route de facturation, la conversion de devise et l’arrondi fournisseur actuels. Si sa valeur est null, affichez « Estimation indisponible », jamais zéro. Seuls les produits d’électricité sont pris en charge ; utilisez un code du catalogue.",
+        ],
+        [
+          "binding is false. This read creates no payment, token or wallet movement and reserves no price or energy. Actual delivered kWh can differ; use the completed payment receipt for confirmation.",
+          "binding vaut false. Cette consultation ne crée aucun paiement, jeton ou mouvement de portefeuille et ne réserve ni prix ni énergie. Les kWh réellement livrés peuvent différer ; confirmez-les avec le reçu du paiement terminé.",
+        ],
+        [
+          "SANDBOX uses a synthetic fixture of 5 kWh per requested fiat unit, regardless of currency: 10 USD returns 50 kWh. It does not use live tariffs, FX or providers. Debounce estimates and honor Retry-After when rate limited.",
+          "SANDBOX utilise une valeur fictive de 5 kWh par unité fiat demandée, quelle que soit la devise : 10 USD retourne 50 kWh. Aucun tarif, taux de change ou fournisseur réel n’est utilisé. Espacez les estimations et respectez Retry-After en cas de limitation.",
+        ],
+      ],
+      "ELECTRICITY",
+    ),
+    lesson(
       "additional-info",
       ["Supply biller-specific information", "Fournir les informations du fournisseur"],
       [
@@ -169,25 +213,21 @@ export const billPaymentsTrack: GuideTrack = {
           "Conservez la référence d’origine pour ACCEPTED et PROCESSING. Une facture générique équivalente en cours peut retourner 409 INVALID_REQUEST ; examinez-la avant tout remplacement. L’historique et les relances identiques restent disponibles après retrait du produit ou désactivation des nouveaux paiements LIVE, avec une clé valide non révoquée.",
         ],
       ],
+      "ELECTRICITY",
     ),
-    lesson(
-      "television",
-      ["Renew a Canal+ subscription", "Renouveler un abonnement Canal+"],
-      [
-        "Use billProductCode CANAL_PLUS_DRC. Choose the subscription from account lookup and send TV_RENEW with subscriptionNumber inside additionalInfo. Use the amount and currency from the subscription; fees are applied automatically.",
-        "Utilisez billProductCode CANAL_PLUS_DRC. Choisissez l’abonnement retourné par la recherche et envoyez TV_RENEW avec subscriptionNumber dans additionalInfo. Utilisez son montant et sa devise ; les frais sont appliqués automatiquement.",
-      ],
-      purchase("tvRenewal"),
-    ),
-    lesson(
-      "tv-change",
-      ["Change Canal+ Subscription", "Changer l’abonnement Canal+"],
-      [
-        "Use TV_CHANGE with the selected subscriptionNumber, offerCode and optionCode inside additionalInfo. The option must belong to the offer. Send the amount and currency from the selected package; the backend validates them and applies fees.",
-        "Utilisez TV_CHANGE avec subscriptionNumber, offerCode et optionCode choisis dans additionalInfo. L’option doit appartenir à l’offre. Envoyez le montant et la devise du forfait choisi ; le backend les valide et applique les frais.",
-      ],
-      purchase("tvChange"),
-    ),
+    {
+      ...lesson(
+        "television",
+        ["Pay TV", "Payer la TV"],
+        [
+          "Renew or change a TV subscription using the product code returned by the catalog. The examples use CANAL_PLUS_DRC for Canal+ in DRC.",
+          "Renouvelez ou changez un abonnement TV avec le code produit retourné par le catalogue. Les exemples utilisent CANAL_PLUS_DRC pour Canal+ en RDC.",
+        ],
+        payTvExamples[0].example,
+      ),
+      exampleVariants: payTvExamples,
+      billCategory: "TELEVISION",
+    },
     lesson(
       "confirmation",
       ["Follow status and webhooks", "Suivre les états et webhooks"],
@@ -216,9 +256,8 @@ export const billPaymentsTrack: GuideTrack = {
 };
 
 export const billPaymentMainLinks = [
-  { id: "request", title: ["Pay Electricity", "Payer l’électricité"] },
-  { id: "television", title: ["Renew Canal+", "Renouveler Canal+"] },
-  { id: "tv-change", title: ["Change Canal+", "Changer Canal+"] },
+  { id: "request", category: "ELECTRICITY", title: ["Pay Electricity", "Payer l’électricité"] },
+  { id: "television", category: "TELEVISION", title: ["Pay TV", "Payer la TV"] },
 ] as const;
 
 export const billPaymentReferenceLessons = billPaymentsTrack.lessons.filter(

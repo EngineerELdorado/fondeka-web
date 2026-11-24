@@ -85,8 +85,11 @@ test("bill guides expose optional purchase controls and explain receipt/reactiva
     "maxGrossAmount",
     "orderReference",
   ]);
-  for (const id of ["additional-info", "television", "tv-change"]) {
-    const selected = track.lessons.find((lesson) => lesson.id === id)!.example!;
+  const tv = track.lessons.find((lesson) => lesson.id === "television")!;
+  for (const [id, selected] of [
+    ["additional-info", track.lessons.find((lesson) => lesson.id === "additional-info")!.example!],
+    ...tv.exampleVariants!.map((variant) => ["television", variant.example] as const),
+  ] as const) {
     const media = guideMedia(guideOperation(spec, selected).requestBody?.content);
     const body = publishedExample(media, selected.exampleName) as {
       additionalInfo: Record<string, unknown>;

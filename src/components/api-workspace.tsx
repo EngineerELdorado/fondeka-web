@@ -1,5 +1,6 @@
 "use client";
 import { useUiText } from "@/lib/use-ui-text";
+import { useI18n } from "@/lib/i18n";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
@@ -7,6 +8,9 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
+  ReceiptText,
+  Copy,
+  Check,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
@@ -24,11 +28,116 @@ import {
   type PortalFilters,
 } from "@/lib/portal-query";
 import type { ApiEnvironment, ApiTransaction, Business, Page } from "@/lib/types";
+import {
+  apiTransactionContext,
+  apiTransactionKind,
+  apiReceiptFields,
+} from "@/lib/api-transaction-display";
 import { apiTransactionPath, assertTransactionEnvironment } from "@/lib/api-environment";
 import {
   isPendingBusinessApiPayment,
   isTerminalBusinessApiPayment,
 } from "@/lib/business-api-status";
+
+function transactionIcon(action: string) {
+  return action === "BUSINESS_API_BILL_PAYMENT"
+    ? ReceiptText
+    : action === "BUSINESS_API_PAYOUT"
+      ? ArrowUpRight
+      : action === "BUSINESS_API_COLLECTION"
+        ? ArrowDownLeft
+        : Activity;
+}
+function TransactionType({ action }: { action: string }) {
+  const uiText = useUiText();
+  const Icon = transactionIcon(action);
+  return (
+    <span className="direction api-transaction-type" data-kind={action}>
+      <Icon size={16} aria-hidden="true" />
+      {uiText(apiTransactionKind(action))}
+    </span>
+  );
+}
+function TransactionEnvironmentBadge({ environment }: { environment: ApiEnvironment }) {
+  return <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>;
+}
+function TransactionContext({ row }: { row: ApiTransaction }) {
+  const uiText = useUiText();
+  const context = apiTransactionContext(row);
+  return (
+    <div className="api-transaction-context">
+      <span>{context.title || "—"}</span>
+      {context.account && (
+        <small>
+          {uiText(context.accountLabel)} · {context.account}
+        </small>
+      )}
+      {context.operation && <small>{uiText(context.operation)}</small>}
+    </div>
+  );
+}
+function TransactionReceipt({
+  receipt,
+  bill,
+}: {
+  receipt: ApiTransaction["receipt"];
+  bill: boolean;
+}) {
+  const uiText = useUiText();
+  const fields = apiReceiptFields(receipt);
+  const [copied, setCopied] = useState<number>();
+  const [copyFailed, setCopyFailed] = useState(false);
+  if (!fields.length)
+    return bill ? <p className="muted small">{uiText("No receipt details available.")}</p> : null;
+  return (
+    <section className="api-transaction-receipt">
+      <h3>{uiText("Receipt details")}</h3>
+      <dl className="detail-list">
+        {fields.map((field, index) => (
+          <div key={`${field.label}:${index}`}>
+            <dt>{uiText(field.label)}</dt>
+            <dd>
+              <span className={field.copyable ? "receipt-token" : undefined}>
+                {field.format === "date"
+                  ? date(field.value)
+                  : field.format === "money"
+                    ? money(field.value, field.currency)
+                    : field.value}
+              </span>
+              {field.copyable && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={uiText(copied === index ? "Copied" : "Copy token")}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(field.value);
+                      setCopied(index);
+                      setCopyFailed(false);
+                    } catch {
+                      setCopyFailed(true);
+                    }
+                  }}
+                >
+                  {copied === index ? (
+                    <Check size={15} aria-hidden="true" />
+                  ) : (
+                    <Copy size={15} aria-hidden="true" />
+                  )}
+                </button>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {copyFailed && (
+        <p className="muted small" role="status">
+          {uiText("Select the token text to copy it.")}
+        </p>
+      )}
+    </section>
+  );
+}
 
 export function ApiTransactions({
   business,
@@ -38,6 +147,16 @@ export function ApiTransactions({
   environment: ApiEnvironment;
 }) {
   const uiText = useUiText();
+  const { language } = useI18n();
+  const acceptedDate = (value: string) => {
+    const instant = new Date(value);
+    return Number.isFinite(instant.getTime())
+      ? new Intl.DateTimeFormat(language, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(instant)
+      : "—";
+  };
 
   const navigation = useUrlState();
   const page = Math.max(0, Number(navigation.values.get("apiPage")) || 0);
@@ -113,11 +232,12 @@ export function ApiTransactions({
     <form className="filter-form" onSubmit={apply}>
       <div className="filter-grid">
         <label>
-          {uiText("Direction")}
+          {uiText("Transaction type")}
           <select value={draft.action} onChange={(e) => update("action", e.target.value)}>
-            <option value="">{uiText("Collections & payouts")}</option>
+            <option value="">{uiText("All transaction types")}</option>
             <option value="BUSINESS_API_COLLECTION">{uiText("Collections")}</option>
             <option value="BUSINESS_API_PAYOUT">{uiText("Payouts")}</option>
+            <option value="BUSINESS_API_BILL_PAYMENT">{uiText("Bill payments")}</option>
           </select>
         </label>
         <label>
@@ -260,20 +380,21 @@ export function ApiTransactions({
               activeFilters
                 ? uiText("Try changing your filters or widening the date range.")
                 : uiText(
-                    "Accepted collections and payouts will appear here when your integration starts sending requests.",
+                    "Accepted collections, payouts and bill payments will appear here when your integration starts sending requests.",
                   )
             }
           />
         ) : (
           <>
             <div className="table-wrap desktop-table">
-              <table>
+              <table className="api-history-table">
                 <thead>
                   <tr>
                     <th>{uiText("Transaction")}</th>
-                    <th>{uiText("Direction")}</th>
+                    <th>{uiText("Type")}</th>
+                    <th>{uiText("Details")}</th>
                     <th>{environment === "SANDBOX" ? uiText("Test amount") : uiText("Amount")}</th>
-                    <th>{uiText("Integration")}</th>
+                    <th>{uiText("Environment")}</th>
                     <th>{uiText("Accepted")}</th>
                     <th>{uiText("Status")}</th>
                     <th>
@@ -282,8 +403,9 @@ export function ApiTransactions({
                   </tr>
                 </thead>
                 <tbody>
-                  {history.data.content.map(
-                    ({ requestId, transaction: tx, apiKeyName, createdAt }) => (
+                  {history.data.content.map((row) => {
+                    const { requestId, transaction: tx, createdAt } = row;
+                    return (
                       <tr key={requestId}>
                         <td>
                           <button
@@ -302,20 +424,20 @@ export function ApiTransactions({
                           </small>
                         </td>
                         <td>
-                          <span className="direction">
-                            {tx.action === "BUSINESS_API_PAYOUT" ? (
-                              <ArrowUpRight size={16} />
-                            ) : (
-                              <ArrowDownLeft size={16} />
-                            )}{" "}
-                            {tx.action === "BUSINESS_API_PAYOUT"
-                              ? uiText("Payout")
-                              : uiText("Collection")}
-                          </span>
+                          <TransactionType action={tx.action} />
+                        </td>
+                        <td>
+                          <TransactionContext row={row} />
                         </td>
                         <td className="amount">{money(tx.amount, tx.currency)}</td>
-                        <td>{apiKeyName || "—"}</td>
-                        <td>{date(createdAt)}</td>
+                        <td>
+                          <TransactionEnvironmentBadge environment={tx.environment} />
+                        </td>
+                        <td>
+                          <time dateTime={createdAt} title={date(createdAt)}>
+                            {acceptedDate(createdAt)}
+                          </time>
+                        </td>
                         <td>
                           <ApiPaymentBadge status={tx.status} />
                         </td>
@@ -334,32 +456,39 @@ export function ApiTransactions({
                           </button>
                         </td>
                       </tr>
-                    ),
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="mobile-record-list">
-              {history.data.content.map(({ requestId, transaction: tx, createdAt }) => (
-                <MobileRecord
-                  key={requestId}
-                  title={tx.orderReference || tx.fondekaReference}
-                  subtitle={tx.fondekaReference}
-                  meta={`${tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection")} · ${date(createdAt)}`}
-                  amount={money(tx.amount, tx.currency)}
-                  badge={<ApiPaymentBadge status={tx.status} />}
-                  icon={
-                    tx.action === "BUSINESS_API_PAYOUT" ? (
-                      <ArrowUpRight size={20} />
-                    ) : (
-                      <ArrowDownLeft size={20} />
-                    )
-                  }
-                  onClick={() =>
-                    setSelected({ businessId: business.id, reference: tx.fondekaReference })
-                  }
-                />
-              ))}
+              {history.data.content.map((row) => {
+                const { requestId, transaction: tx, createdAt } = row;
+                const context = apiTransactionContext(row);
+                const Icon = transactionIcon(tx.action);
+                return (
+                  <MobileRecord
+                    key={requestId}
+                    title={context.title || tx.orderReference || tx.fondekaReference}
+                    subtitle={[context.account, tx.orderReference, tx.fondekaReference]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    meta={
+                      <>
+                        {uiText(apiTransactionKind(tx.action))} ·{" "}
+                        <TransactionEnvironmentBadge environment={tx.environment} /> ·{" "}
+                        {date(createdAt)}
+                      </>
+                    }
+                    amount={money(tx.amount, tx.currency)}
+                    badge={<ApiPaymentBadge status={tx.status} />}
+                    icon={<Icon size={20} />}
+                    onClick={() =>
+                      setSelected({ businessId: business.id, reference: tx.fondekaReference })
+                    }
+                  />
+                );
+              })}
             </div>
           </>
         )}
@@ -493,7 +622,26 @@ export function TransactionDetail({
       document.removeEventListener("visibilitychange", resume);
     };
   }, [businessId, reference, environment, pending, error, refresh]);
-  const crypto = tx?.cryptoDetails;
+  const bill = tx?.action === "BUSINESS_API_BILL_PAYMENT";
+  const crypto = !bill ? tx?.cryptoDetails : undefined;
+  const context = detail.data ? apiTransactionContext(detail.data) : undefined;
+  const specificFields = bill
+    ? [
+        [uiText("Bill product"), context?.title],
+        [uiText("Product code"), detail.data?.details?.billProductCode],
+        [uiText("Bill account"), context?.account],
+        [uiText("Operation"), context?.operation ? uiText(context.operation) : undefined],
+        [
+          uiText("Refund status"),
+          typeof detail.data?.details?.refunded === "boolean"
+            ? uiText(detail.data.details.refunded ? "Refunded" : "Not refunded")
+            : undefined,
+        ],
+      ]
+    : [
+        [uiText("Payment method"), context?.title],
+        [uiText(context?.accountLabel || "Account"), context?.account],
+      ];
   return (
     <Modal
       title={
@@ -522,19 +670,18 @@ export function TransactionDetail({
               <strong>{money(tx.amount, tx.currency)}</strong>
               <ApiPaymentBadge status={tx.status} />
             </div>
+            <TransactionReceipt receipt={detail.data?.receipt} bill={bill} />
             <dl className="detail-list">
               {[
                 [uiText("Environment"), environment],
-                [
-                  uiText("Direction"),
-                  tx.action === "BUSINESS_API_PAYOUT" ? uiText("Payout") : uiText("Collection"),
-                ],
+                [uiText("Type"), uiText(apiTransactionKind(tx.action))],
+                ...specificFields.filter(([, value]) => value != null && value !== ""),
                 [uiText("Fondeka reference"), tx.fondekaReference],
                 [uiText("Merchant reference"), tx.orderReference || "—"],
                 [uiText("Integration"), detail.data?.apiKeyName || "—"],
                 [uiText("Accepted"), date(detail.data?.createdAt)],
                 [uiText("Last updated"), date(detail.data?.updatedAt)],
-                [uiText("Net amount"), money(tx.amount, tx.currency)],
+                [uiText(bill ? "Bill amount" : "Net amount"), money(tx.amount, tx.currency)],
                 [uiText("Fee"), money(tx.fee, tx.currency)],
                 [uiText("Gross amount"), money(tx.grossAmount, tx.currency)],
               ].map(([key, value]) => (
@@ -554,7 +701,7 @@ export function TransactionDetail({
             {tx.status === "ACCEPTED" && (
               <div className="info-box">
                 {uiText(
-                  "Payment queued for execution. Keep this reference while we check for updates. A payout may already reserve or debit funds at this stage.",
+                  "Payment queued for execution. Keep this reference while we check for updates. A payout or bill payment may already reserve or debit funds at this stage.",
                 )}
               </div>
             )}
@@ -566,7 +713,7 @@ export function TransactionDetail({
               </div>
             )}
             {crypto && <CryptoPaymentInstructions details={crypto} environment={environment} />}
-            {!crypto && environment === "LIVE" && pending && (
+            {!bill && !crypto && environment === "LIVE" && pending && (
               <div className="info-box">
                 {uiText(
                   "Payment instructions may still be on their way. Refresh to check the latest status.",

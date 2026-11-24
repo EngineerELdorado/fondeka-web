@@ -14,6 +14,7 @@ All paths below start with `/business-api/v1/businesses/{businessId}`. Authentic
 | --- | --- | --- |
 | GET | `/bill-products?countryCode=CD&category=ELECTRICITY` | Discover products; both filters are optional |
 | GET | `/bill-products/{billProductCode}` | Read the same compact product resource |
+| POST | `/bill-products/{billProductCode}/electricity-estimate` | Estimate energy in kWh for an electricity product and amount/currency; no payment |
 | GET | `/bill-products/{billProductCode}/offers?displayCurrency=USD` | Packages or fixed denominations, when applicable |
 | GET | `/bill-products/{billProductCode}/offers/{offerCode}/options?displayCurrency=USD` | Options belonging to an offer, when applicable |
 | POST | `/bill-products/{billProductCode}/account-lookup` | Validate or look up a customer/account |
@@ -135,3 +136,29 @@ The action envelope is extensible; the server currently supports `REACTIVATE` fo
 Existing `/bill-payments/{reference}/reactivate` requests remain accepted as a deprecated alias. Existing flat payment fields and lookup `metaData` strings remain accepted for compatibility; new integrations should use `additionalInfo`.
 
 No financial engine, pricing, provider execution, refund policy, wallet behavior or enrollment flow was changed by this contract restructuring. No new migration is required for the restructuring; the original bill API migration is still required for installations that have not enabled bill payments yet.
+
+## Estimate electricity before paying
+
+```http
+POST /business-api/v1/businesses/42/bill-products/SOCODEE/electricity-estimate
+X-API-Key: <your server-side key>
+Content-Type: application/json
+```
+
+```json
+{"amount":10,"currency":"USD"}
+```
+
+`amount` is the bill principal, excluding fees, with at most two decimal places. Use an available electricity product code from the catalog. No account number, Idempotency-Key or funded wallet is required.
+
+A successful response contains `environment`, `billProductCode`, `amount`, `currency`, `estimatedKwh`, `calculatedAt` and `binding: false`. LIVE uses the same configured kWh rate, currency conversion and provider rounding as the fee preview. If no positive kWh rate is configured, `estimatedKwh` is `null`; display “Estimate unavailable”, never zero. This endpoint returns no internal fee, FX or provider configuration.
+
+The estimate creates no payment, token, wallet movement or reservation and calls no provider. Actual delivered energy may differ; confirm it using the completed bill payment receipt. The LIVE payment launch switch does not block estimates, but normal Business ownership, access, product eligibility and request limits still apply. Debounce repeated estimates and honor Retry-After.
+
+SANDBOX is explicitly synthetic: 5 kWh per requested fiat unit, regardless of currency. For example, 10 USD returns 50 kWh. It uses no live fee engine, FX or providers, and delivers no electricity.
+
+## Category availability
+
+Electricity, water and TV can launch independently. The bill product catalog lists only categories enabled for the authenticated account. A new payment for a disabled category returns HTTP 403 `FEATURE_DISABLED` before provider validation, payment creation or a wallet debit. This applies to LIVE and SANDBOX.
+
+Accepted payments remain readable and replayable with their original idempotency key and normalized request even if the category is later disabled. Status, receipts and existing TV reactivation remain available under their existing ownership and access checks. Category launch controls do not change queued execution, refunds, existing product eligibility or the separate LIVE payment launch switch.

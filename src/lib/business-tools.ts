@@ -329,7 +329,7 @@ export function businessDestination(value: string): string | undefined {
   if ((url.pathname === "/developers/guides" || url.pathname === "/developers") && query.has("doc"))
     copy(
       "lesson",
-      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|crypto-collection-scenarios|crypto-payout-scenarios|error-codes|fund|convert|execute-conversion|history|prepare|release|discover|product|offers|options|funding-methods|account-lookup|additional-info|quote|television|tv-change|receipt|reactivate|collection-quote|payout-quote)$/,
+      /^(map|setup|wallets|request|confirmation|refund|invoice|instructions|destination|reconcile|amounts|states|envelope|verify|scenarios|crypto-collection-scenarios|crypto-payout-scenarios|error-codes|fund|convert|execute-conversion|history|prepare|release|discover|product|offers|options|funding-methods|account-lookup|electricity-estimate|additional-info|quote|television|tv-change|receipt|reactivate|collection-quote|payout-quote)$/,
     );
   if (/^\/developers(?:\/(?:wallets|transactions|guides))?$/.test(url.pathname)) {
     for (const key of ["business", "businessPage", "apiPage", "apiDetailBusiness"])
@@ -337,7 +337,7 @@ export function businessDestination(value: string): string | undefined {
     copy("guide", /^1$/);
     copy("environment", /^(LIVE|SANDBOX)$/);
     copy("apiReference", /^[A-Za-z0-9_-]{1,128}$/);
-    copy("api_action", /^(BUSINESS_API_COLLECTION|BUSINESS_API_PAYOUT)$/);
+    copy("api_action", /^(BUSINESS_API_COLLECTION|BUSINESS_API_PAYOUT|BUSINESS_API_BILL_PAYMENT)$/);
     copy("api_status", /^[A-Z_]{1,64}$/);
     copy("api_currency", /^[A-Za-z]{3}$/);
     for (const key of ["api_reference", "api_orderReference", "api_clientReference"])

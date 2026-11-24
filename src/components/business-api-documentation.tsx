@@ -29,7 +29,12 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { useUrlState } from "@/lib/use-url-state";
 import { businessApiDocsRoot, businessApiTopic } from "@/lib/business-api-docs";
-import { apiGuideAvailable, billPaymentGuidesReady } from "@/lib/api-guide-availability";
+import {
+  apiGuideAvailable,
+  billGuideLessonAvailable,
+  billPaymentGuideAvailability,
+  billPaymentGuidesReady,
+} from "@/lib/api-guide-availability";
 import { billPaymentMainLinks, billPaymentReferenceLessons } from "@/lib/api-guide-bills";
 import {
   apiGuideTracks,
@@ -138,6 +143,14 @@ function LessonContent({
   const { language, t } = useI18n();
   const copy = (value: GuideCopy) => value[language === "fr" ? 1 : 0];
   const [referenceOpen, setReferenceOpen] = useState(false);
+  const { values } = useUrlState();
+  const [exampleName, setExampleName] = useState<string | undefined>(() =>
+    track.id === "bill-payments" && values.get("lesson") === "tv-change" ? "tvChange" : undefined,
+  );
+  const variant =
+    lesson.exampleVariants?.find((item) => item.example.exampleName === exampleName) ||
+    lesson.exampleVariants?.[0];
+  const example = variant?.example || lesson.example;
   const lessonIndex = track.lessons.indexOf(lesson);
   const last = lessonIndex === track.lessons.length - 1;
   const FlowIcon = icons[track.icon];
@@ -183,8 +196,31 @@ function LessonContent({
           )}
         </>
       )}
-      {lesson.example && (
-        <ApiGuideEndpoint example={lesson.example} hideRoute={payloadOnly} setup={setup} />
+      {lesson.exampleVariants && variant && (
+        <div className="guide-example-variants">
+          <label>
+            {t("Operation", "Opération")}
+            <select
+              value={variant.example.exampleName}
+              onChange={(event) => setExampleName(event.target.value)}
+            >
+              {lesson.exampleVariants.map((item) => (
+                <option key={item.example.exampleName} value={item.example.exampleName}>
+                  {copy(item.title)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>{copy(variant.summary)}</p>
+        </div>
+      )}
+      {example && (
+        <ApiGuideEndpoint
+          key={example.exampleName}
+          example={example}
+          hideRoute={payloadOnly}
+          setup={setup}
+        />
       )}
       {lesson.confirmation && <ApiGuideConfirmation examples={lesson.confirmation} setup={setup} />}
       {track.id === "quickstart" && <ApiGuideQuickstart setup={setup} />}
@@ -346,8 +382,8 @@ function ApiGuideOverview({ billsAvailable }: { billsAvailable: boolean }) {
           <p>
             {billsAvailable
               ? t(
-                  "Electricity, water and TV. Get the product code, validate the account and submit the payment directly.",
-                  "Électricité, eau et TV. Obtenez le code produit, vérifiez le compte et envoyez directement le paiement.",
+                  "Choose an available bill product, validate the account and submit the payment directly.",
+                  "Choisissez un produit de facturation disponible, vérifiez le compte et envoyez directement le paiement.",
                 )
               : t(
                   "Electricity, water and TV payments are still in preparation.",
@@ -380,10 +416,17 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
   const publicGuide = setup.audience === "public";
   const topic = businessApiTopic(values.get("doc"));
   const track = guideTrack(topic.id);
+  const billPaymentsApiAvailability = billPaymentGuideAvailability(setup);
   const billPaymentsApiReady = billPaymentGuidesReady(setup);
-  const available = apiGuideAvailable(topic.id, billPaymentsApiReady);
   const apiGuideMenuTracks = availableGuideMenuTracks(billPaymentsApiReady);
   const lesson = guideLesson(track, values.get("lesson"));
+  const availableLessons =
+    track.id === "bill-payments"
+      ? track.lessons.filter((item) => billGuideLessonAvailable(item, billPaymentsApiAvailability))
+      : track.lessons;
+  const available =
+    apiGuideAvailable(topic.id, billPaymentsApiReady) &&
+    (track.id !== "bill-payments" || billGuideLessonAvailable(lesson, billPaymentsApiAvailability));
   const current = `${track.id}:${lesson.id}`;
   const storageKey = publicGuide
     ? "fondeka:public-api-learning:v1"
@@ -415,13 +458,18 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
       previous.current = current;
     }
   }, [current]);
-  const reviewed = track.lessons.filter((item) =>
+  const reviewed = availableLessons.filter((item) =>
     completed.includes(`${track.id}:${item.id}`),
   ).length;
-  const index = track.lessons.indexOf(lesson);
+  const index = availableLessons.indexOf(lesson);
   const Icon = icons[track.icon];
   function selectGuide(id: string, lesson?: string) {
     if (!apiGuideAvailable(businessApiTopic(id).id, billPaymentsApiReady)) return;
+    if (
+      id === "bill-payments" &&
+      !billGuideLessonAvailable(guideLesson(guideTrack(id), lesson), billPaymentsApiAvailability)
+    )
+      return;
     setNotice("");
     update({ doc: id, lesson: lesson || null });
   }
@@ -442,7 +490,8 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
       /* In-memory progress remains usable. */
     }
     if (track.id === "overview" || track.id === "quickstart") nextGuide();
-    else if (index < track.lessons.length - 1) update({ lesson: track.lessons[index + 1].id });
+    else if (index < availableLessons.length - 1)
+      update({ lesson: availableLessons[index + 1].id });
     else setNotice(t("Guide completed. Keep building!", "Guide terminé. Continuez à créer !"));
   }
   return (
@@ -464,6 +513,7 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
           onOpenCatalog={() => setCatalogOpen(true)}
           icons={icons}
           billPaymentsApiReady={billPaymentsApiReady}
+          billPaymentsApiAvailability={billPaymentsApiAvailability}
         />
       </aside>
       <div className="guide-content">
@@ -500,11 +550,18 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                     label={`${copy(item.title)}${billPaymentsApiReady ? "" : ` · ${t("Coming soon", "Bientôt disponible")}`}`}
                   >
                     {billPaymentMainLinks.map((link) => (
-                      <option key={link.id} value={`bill-payments:${link.id}`}>
-                        {billPaymentsApiReady && completed.includes(`bill-payments:${link.id}`)
+                      <option
+                        key={link.id}
+                        value={`bill-payments:${link.id}`}
+                        disabled={billPaymentsApiAvailability[link.category] !== true}
+                      >
+                        {billPaymentsApiAvailability[link.category] === true &&
+                        completed.includes(`bill-payments:${link.id}`)
                           ? "✓ "
                           : ""}
                         {copy(link.title)}
+                        {billPaymentsApiAvailability[link.category] !== true &&
+                          ` · ${t("Coming soon", "Bientôt disponible")}`}
                       </option>
                     ))}
                   </optgroup>
@@ -513,8 +570,13 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
                     label={`${copy(item.title)} · ${t("Reference", "Référence")}`}
                   >
                     {billPaymentReferenceLessons.map((step) => (
-                      <option key={step.id} value={`bill-payments:${step.id}`}>
-                        {billPaymentsApiReady && completed.includes(`bill-payments:${step.id}`)
+                      <option
+                        key={step.id}
+                        value={`bill-payments:${step.id}`}
+                        disabled={!billGuideLessonAvailable(step, billPaymentsApiAvailability)}
+                      >
+                        {billGuideLessonAvailable(step, billPaymentsApiAvailability) &&
+                        completed.includes(`bill-payments:${step.id}`)
                           ? "✓ "
                           : ""}
                         {copy(step.title)}
@@ -553,12 +615,12 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
               {available
                 ? copy(track.summary)
                 : t(
-                    "Coming soon. Bill payments are still in preparation.",
-                    "Bientôt disponible. Les paiements de factures sont encore en préparation.",
+                    "Coming soon. This bill payment category is not available yet.",
+                    "Bientôt disponible. Cette catégorie de facturation n’est pas encore disponible.",
                   )}
             </p>
           </div>
-          {available && reviewed === track.lessons.length && (
+          {available && reviewed === availableLessons.length && (
             <span className="guide-achievement" title={t("Guide completed", "Guide terminé")}>
               <Trophy size={21} />
             </span>
@@ -602,12 +664,12 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
         {available ? (
           <LessonContent
             key={current}
-            track={track}
+            track={{ ...track, lessons: availableLessons }}
             lesson={lesson}
             completed={completed.includes(current)}
             onComplete={completeStep}
             onPrevious={() => {
-              if (index > 0) update({ lesson: track.lessons[index - 1].id });
+              if (index > 0) update({ lesson: availableLessons[index - 1].id });
             }}
             onNextGuide={nextGuide}
             setup={setup}
@@ -619,8 +681,8 @@ export default function BusinessApiDocumentation({ setup }: { setup: ApiGuideSet
               <strong>{t("Coming soon", "Bientôt disponible")}</strong>
               <p>
                 {t(
-                  "Electricity, water and TV payments will be available here once launched.",
-                  "Les paiements d’électricité, d’eau et de TV seront disponibles ici après leur lancement.",
+                  "This bill payment category will be available here once launched. You can continue with another available category.",
+                  "Cette catégorie de facturation sera disponible ici après son lancement. Vous pouvez utiliser une autre catégorie disponible.",
                 )}
               </p>
             </div>

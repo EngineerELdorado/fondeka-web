@@ -968,10 +968,15 @@ function EndpointContent({
                   "The destination is a placeholder, not a Fondeka endpoint.",
                   "La destination est un exemple, pas un endpoint Fondeka.",
                 )
-              : t(
-                  "Keep credentials on your server. Use a new idempotency key for each new intent; preserve it on retries.",
-                  "Gardez les clés sur votre serveur. Une clé d’idempotence par intention ; conservez-la lors des relances.",
-                )
+              : operation.parameters?.some((parameter) => parameter.name === "Idempotency-Key")
+                ? t(
+                    "Keep credentials on your server. Use a new idempotency key for each new intent; preserve it on retries.",
+                    "Gardez les clés sur votre serveur. Une clé d’idempotence par intention ; conservez-la lors des relances.",
+                  )
+                : t(
+                    "Keep credentials on your server. No Idempotency-Key is required for this endpoint.",
+                    "Gardez les clés sur votre serveur. Aucune Idempotency-Key n’est requise pour cet endpoint.",
+                  )
           }
         >
           <div className="guide-code-options">

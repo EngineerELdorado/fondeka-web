@@ -21,11 +21,17 @@ export type GuideExample = {
 };
 export type GuideLesson = {
   id: string;
+  billCategory?: string;
   title: GuideCopy;
   summary: GuideCopy;
   flow: readonly [GuideCopy, GuideCopy, GuideCopy];
   presentation?: "payload";
   example?: GuideExample;
+  exampleVariants?: {
+    title: GuideCopy;
+    summary: GuideCopy;
+    example: GuideExample;
+  }[];
   confirmation?: {
     lookup: GuideExample;
     webhook: GuideExample;
@@ -1142,7 +1148,8 @@ export function guideTrack(id: string) {
   return apiGuideTracks.find((track) => track.id === id) ?? apiGuideTracks[0];
 }
 export function guideLesson(track: GuideTrack, id?: string | null) {
-  return track.lessons.find((lesson) => lesson.id === id) ?? track.lessons[0];
+  const lessonId = track.id === "bill-payments" && id === "tv-change" ? "television" : id;
+  return track.lessons.find((lesson) => lesson.id === lessonId) ?? track.lessons[0];
 }
 export const guideMilestoneIds = apiGuideTracks.flatMap((track) =>
   track.lessons.map((lesson) => `${track.id}:${lesson.id}`),
@@ -1153,9 +1160,11 @@ export function parseGuideProgress(value: string | null): string[] {
     return Array.isArray(parsed)
       ? [
           ...new Set(
-            parsed.filter(
-              (id): id is string => typeof id === "string" && guideMilestoneIds.includes(id),
-            ),
+            parsed
+              .map((id) => (id === "bill-payments:tv-change" ? "bill-payments:television" : id))
+              .filter(
+                (id): id is string => typeof id === "string" && guideMilestoneIds.includes(id),
+              ),
           ),
         ]
       : [];

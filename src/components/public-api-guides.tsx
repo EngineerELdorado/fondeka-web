@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, MessageCircleQuestionMark, Sparkles } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { IntegrationGuide } from "./integration-guide";
+import type { BillPaymentApiAvailability } from "@/lib/types";
 
 function PublicGuideFaq() {
   const { t, language } = useI18n();
@@ -44,7 +45,11 @@ function PublicGuideFaq() {
   );
 }
 
-export function PublicApiGuides({ billPaymentsApiReady }: { billPaymentsApiReady: boolean }) {
+export function PublicApiGuides({
+  billPaymentsApiAvailability,
+}: {
+  billPaymentsApiAvailability: BillPaymentApiAvailability;
+}) {
   const { t } = useI18n();
 
   return (
@@ -54,7 +59,7 @@ export function PublicApiGuides({ billPaymentsApiReady }: { billPaymentsApiReady
         setup={{
           audience: "public",
           environment: "SANDBOX",
-          publicBillPaymentsReady: billPaymentsApiReady,
+          publicBillPaymentsAvailability: billPaymentsApiAvailability,
           loading: false,
           refresh: () => {},
         }}

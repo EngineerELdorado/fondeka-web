@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PublicApiGuides } from "@/components/public-api-guides";
 import release from "../../../public/docs/business-api/release.json";
+import { normalizeBillPaymentAvailability } from "@/lib/api-guide-availability";
 
 const guidesUrl = "https://web.fondeka.com/api-guides";
 
@@ -23,7 +24,7 @@ export async function generateMetadata({
   };
 }
 
-async function publicBillPaymentsReady() {
+async function publicBillPaymentsAvailability() {
   try {
     const base = process.env.FONDEKA_API_BASE_URL || release.baseUrl;
     const response = await fetch(
@@ -33,14 +34,18 @@ async function publicBillPaymentsReady() {
         signal: AbortSignal.timeout(2000),
       },
     );
-    if (!response.ok) return false;
+    if (!response.ok) return {};
     const status = await response.json();
-    return status?.billPaymentsApiReady === true;
+    return normalizeBillPaymentAvailability(
+      status?.billPaymentsApiReady,
+      status?.billPaymentsApiAvailability,
+    );
   } catch {
-    return false;
+    return {};
   }
 }
 
 export default async function Page() {
-  return <PublicApiGuides billPaymentsApiReady={await publicBillPaymentsReady()} />;
+  const availability = await publicBillPaymentsAvailability();
+  return <PublicApiGuides billPaymentsApiAvailability={availability} />;
 }

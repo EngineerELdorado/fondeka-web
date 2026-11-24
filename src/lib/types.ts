@@ -136,9 +136,11 @@ export interface Quote {
   feeCurrency?: string;
   expiresAt?: string;
 }
+export type BillPaymentApiAvailability = Readonly<Record<string, boolean>>;
 export interface Business {
   id: number;
   billPaymentsApiReady?: boolean;
+  billPaymentsApiAvailability?: BillPaymentApiAvailability;
   name: string;
   legalName?: string | null;
   status: string;
@@ -199,16 +201,49 @@ export interface ApiKey {
   environment?: ApiEnvironment;
 }
 export type BusinessApiPaymentStatus = "ACCEPTED" | "PROCESSING" | "COMPLETED" | "FAILED";
+export interface ApiTransactionDetails {
+  paymentMethodName?: string | null;
+  paymentMethodDisplayName?: string | null;
+  accountRef?: string | null;
+  billProductCode?: string | null;
+  billProductName?: string | null;
+  billCategory?: string | null;
+  accountNumber?: string | null;
+  operation?: string | null;
+  refunded?: boolean | null;
+}
+export interface ApiTransactionReceipt {
+  receiptNumber?: string | null;
+  providerReference?: string | null;
+  tokens?: string[] | null;
+  valueReceived?: string | number | null;
+  units?: string | number | null;
+  newSubscription?: {
+    subscriptionNumber?: string | null;
+    offerCode?: string | null;
+    name?: string | null;
+    expiresAt?: string | null;
+    price?: number | null;
+    currency?: string | null;
+    note?: string | null;
+  } | null;
+}
 export interface ApiTransaction {
   requestId: number;
   apiKeyId: number;
   apiKeyName: string;
   createdAt: string;
   updatedAt: string;
+  details?: ApiTransactionDetails | null;
+  receipt?: ApiTransactionReceipt | null;
   transaction: {
     environment: ApiEnvironment;
     service: "BUSINESS_API";
-    action: "BUSINESS_API_COLLECTION" | "BUSINESS_API_PAYOUT";
+    action:
+      | "BUSINESS_API_COLLECTION"
+      | "BUSINESS_API_PAYOUT"
+      | "BUSINESS_API_BILL_PAYMENT"
+      | (string & {});
     orderReference?: string | null;
     fondekaReference: string;
     amount: number;

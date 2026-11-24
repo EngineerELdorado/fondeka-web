@@ -1,13 +1,12 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowLeftRight,
   BookOpen,
   Check,
   ChevronDown,
   ListFilter,
   ReceiptText,
-  RefreshCw,
+  Tv,
   Zap,
   WalletCards,
   type LucideIcon,
@@ -20,7 +19,8 @@ import {
 } from "@/lib/api-guide-content";
 import { billPaymentMainLinks, billPaymentReferenceLessons } from "@/lib/api-guide-bills";
 import { businessApiTopic } from "@/lib/business-api-docs";
-import { apiGuideAvailable } from "@/lib/api-guide-availability";
+import { apiGuideAvailable, billGuideLessonAvailable } from "@/lib/api-guide-availability";
+import type { BillPaymentApiAvailability } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 function GuideMenuSection({
@@ -77,12 +77,14 @@ function BillPaymentMenu({
   completed,
   onSelect,
   available,
+  availability,
 }: {
   current: string;
   currentLesson: string;
   completed: string[];
   onSelect: (id: string, lesson?: string) => void;
   available: boolean;
+  availability: BillPaymentApiAvailability;
 }) {
   const { language, t } = useI18n();
   const track = guideTrack("bill-payments");
@@ -92,10 +94,13 @@ function BillPaymentMenu({
   const [open, setOpen] = useState(active);
   const [referenceOpen, setReferenceOpen] = useState(referenceActive);
   const referenceList = useRef<HTMLUListElement>(null);
-  const reviewed = track.lessons.filter((lesson) =>
+  const enabledLessons = track.lessons.filter((lesson) =>
+    billGuideLessonAvailable(lesson, availability),
+  );
+  const reviewed = enabledLessons.filter((lesson) =>
     completed.includes(`${track.id}:${lesson.id}`),
   ).length;
-  const actionIcons = { request: Zap, television: RefreshCw, "tv-change": ArrowLeftRight };
+  const actionIcons = { request: Zap, television: Tv };
   useEffect(() => {
     if (active) setOpen(true);
     if (referenceActive) setReferenceOpen(true);
@@ -127,7 +132,7 @@ function BillPaymentMenu({
           <strong>{track.title[language === "fr" ? 1 : 0]}</strong>
           {available ? (
             <small>
-              {reviewed} / {track.lessons.length}
+              {reviewed} / {enabledLessons.length}
             </small>
           ) : (
             <small className="guide-menu-soon">{t("Coming soon", "Bientôt disponible")}</small>
@@ -138,13 +143,14 @@ function BillPaymentMenu({
       <div className="guide-bill-menu-items">
         <div className="guide-bill-actions">
           {billPaymentMainLinks.map((item) => {
-            const done = available && completed.includes(`${track.id}:${item.id}`);
+            const enabled = availability[item.category] === true;
+            const done = enabled && completed.includes(`${track.id}:${item.id}`);
             const Icon = actionIcons[item.id];
             return (
               <button
                 type="button"
                 key={item.id}
-                disabled={!available}
+                disabled={!enabled}
                 aria-current={active && currentLesson === item.id ? "step" : undefined}
                 onClick={() => onSelect(track.id, item.id)}
               >
@@ -154,7 +160,15 @@ function BillPaymentMenu({
                     <Check size={9} className="guide-nav-complete-mark" aria-hidden="true" />
                   )}
                 </span>
-                <span>{item.title[language === "fr" ? 1 : 0]}</span>
+                <span>
+                  {item.title[language === "fr" ? 1 : 0]}
+                  {!enabled && (
+                    <small className="guide-menu-soon">
+                      {" "}
+                      · {t("Coming soon", "Bientôt disponible")}
+                    </small>
+                  )}
+                </span>
                 {done && <span className="sr-only">{t("Completed", "Terminé")}</span>}
               </button>
             );
@@ -177,12 +191,13 @@ function BillPaymentMenu({
             aria-label={t("Bill payment reference", "Référence des paiements de factures")}
           >
             {billPaymentReferenceLessons.map((lesson) => {
-              const done = available && completed.includes(`${track.id}:${lesson.id}`);
+              const enabled = billGuideLessonAvailable(lesson, availability);
+              const done = enabled && completed.includes(`${track.id}:${lesson.id}`);
               return (
                 <li key={lesson.id}>
                   <button
                     type="button"
-                    disabled={!available}
+                    disabled={!enabled}
                     aria-current={active && currentLesson === lesson.id ? "step" : undefined}
                     onClick={() => onSelect(track.id, lesson.id)}
                   >
@@ -207,6 +222,7 @@ export function ApiGuideNavigation({
   onOpenCatalog,
   icons,
   billPaymentsApiReady,
+  billPaymentsApiAvailability,
 }: {
   current: string;
   currentLesson: string;
@@ -215,6 +231,7 @@ export function ApiGuideNavigation({
   onOpenCatalog: () => void;
   icons: Record<GuideTrack["icon"], LucideIcon>;
   billPaymentsApiReady: boolean;
+  billPaymentsApiAvailability: BillPaymentApiAvailability;
 }) {
   const { language, t } = useI18n();
   function renderGuide(id: GuideTrack["id"]) {
@@ -276,6 +293,7 @@ export function ApiGuideNavigation({
             completed={completed}
             onSelect={onSelect}
             available={billPaymentsApiReady}
+            availability={billPaymentsApiAvailability}
           />
         ) : (
           <GuideMenuSection

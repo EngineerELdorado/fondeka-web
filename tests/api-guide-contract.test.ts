@@ -11,6 +11,7 @@ import {
   parseGuideProgress,
 } from "../src/lib/api-guide-content";
 import { businessApiTopics, businessApiFiles } from "../src/lib/business-api-docs";
+import { billPaymentMainLinks, billPaymentReferenceLessons } from "../src/lib/api-guide-bills";
 import { businessDestination } from "../src/lib/business-tools";
 import { guideCredentialHref } from "../src/lib/api-guide-setup";
 import {
@@ -30,7 +31,8 @@ const spec = JSON.parse(
 ) as GuideSpec;
 const examples = apiGuideTracks.flatMap((track) =>
   track.lessons.flatMap((lesson) => [
-    ...(lesson.example ? [lesson.example] : []),
+    ...(lesson.exampleVariants?.map((variant) => variant.example) ||
+      (lesson.example ? [lesson.example] : [])),
     ...(lesson.confirmation ? Object.values(lesson.confirmation) : []),
   ]),
 );
@@ -162,8 +164,9 @@ test("visual guides cover current menu endpoints without recommending deprecated
 
 test("bill cURL paths use discovered product and offer variables and require idempotency only for purchase", () => {
   const track = guideTrack("bill-payments");
-  for (const lesson of track.lessons) {
-    const example = lesson.example!;
+  for (const example of track.lessons.flatMap(
+    (lesson) => lesson.exampleVariants?.map((variant) => variant.example) || [lesson.example!],
+  )) {
     const operation = guideOperation(spec, example);
     const curl = contractCurl(spec, example, undefined);
     assert.doesNotMatch(curl, /\{billProductCode\}|\{offerCode\}/);
@@ -171,6 +174,68 @@ test("bill cURL paths use discovered product and offer variables and require ide
       assert.match(curl, /\$FONDEKA_BILL_PRODUCT_CODE/);
     if (example.path.includes("{offerCode}")) assert.match(curl, /\$FONDEKA_OFFER_CODE/);
     assert.equal(curl.includes("Idempotency-Key:"), operation.operationId === "createBillPayment");
+  }
+});
+test("electricity estimates are discoverable in bill reference and need no payment intent or account", () => {
+  const lesson = guideLesson(guideTrack("bill-payments"), "electricity-estimate");
+  assert.ok(billPaymentReferenceLessons.includes(lesson));
+  const example = lesson.example!;
+  assert.equal(example.method, "POST");
+  assert.match(example.path, /\/bill-products\/\{billProductCode\}\/electricity-estimate$/);
+  const operation = guideOperation(spec, example);
+  assert.equal(operation.operationId, "estimateBillElectricity");
+  const media = guideMedia(operation.requestBody?.content)!;
+  assert.deepEqual(publishedExample(media, example.exampleName), { amount: 10, currency: "USD" });
+  const curl = contractCurl(spec, example, undefined);
+  assert.match(curl, /\$FONDEKA_BILL_PRODUCT_CODE\/electricity-estimate/);
+  assert.doesNotMatch(curl, /Idempotency-Key|accountNumber/);
+  const response = publishedExample(guideMedia(operation.responses["200"].content)!);
+  assert.equal((response as { estimatedKwh: number }).estimatedKwh, 50);
+  const schema = spec.components.schemas.BusinessApiElectricityEstimate;
+  assert.equal(schema.properties?.estimatedKwh.nullable, true);
+  assert.match(lesson.tips!.flat().join(" "), /null/);
+  assert.match(lesson.tips!.flat().join(" "), /SANDBOX/);
+});
+
+test("Pay TV consolidates navigation while retaining both published operations and old guide links", () => {
+  const track = guideTrack("bill-payments");
+  const tv = guideLesson(track, "television");
+  assert.deepEqual(
+    billPaymentMainLinks.map((link) => link.title[0]),
+    ["Pay Electricity", "Pay TV"],
+  );
+  assert.deepEqual(tv.title, ["Pay TV", "Payer la TV"]);
+  assert.equal(guideLesson(track, "tv-change"), tv);
+  assert.ok(!billPaymentReferenceLessons.some((lesson) => lesson.id === "tv-change"));
+  assert.deepEqual(
+    parseGuideProgress(JSON.stringify(["bill-payments:tv-change", "bill-payments:television"])),
+    ["bill-payments:television"],
+  );
+  assert.equal(tv.exampleVariants?.length, 2);
+  for (const variant of tv.exampleVariants!) {
+    const operation = guideOperation(spec, variant.example);
+    const body = publishedExample(
+      guideMedia(operation.requestBody?.content),
+      variant.example.exampleName,
+    ) as {
+      billProductCode: string;
+      additionalInfo: {
+        operation: string;
+        subscriptionNumber: string;
+        offerCode?: string;
+        optionCode?: string;
+      };
+    };
+    const change = variant.example.exampleName === "tvChange";
+    assert.equal(body.billProductCode, "CANAL_PLUS_DRC");
+    assert.equal(body.additionalInfo.operation, change ? "TV_CHANGE" : "TV_RENEW");
+    assert.ok(body.additionalInfo.subscriptionNumber);
+    assert.equal(!!body.additionalInfo.offerCode, change);
+    assert.equal(!!body.additionalInfo.optionCode, change);
+    assert.match(
+      contractCurl(spec, variant.example, body),
+      new RegExp(body.additionalInfo.operation),
+    );
   }
 });
 test("request and response examples are the literal contract values, including error bodies", () => {

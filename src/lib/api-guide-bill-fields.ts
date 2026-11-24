@@ -152,6 +152,37 @@ export const billAdditionalInfoFields: Definitions = {
 };
 
 export const billFieldDefinitions: Record<string, Definitions> = {
+  BusinessApiElectricityEstimateRequest: {
+    amount: [
+      "Bill principal in the requested fiat currency, excluding fees. Minimum 0.01, with at most two decimal places.",
+      "Montant de la facture dans la devise fiat demandée, hors frais. Minimum 0,01, avec deux décimales au maximum.",
+    ],
+    currency: [
+      "Three-letter fiat currency, normalized to uppercase. No wallet is debited by this estimate.",
+      "Devise fiat de trois lettres, normalisée en majuscules. Cette estimation ne débite aucun portefeuille.",
+    ],
+  },
+  BusinessApiElectricityEstimate: {
+    environment,
+    billProductCode: identity.billProductCode,
+    amount: [
+      "Requested bill principal, excluding fees. This is an estimate, not an accepted payment.",
+      "Montant demandé de la facture, hors frais. Il s’agit d’une estimation, pas d’un paiement accepté.",
+    ],
+    currency: ["Fiat currency of amount.", "Devise fiat de amount."],
+    estimatedKwh: [
+      "Estimated electricity in kWh. null means unavailable, never zero. LIVE uses the configured bill route rate and current conversion/rounding; SANDBOX returns a synthetic 5 kWh per requested fiat unit regardless of currency.",
+      "Électricité estimée en kWh. null signifie indisponible, jamais zéro. LIVE utilise le taux configuré de la route et les conversion/arrondi actuels ; SANDBOX retourne une valeur fictive de 5 kWh par unité fiat demandée, quelle que soit la devise.",
+    ],
+    calculatedAt: [
+      "Time of calculation. No price, rate or energy reservation is made.",
+      "Date du calcul. Aucun prix, taux ou volume d’énergie n’est réservé.",
+    ],
+    binding: [
+      "Always false. Actual delivered energy is confirmed by the completed payment receipt.",
+      "Toujours false. L’énergie réellement livrée est confirmée par le reçu du paiement terminé.",
+    ],
+  },
   BusinessApiBillRequest: {
     ...identity,
     amount: money.amount,
