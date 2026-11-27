@@ -8,6 +8,8 @@ New LIVE collections and payouts require Fondeka to enable live API payments. Be
 
 An API key belongs to one Business. The Business's owning account owns the LIVE fiat wallets. Multiple Businesses under that account share those balances; their credentials, payments and idempotency scopes remain separate. Sandbox wallets are isolated virtual account wallets, also shared by that account's Businesses.
 
+Credential creation permits one active key/signing-secret set per owning account per environment, including across different Businesses. Existing multiple sets are retained. The cap applies to new generation and does not change the Business binding or authentication of previously issued keys.
+
 Business API payments are excluded from the client app's general transaction history and detail routes (`/customer-api/transactions`), including LIVE payments. Read them through the merchant API or the portal's dedicated `/customer-api/businesses/{businessId}/api-transactions` routes, with the appropriate environment. LIVE payments remain real financial transactions and are included in admin reporting and applicable loan-eligibility rules. SANDBOX payments remain in separate tables: they do not appear in admin transaction views and do not contribute to financial reports, analytics, real balances or loan eligibility. Sandbox history and virtual balances remain available through the dedicated sandbox/portal APIs.
 
 ## Fiat and crypto amounts

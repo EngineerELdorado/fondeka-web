@@ -101,6 +101,10 @@ const intent = field(
   "Une clé par intention de paiement. Après un délai dépassé, renvoyez le même corps avec cette même clé.",
   "header",
 );
+const mobileMoneyCountryAccess: GuideCopy = [
+  "Mobile money collections, payouts and quotes default to DR Congo (CD) in LIVE and SANDBOX. Other countries require Fondeka enablement for your account. A 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED response lists the available countries; contact Fondeka support to request access before retrying.",
+  "Les encaissements, décaissements et devis mobile money sont ouverts par défaut à la RD Congo (CD), en LIVE et SANDBOX. Les autres pays nécessitent une activation par Fondeka pour votre compte. Une réponse 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED indique les pays disponibles ; contactez l’assistance Fondeka pour demander l’accès avant de réessayer.",
+];
 const network = field(
   "networkName",
   "Choose a supported method/network pair. Use the exact network returned in the payment instructions.",
@@ -289,6 +293,7 @@ export const apiGuideTracks: GuideTrack[] = [
         ],
         example: paymentExample(),
         tips: [
+          mobileMoneyCountryAccess,
           [
             "These examples use SANDBOX credentials. LIVE ignores the X-Simulate-Error-Code header and processes a real payment; availability and limits depend on the route.",
             "Ces exemples utilisent des clés SANDBOX. LIVE ignore l’en-tête X-Simulate-Error-Code et traite un paiement réel ; disponibilité et limites dépendent de la route.",
@@ -335,6 +340,7 @@ export const apiGuideTracks: GuideTrack[] = [
           ["Recipient phone", "Téléphone bénéficiaire"],
         ],
         example: paymentExample(true),
+        tips: [mobileMoneyCountryAccess],
       },
       {
         id: "refund",

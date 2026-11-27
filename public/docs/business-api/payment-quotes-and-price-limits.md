@@ -18,8 +18,8 @@ Send the payment fields, including the actual payer/recipient and selected curre
 {
   "amount": 10,
   "currency": "USD",
-  "paymentMethodName": "MPESA_KENYA",
-  "accountRef": "+254707371664",
+  "paymentMethodName": "MPESA_DRC",
+  "accountRef": "+243970000000",
   "feeApplicationMode": "EXCLUSIVE"
 }
 ```
@@ -55,8 +55,8 @@ After displaying the quote, send its price as optional caps on the existing coll
 {
   "amount": 10,
   "currency": "USD",
-  "paymentMethodName": "MPESA_KENYA",
-  "accountRef": "+254707371664",
+  "paymentMethodName": "MPESA_DRC",
+  "accountRef": "+243970000000",
   "feeApplicationMode": "EXCLUSIVE",
   "orderReference": "order-0001",
   "maxFee": 0.30,

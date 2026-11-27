@@ -288,6 +288,10 @@ export const paymentQuotesTrack: GuideTrack = {
       },
       [
         [
+          "Mobile money quotes follow the same country access as payments in LIVE and SANDBOX: DR Congo (CD) by default. A 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED response lists available countries. Contact Fondeka support to request another country.",
+          "Les devis mobile money suivent les mêmes règles d’accès par pays que les paiements, en LIVE et SANDBOX : RD Congo (CD) par défaut. Une réponse 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED indique les pays disponibles. Contactez l’assistance Fondeka pour demander un autre pays.",
+        ],
+        [
           "Copy fee and grossAmount into optional maxFee and maxGrossAmount on creation. A higher acceptance price returns 409 PAYMENT_PRICE_LIMIT_EXCEEDED without accepting or debiting. For INCLUSIVE, maxFee also protects the recipient’s net. Review a new quote before increasing caps; keep the original caps on accepted retries.",
           "Copiez fee et grossAmount dans maxFee et maxGrossAmount à la création. Un prix supérieur retourne 409 PAYMENT_PRICE_LIMIT_EXCEEDED sans acceptation ni débit. En INCLUSIVE, maxFee protège aussi le net reçu. Vérifiez un nouveau devis avant d’augmenter les limites et conservez les limites d’origine sur les relances acceptées.",
         ],

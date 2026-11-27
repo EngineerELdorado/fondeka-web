@@ -324,7 +324,7 @@ const descriptionsFr: Record<string, Record<string, string>> = {
     blacklistedReason: "Champ de compatibilité décrivant la restriction d’un compte.",
     code: "Alias de compatibilité réservé aux erreurs d’accès aux outils Business.",
     details:
-      "Contexte structuré facultatif. Les erreurs de validation peuvent contenir fieldErrors ; les autres clés dépendent de la réponse du backend.",
+      "Contexte structuré facultatif : chaînes, nombres, booléens, tableaux ou objets. Un pays mobile money non activé renvoie requestedCountryCode si connu, availableCountryCodes, availableCountries et contactSupport.",
     errorCode: "Code stable exploitable par votre programme pour identifier l’erreur de requête.",
     message:
       "Description lisible de l’erreur. Ne l’utilisez pas comme valeur de branchement dans votre code.",
@@ -534,6 +534,24 @@ export function guideFieldDescription(
         language: language === "fr" ? "fr" : "en",
       };
   }
+  if (example?.paymentKind === "BALANCE" && example.exampleName === "standard") {
+    const electricityFields: Record<string, readonly [string, string]> = {
+      accountNumber: [
+        "Electricity meter number. Send it as a string and verify it with account lookup before paying.",
+        "Numéro du compteur électrique. Envoyez-le sous forme de texte et vérifiez-le avec la recherche de compte avant de payer.",
+      ],
+      additionalInfo: [
+        "Optional fields required by the selected electricity provider. Omit this object when no extra information is needed. These fields cannot override the payment amount, currency, meter number or price limits.",
+        "Champs facultatifs demandés par le fournisseur d’électricité choisi. Omettez cet objet si aucune information supplémentaire n’est nécessaire. Ces champs ne peuvent pas remplacer le montant, la devise, le numéro de compteur ou les limites de prix.",
+      ],
+    };
+    const definition = electricityFields[field.name];
+    if (definition)
+      return {
+        text: definition[language === "fr" ? 1 : 0],
+        language: language === "fr" ? "fr" : "en",
+      };
+  }
   const definition = field.component && fieldDefinitions[field.component]?.[field.name];
   if (definition)
     return {
@@ -562,6 +580,18 @@ export function guideFieldDescription(
         language === "fr"
           ? "Ce champ est omis pour les paiements mobile money."
           : "This field is omitted for mobile-money payments.",
+      language: language === "fr" ? "fr" : "en",
+    };
+  if (
+    field.location === "body" &&
+    field.name === "paymentMethodName" &&
+    (example?.paymentKind === "MOBILE_MONEY" || example?.exampleName === "mobileMoney")
+  )
+    return {
+      text:
+        language === "fr"
+          ? "Code stable du moyen de paiement. Son pays doit être activé pour votre compte, en LIVE comme en SANDBOX : RD Congo (CD) par défaut. Sinon, la requête renvoie 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED avec les pays disponibles. Contactez l’assistance Fondeka pour demander un autre pays."
+          : "Stable payment-method code. Its country must be enabled for your account in LIVE and SANDBOX: DR Congo (CD) by default. Otherwise, the request returns 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED with available countries. Contact Fondeka support to request another country.",
       language: language === "fr" ? "fr" : "en",
     };
   if (example && field.location === "body" && field.name === "accountRef") {

@@ -342,11 +342,8 @@
             "type" : "string"
           },
           "details" : {
-            "additionalProperties" : {
-              "description" : "Optional structured context; validation errors may include fieldErrors.",
-              "type" : "object"
-            },
-            "description" : "Optional structured context; validation errors may include fieldErrors.",
+            "additionalProperties" : { },
+            "description" : "Optional structured context: values may be strings, numbers, booleans, arrays or objects. Country rejections include requestedCountryCode when known, availableCountryCodes, availableCountries and contactSupport.",
             "type" : "object"
           },
           "errorCode" : {
@@ -477,7 +474,7 @@
           "required" : [ "paymentMethodId" ],
           "type" : "object"
         } ],
-        "description" : "Fiat-priced collection/payout. Supply paymentMethodName or its legacy ID. Crypto additionally requires a compatible networkName/networkId. Mobile money requires accountRef; all payouts require a destination. Enum membership does not guarantee route/currency/network availability. Use the destination-aware quote endpoints and optional maxFee/maxGrossAmount price caps before acceptance.",
+        "description" : "Fiat-priced collection/payout. Supply paymentMethodName or its legacy ID. Crypto additionally requires a compatible networkName/networkId. Mobile money requires accountRef; all payouts require a destination. Mobile Money methods must belong to an enabled country for the owning account (default CD); rejected attempts return 403 MOBILE_MONEY_COUNTRY_NOT_ENABLED with available countries and contact instructions. Enum membership does not guarantee route/currency/network availability. Use the destination-aware quote endpoints and optional maxFee/maxGrossAmount price caps before acceptance.",
         "properties" : {
           "accountRef" : {
             "description" : "Payer phone for mobile-money collection; recipient phone or crypto address for payout. Phone numbers should use international +country-code format. Optional for crypto collection.",
@@ -1207,7 +1204,7 @@
       "name" : "Fondeka",
       "url" : "https://www.fondeka.com"
     },
-    "description" : "Collect and pay out through mobile money and crypto, and pay bills from account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Sandbox uses virtual wallets and deterministic fixtures without real providers. All merchant endpoints have shared business/API-key request limits. On HTTP 429, honor Retry-After and use backoff; keep payment idempotency keys unchanged. The /v1 path is the API major version; info.version versions this documentation contract.",
+    "description" : "Collect and pay out through mobile money and crypto, and pay bills from account fiat wallets. API keys select LIVE or SANDBOX on the same URLs. Merchant endpoints do not use customer JWTs or device sessions. HTTP 202 accepts queued work; only confirmed completion represents a successful payment. Mobile Money API countries default to DR Congo (CD), with admin-managed global settings and per-account replacement overrides in both environments. Sandbox uses virtual wallets and deterministic fixtures without real providers. All merchant endpoints have shared business/API-key request limits. On HTTP 429, honor Retry-After and use backoff; keep payment idempotency keys unchanged. The /v1 path is the API major version; info.version versions this documentation contract.",
     "title" : "Fondeka Business API",
     "version" : "1.8.0"
   },
@@ -7596,12 +7593,12 @@
                 "mobileMoney" : {
                   "summary" : "USD-priced mobile money (route availability applies)",
                   "value" : {
-                    "accountRef" : "+254707371664",
+                    "accountRef" : "+243970000000",
                     "amount" : 10.0,
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "orderReference" : "order-0001",
-                    "paymentMethodName" : "MPESA_KENYA"
+                    "paymentMethodName" : "MPESA_DRC"
                   }
                 }
               },
@@ -7807,6 +7804,25 @@
                     "value" : {
                       "errorCode" : "BUSINESS_TOOLS_ACCESS_REQUIRED",
                       "message" : "The owner's Business Tools entitlement is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "MOBILE_MONEY_COUNTRY_NOT_ENABLED" : {
+                    "description" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                    "value" : {
+                      "details" : {
+                        "availableCountries" : [ {
+                          "code" : "CD",
+                          "name" : "DR Congo"
+                        } ],
+                        "availableCountryCodes" : [ "CD" ],
+                        "contactSupport" : true,
+                        "requestedCountryCode" : "KE"
+                      },
+                      "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                      "message" : "Mobile Money API payments are not enabled for this payment method's country. Available countries for your account: DR Congo (CD). Contact Fondeka support to request access to other countries.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -8072,6 +8088,12 @@
             "httpStatus" : 409,
             "simulatable" : false
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -8218,6 +8240,13 @@
             "httpStatus" : 409,
             "simulatable" : true,
             "simulationValue" : "IDEMPOTENCY_CONFLICT"
+          }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
           }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
@@ -8382,7 +8411,7 @@
           "simulatable" : true,
           "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "MOBILE_MONEY_COUNTRY_NOT_ENABLED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "INVALID_DESTINATION", "PAYMENT_NOT_APPROVED", "PAYER_INSUFFICIENT_FUNDS", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_INVOICE_EXPIRED", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/collections/quote" : {
@@ -8428,12 +8457,12 @@
                 "mobileMoney" : {
                   "summary" : "USD-priced mobile money (route availability applies)",
                   "value" : {
-                    "accountRef" : "+254707371664",
+                    "accountRef" : "+243970000000",
                     "amount" : 10.0,
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "orderReference" : "order-0001",
-                    "paymentMethodName" : "MPESA_KENYA"
+                    "paymentMethodName" : "MPESA_DRC"
                   }
                 }
               },
@@ -8619,6 +8648,25 @@
                     "value" : {
                       "errorCode" : "BUSINESS_TOOLS_ACCESS_REQUIRED",
                       "message" : "The owner's Business Tools entitlement is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "MOBILE_MONEY_COUNTRY_NOT_ENABLED" : {
+                    "description" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                    "value" : {
+                      "details" : {
+                        "availableCountries" : [ {
+                          "code" : "CD",
+                          "name" : "DR Congo"
+                        } ],
+                        "availableCountryCodes" : [ "CD" ],
+                        "contactSupport" : true,
+                        "requestedCountryCode" : "KE"
+                      },
+                      "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                      "message" : "Mobile Money API payments are not enabled for this payment method's country. Available countries for your account: DR Congo (CD). Contact Fondeka support to request access to other countries.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -8862,6 +8910,12 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -8989,6 +9043,13 @@
             "simulatable" : true,
             "simulationValue" : "BLACKLISTED"
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -9082,7 +9143,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "MOBILE_MONEY_COUNTRY_NOT_ENABLED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/error-codes" : {
@@ -9249,6 +9310,13 @@
                           "httpStatus" : 409,
                           "simulatable" : true,
                           "simulationValue" : "IDEMPOTENCY_CONFLICT"
+                        }, {
+                          "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+                          "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                          "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
                         }, {
                           "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
                           "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
@@ -9474,6 +9542,13 @@
                           "simulatable" : true,
                           "simulationValue" : "IDEMPOTENCY_CONFLICT"
                         }, {
+                          "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+                          "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                          "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
+                        }, {
                           "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
                           "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
                           "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -9649,6 +9724,13 @@
                           "simulatable" : true,
                           "simulationValue" : "BLACKLISTED"
                         }, {
+                          "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+                          "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                          "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
+                        }, {
                           "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
                           "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
                           "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -9795,6 +9877,13 @@
                           "httpStatus" : 403,
                           "simulatable" : true,
                           "simulationValue" : "BLACKLISTED"
+                        }, {
+                          "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+                          "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                          "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                          "httpStatus" : 403,
+                          "simulatable" : true,
+                          "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
                         }, {
                           "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
                           "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
@@ -12367,12 +12456,12 @@
                 "mobileMoney" : {
                   "summary" : "USD-priced mobile money (route availability applies)",
                   "value" : {
-                    "accountRef" : "+254707371664",
+                    "accountRef" : "+243970000000",
                     "amount" : 10.0,
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "orderReference" : "order-0001",
-                    "paymentMethodName" : "MPESA_KENYA"
+                    "paymentMethodName" : "MPESA_DRC"
                   }
                 }
               },
@@ -12608,6 +12697,25 @@
                     "value" : {
                       "errorCode" : "BUSINESS_TOOLS_ACCESS_REQUIRED",
                       "message" : "The owner's Business Tools entitlement is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "MOBILE_MONEY_COUNTRY_NOT_ENABLED" : {
+                    "description" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                    "value" : {
+                      "details" : {
+                        "availableCountries" : [ {
+                          "code" : "CD",
+                          "name" : "DR Congo"
+                        } ],
+                        "availableCountryCodes" : [ "CD" ],
+                        "contactSupport" : true,
+                        "requestedCountryCode" : "KE"
+                      },
+                      "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                      "message" : "Mobile Money API payments are not enabled for this payment method's country. Available countries for your account: DR Congo (CD). Contact Fondeka support to request access to other countries.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -12873,6 +12981,12 @@
             "httpStatus" : 409,
             "simulatable" : false
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -13037,6 +13151,13 @@
             "httpStatus" : 409,
             "simulatable" : true,
             "simulationValue" : "IDEMPOTENCY_CONFLICT"
+          }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
           }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
@@ -13215,7 +13336,7 @@
           "simulatable" : true,
           "simulationValue" : "CRYPTO_CONFIRMATIONS_PENDING"
         } ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_ADDRESS_INVALID", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_TRANSFER_REJECTED", "CRYPTO_CONFIRMATIONS_PENDING" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_CONFLICT", "MOBILE_MONEY_COUNTRY_NOT_ENABLED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "INSUFFICIENT_FUNDS", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "BUSINESS_API_LIVE_PAYMENTS_DISABLED", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT", "INVALID_DESTINATION", "PROVIDER_UNAVAILABLE", "PAYMENT_EXPIRED", "PAYMENT_CANCELLED", "CRYPTO_ADDRESS_INVALID", "CRYPTO_NETWORK_UNAVAILABLE", "CRYPTO_TRANSFER_REJECTED", "CRYPTO_CONFIRMATIONS_PENDING" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/payouts/quote" : {
@@ -13262,12 +13383,12 @@
                 "mobileMoney" : {
                   "summary" : "USD-priced mobile money (route availability applies)",
                   "value" : {
-                    "accountRef" : "+254707371664",
+                    "accountRef" : "+243970000000",
                     "amount" : 10.0,
                     "currency" : "USD",
                     "feeApplicationMode" : "EXCLUSIVE",
                     "orderReference" : "order-0001",
-                    "paymentMethodName" : "MPESA_KENYA"
+                    "paymentMethodName" : "MPESA_DRC"
                   }
                 }
               },
@@ -13473,6 +13594,25 @@
                     "value" : {
                       "errorCode" : "BUSINESS_TOOLS_ACCESS_REQUIRED",
                       "message" : "The owner's Business Tools entitlement is required.",
+                      "requestId" : "22222222-2222-4222-8222-222222222222",
+                      "status" : 403,
+                      "statusCode" : 403
+                    }
+                  },
+                  "MOBILE_MONEY_COUNTRY_NOT_ENABLED" : {
+                    "description" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+                    "value" : {
+                      "details" : {
+                        "availableCountries" : [ {
+                          "code" : "CD",
+                          "name" : "DR Congo"
+                        } ],
+                        "availableCountryCodes" : [ "CD" ],
+                        "contactSupport" : true,
+                        "requestedCountryCode" : "KE"
+                      },
+                      "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+                      "message" : "Mobile Money API payments are not enabled for this payment method's country. Available countries for your account: DR Congo (CD). Contact Fondeka support to request access to other countries.",
                       "requestId" : "22222222-2222-4222-8222-222222222222",
                       "status" : 403,
                       "statusCode" : 403
@@ -13716,6 +13856,12 @@
             "httpStatus" : 403,
             "simulatable" : false
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : false
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -13855,6 +14001,13 @@
             "simulatable" : true,
             "simulationValue" : "BLACKLISTED"
           }, {
+            "description" : "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.",
+            "errorCode" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+            "howToTest" : "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.",
+            "httpStatus" : 403,
+            "simulatable" : true,
+            "simulationValue" : "MOBILE_MONEY_COUNTRY_NOT_ENABLED"
+          }, {
             "description" : "The current fee or gross amount exceeds the caller's optional price limits. No payment or debit is accepted.",
             "errorCode" : "PAYMENT_PRICE_LIMIT_EXCEEDED",
             "howToTest" : "Request a quote, submit a lower maxFee/maxGrossAmount, or simulate this rejection in sandbox.",
@@ -13962,7 +14115,7 @@
           } ]
         },
         "x-processing-errors" : [ ],
-        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT" ]
+        "x-simulatable-error-codes" : [ "INVALID_REQUEST", "AUTHENTICATION_FAILED", "BUSINESS_MISMATCH", "BUSINESS_TOOLS_ACCESS_REQUIRED", "BUSINESS_NOT_FOUND", "BLACKLISTED", "MOBILE_MONEY_COUNTRY_NOT_ENABLED", "PAYMENT_PRICE_LIMIT_EXCEEDED", "PAYMENT_METHOD_NOT_FOUND", "CRYPTO_NETWORK_NOT_FOUND", "CRYPTO_NETWORK_REQUIRED", "DESTINATION_REQUIRED", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "SOMETHING_WENT_WRONG", "CIRCUIT_OPEN", "BULKHEAD_FULL", "PAYMENT_METHOD_UNAVAILABLE", "FX_ROUTE_UNAVAILABLE", "WARNING_MESSAGE", "KYC_NEEDED", "OUTSTANDING_DEBT" ]
       }
     },
     "/business-api/v1/businesses/{businessId}/sandbox-wallets/convert" : {

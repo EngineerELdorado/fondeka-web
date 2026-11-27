@@ -1,5 +1,17 @@
 # Contract changelog
 
+## Unreleased — Mobile Money country rollout
+
+Mobile Money collections, payouts and quotes now enforce an admin-managed country allowlist in both environments. The default is DR Congo (`CD`) only; account overrides replace the global list. Unavailable countries return HTTP 403 `MOBILE_MONEY_COUNTRY_NOT_ENABLED` with available country codes/names and support guidance, before financial processing. Previously accepted payments, status reads, identical retries, signed webhooks, crypto and wallet-funded bills retain their behavior. Apply `20270151_business_api_mobile_money_countries.sql` with the release. `/business-api/v1` and client request formats are unchanged. See [errors](errors.md#mobile-money-country-availability).
+
+## Unreleased — Account credential-generation limit
+
+Customer-portal generation now permits one active API key/webhook signing-secret set per owning account per environment, across all its Businesses. A further creation returns `409 INVALID_REQUEST` until that environment has no active sets. Existing multiple sets remain usable. Revocation allows one replacement; SANDBOX and LIVE remain independent. No merchant endpoint, authentication format, webhook contract, API version or database schema changes. See [credential setup](quickstart.md).
+
+## Unreleased — Bitcart account-chain invoice collections
+
+The configured Bitcart ETH Payments plugin can supply receiving instructions for compatible wallets and exchanges. The customer provides no sending address. The existing collection response, polling, signed terminal webhooks and `/business-api/v1` version remain unchanged; no client endpoint or request field is added. Account-chain activation remains server-controlled and default off. See the [crypto collections](guides/crypto-collection.md).
+
 ## 1.7.0 — 2026-11-18 — Shared request rate limits
 
 `Retry-After` is newly documented as an optional response header in this release; it was not part of the published 1.6.0 contract. Its integer value is a minimum delay in seconds. Existing 429 handling remains usable, with the new header providing precise timing. See [client handling and fallbacks](errors.md#retry-after-client-handling).

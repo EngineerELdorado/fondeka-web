@@ -656,7 +656,7 @@
             "description": "Calculate current collection pricing using the same destination, route, fees and gross-based tier rules as payment acceptance. Creates no payment, wallet, provider invoice, reservation or idempotency intent. No Idempotency-Key is required. The LIVE launch switch does not block pricing. Copy fee/grossAmount into maxFee/maxGrossAmount on payment creation to reject a later price increase.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+              "raw": "{\n  \"accountRef\": \"+243970000000\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_DRC\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -734,7 +734,7 @@
             "description": "Calculate current payout pricing for this exact recipient, including same-source eligibility and the winning fallback provider. Does not require a funded wallet, reserve funds or submit a payout. Pricing and availability are rechecked at acceptance. Copy fee/grossAmount into maxFee/maxGrossAmount to prevent a new payment accepting a higher price; expired or changed quotes are not reservations.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+              "raw": "{\n  \"accountRef\": \"+243970000000\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_DRC\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -820,7 +820,7 @@
             "description": "Accept an asynchronous mobile-money or crypto collection. Amount and currency refer to fiat settlement, including crypto. Credit the account wallet only after confirmation. HTTP 202 is acceptance, not payment success. Repeat the same normalized request with the same Idempotency-Key to retrieve its current state without another payment.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+              "raw": "{\n  \"accountRef\": \"+243970000000\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_DRC\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -932,7 +932,7 @@
             "description": "Accept an asynchronous mobile-money or crypto payout. Reserve/debit the account fiat wallet gross amount including fees at acceptance. Crypto token amounts are quoted server-side. A completed payout does not debit again. ACCEPTED means queued; PROCESSING includes execution and unresolved provider outcomes. Both keep funds reserved; do not submit a replacement payment while investigating.\n\nOn HTTP 429 or retryable 503, read Retry-After from the response and wait at least that many seconds before retrying. If absent, use details.retryAfterSeconds or exponential backoff with jitter. Keep payment Idempotency-Key and payload unchanged; cap retry attempts. Retry-After is an optional response header added in contract 1.7.0, not a request header.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accountRef\": \"+254707371664\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_KENYA\"\n}",
+              "raw": "{\n  \"accountRef\": \"+243970000000\",\n  \"amount\": 10,\n  \"currency\": \"USD\",\n  \"feeApplicationMode\": \"EXCLUSIVE\",\n  \"orderReference\": \"order-0001\",\n  \"paymentMethodName\": \"MPESA_DRC\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

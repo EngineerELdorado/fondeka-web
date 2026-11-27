@@ -12,6 +12,7 @@ import {
   guideMedia,
   guideOperation,
   publishedExample,
+  publishedGuideErrors,
   type GuideSpec,
 } from "../src/lib/api-guide-contract";
 import { guideTrack } from "../src/lib/api-guide-content";
@@ -226,7 +227,7 @@ test("each payment page explains exactly its own request payload and keeps its p
     const body = publishedExample(media, example.exampleName) as Record<string, unknown>;
     const scoped = guidePageFields(guideSchemaFields(spec, media?.schema, "body"), example, body);
     assert.deepEqual(scoped.map((field) => field.path).sort(), Object.keys(body).sort(), id);
-    assert.equal(body.paymentMethodName, id.startsWith("crypto") ? "USDT" : "MPESA_KENYA");
+    assert.equal(body.paymentMethodName, id.startsWith("crypto") ? "USDT" : "MPESA_DRC");
     assert.ok(!scoped.some((field) => ["networkId", "paymentMethodId"].includes(field.path)), id);
     assert.equal(scoped.find((field) => field.name === "paymentMethodName")?.required, true);
     if (id.startsWith("mobile-money"))
@@ -265,6 +266,45 @@ test("mobile-money responses explain omitted cryptoDetails without unrelated cry
       );
     }
   }
+});
+
+test("mobile money creation and quote field help explains country access in both languages", () => {
+  const examples = [
+    guideTrack("mobile-money-collection").lessons[0].example!,
+    guideTrack("mobile-money-payout").lessons[0].example!,
+    ...guideTrack("payment-quotes").lessons.map((lesson) => lesson.example!),
+  ];
+  for (const example of examples) {
+    const operation = guideOperation(spec, example);
+    const field = guideSchemaFields(
+      spec,
+      guideMedia(operation.requestBody?.content)?.schema,
+      "body",
+    ).find((field) => field.name === "paymentMethodName")!;
+    for (const language of ["en", "fr"]) {
+      const description = guideFieldDescription(field, language, example);
+      assert.equal(description.language, language);
+      assert.match(description.text, /403 MOBILE_MONEY_COUNTRY_NOT_ENABLED/);
+      assert.match(description.text, /Congo \(CD\)/);
+      assert.match(description.text, /LIVE.*SANDBOX/);
+    }
+    const catalog = publishedGuideErrors(operation, example)!;
+    assert.equal(
+      catalog.endpoints[0].requestErrors.find(
+        (entry) => entry.errorCode === "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+      )?.simulationValue,
+      "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+    );
+  }
+  const details = fields("BusinessApiError").find((field) => field.name === "details")!;
+  for (const language of ["en", "fr"])
+    for (const key of [
+      "requestedCountryCode",
+      "availableCountryCodes",
+      "availableCountries",
+      "contactSupport",
+    ])
+      assert.ok(guideFieldDescription(details, language).text.includes(key), `${language}: ${key}`);
 });
 
 test("accountRef explanations follow the current payment guide rather than the shared request schema", () => {

@@ -377,6 +377,8 @@
   "Omit X-API-Key or use an invalid/revoked test key.": "Omettez X-API-Key ou utilisez une clé de test invalide ou révoquée.",
   "Credential does not belong to the requested Business.": "L’identifiant n’appartient pas au Business demandé.",
   "Use a different Business ID with the same test key.": "Utilisez un Business ID différent avec la même clé de test.",
+  "The Mobile Money payment method country is not enabled for this account. details lists available countries; contact Fondeka support for access to others.": "Le pays du moyen de paiement mobile money n’est pas activé pour ce compte. details indique les pays disponibles ; contactez l’assistance Fondeka pour demander l’accès à d’autres pays.",
+  "Use a Mobile Money method outside the effective allowed countries. Applies to SANDBOX and LIVE; new rejected requests do not move funds.": "Utilisez un moyen mobile money d’un pays non autorisé pour ce compte. Cette règle s’applique en SANDBOX et en LIVE ; les nouvelles requêtes refusées ne déplacent aucun fonds.",
   "The owner's Business Tools entitlement is required.": "Le propriétaire doit disposer de l’accès aux outils Business.",
   "Use a test account without access while entitlement enforcement is enabled.": "Utilisez un compte de test sans accès lorsque le contrôle des droits est activé.",
   "Business or payment not found.": "Business ou paiement introuvable.",

@@ -9,6 +9,32 @@ Use `statusCode` (and `status`) for the HTTP status, and a meaningful business c
 
 HTTP 202 is acceptance, not completion. The public payment status is `ACCEPTED`, `PROCESSING`, `COMPLETED` or `FAILED`. Polling a failed payment still returns HTTP 200: inspect `status` and `failureCode`.
 
+## Mobile Money country availability
+
+Mobile Money API collections, payouts and their quotes are enabled for DR Congo (`CD`) by default, in LIVE and SANDBOX. Congo-Brazzaville (`CG`) is a separate country and is not enabled by this default. Fondeka admins can change the global list or replace it for an account. The country comes from the selected payment method, independently of the caller's location, account residence or settlement currency. Crypto and wallet-funded bill payments retain their existing availability rules.
+
+An unavailable country returns **HTTP 403 `MOBILE_MONEY_COUNTRY_NOT_ENABLED`**, before accepting a new payment, debiting/reserving funds, creating a provider request or queuing its webhook:
+
+```json
+{
+  "message": "Mobile Money API payments are not enabled for this payment method's country. Available countries for your account: DR Congo (CD). Contact Fondeka support to request access to other countries.",
+  "status": 403,
+  "statusCode": 403,
+  "errorCode": "MOBILE_MONEY_COUNTRY_NOT_ENABLED",
+  "requestId": "22222222-2222-4222-8222-222222222222",
+  "details": {
+    "requestedCountryCode": "KE",
+    "availableCountryCodes": ["CD"],
+    "availableCountries": [{"code": "CD", "name": "DR Congo"}],
+    "contactSupport": true
+  }
+}
+```
+
+Use the effective available countries in the response and contact Fondeka support to request others. An empty list means no Mobile Money API countries are currently enabled for that account. A payment method with missing country configuration is also rejected; `requestedCountryCode` may then be absent. Do not repeatedly retry without a configuration change. A rejected intent has not reserved its idempotency key; keep the original intent when retrying after enablement.
+
+Previously accepted transactions continue processing and delivering signed webhooks. Status reads and identical idempotent replays remain available after country removal. No new request fields, keys, API version or webhook changes are needed. The portal's account-specific API catalogue filters out unavailable countries; the public guide catalogue uses the global list.
+
 ## Request rate limits
 
 Every `/business-api/**` endpoint has shared request limits in LIVE and SANDBOX. The API first applies a client-IP budget before authentication, then checks the authenticated Business, API key and endpoint-family budgets together. All keys belonging to a Business share its Business and endpoint-family budgets, including across LIVE/SANDBOX. Switching keys, payment methods, product codes, quote endpoints or environment does not reset those shared budgets. Limits are shared across web processes.
@@ -136,8 +162,8 @@ Content-Type: application/json
 {
   "amount": 10.00,
   "currency": "USD",
-  "paymentMethodName": "MPESA_KENYA",
-  "accountRef": "+254707371664",
+  "paymentMethodName": "MPESA_DRC",
+  "accountRef": "+243970000000",
   "orderReference": "order-unapproved-001"
 }
 ```

@@ -1,5 +1,7 @@
 # Send mobile money
 
+Mobile Money API access defaults to DR Congo (`CD`), in both LIVE and SANDBOX. Other countries require Fondeka enablement globally or for your account. An unavailable method country returns HTTP 403 `MOBILE_MONEY_COUNTRY_NOT_ENABLED` with the effective available countries; contact Fondeka support to request additional markets. See [country availability and recovery](../errors.md#mobile-money-country-availability).
+
 Complete the [quickstart](../quickstart.md), then ensure your account has enough fiat funds to cover the payout's **gross amount including fees**. LIVE payouts also follow existing account restrictions, KYC, configured limits and provider availability.
 
 ## Submit the payout
@@ -10,7 +12,7 @@ X-API-Key: YOUR_API_KEY
 Idempotency-Key: disbursement-1001:payout
 Content-Type: application/json
 
-{"amount":500,"currency":"KES","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","orderReference":"disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":10,"currency":"USD","paymentMethodName":"MPESA_DRC","accountRef":"+243970000000","orderReference":"disbursement-1001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 `accountRef` is the recipient's international phone number. EXCLUSIVE sends the requested net and adds fees to the wallet debit. INCLUSIVE treats the requested amount as the gross wallet debit and reduces the amount sent by fees. Do not assume fees from a previous payment are still current.

@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { portalBusinessApiContract } from "./lib/business-api-publication";
+import {
+  portalBusinessApiContract,
+  portalBusinessApiMarkdown,
+} from "./lib/business-api-publication";
 import {
   businessApiFiles,
   businessApiTopics,
@@ -21,38 +24,7 @@ async function publicationFile(directory: string, file: string, portalCopy = fal
   if (!portalCopy) return bytes;
   if (file === "openapi.v1.json")
     return Buffer.from(portalBusinessApiContract(bytes.toString("utf8")));
-  const previewNotice =
-    "> Bill payments are available when enabled for your account. Check the API guides in your portal for availability.\n\n";
-  // Keep the portal introduction short and omit a link to the backend-only implementation handoff.
-  return Buffer.from(
-    (["README.md", "guides/bill-payments.md"].includes(file) &&
-    !bytes.toString("utf8").startsWith(previewNotice)
-      ? previewNotice
-      : "") +
-      bytes
-        .toString("utf8")
-        .replace(
-          " Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.",
-          "",
-        )
-        .replace(
-          "[web portal catalog](../business-api-web-portal-error-codes.md)",
-          "web portal catalog",
-        )
-        .replace(
-          "[the portal status contract](../business-api-web-portal-payment-statuses.md)",
-          "[payment states](concepts.md)",
-        )
-        .replace(
-          "[portal credential contract](../business-api-credential-management.md)",
-          "[credential setup](quickstart.md)",
-        )
-        .replace(" See [compatibility rollout](../business-tools-bundle-compatibility.md).", "")
-        .replace(
-          " See the [transaction and business correctness audit](../business-api-bill-qa-2026-11-08.md).",
-          "",
-        ),
-  );
+  return Buffer.from(portalBusinessApiMarkdown(file, bytes.toString("utf8")));
 }
 type Release = {
   version: string;

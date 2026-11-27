@@ -8,6 +8,8 @@ Sign in to the Fondeka Business portal. Obtain your Business ID and activate Bus
 
 Prepare your public HTTPS proxy or development tunnel and use its `/fondeka/webhooks` URL when creating a **SANDBOX** credential in the portal. Save the API key and webhook signing secret when shown; they cannot be retrieved later. Then start the receiver below with that signing secret before submitting payments. Do not put either secret into frontend code, shared Postman values or source control.
 
+New generation allows one active credential set per owning account per environment, across all its Businesses. SANDBOX and LIVE have independent slots. Existing multiple sets remain valid; revoke the active sets in an environment before generating a replacement. See [credential setup](quickstart.md).
+
 ## 2. Start a webhook receiver
 
 Choose [Node.js](examples/node/webhook.mjs) or [Python](examples/python/webhook.py). Set these environment variables locally using your secret manager or terminal:
@@ -51,7 +53,7 @@ X-API-Key: YOUR_SANDBOX_API_KEY
 Idempotency-Key: my-first-integration-001:collection
 Content-Type: application/json
 
-{"amount":10,"currency":"USD","paymentMethodName":"MPESA_KENYA","accountRef":"+254707371664","orderReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}
+{"amount":10,"currency":"USD","paymentMethodName":"MPESA_DRC","accountRef":"+243970000000","orderReference":"my-first-integration-001","feeApplicationMode":"EXCLUSIVE"}
 ```
 
 The first response is `202 Accepted`, usually with a non-terminal status and an opaque `fondekaReference`. Preserve its value and poll the unchanged `GET /business-api/v1/businesses/{businessId}/transactions/{reference}` URL. Fees appear as one `fee`; there are no internal IDs or fee splits. A polling timeout is not a failed payment. Continue later using the same Fondeka reference, and preserve the original idempotency key if retrying submission.

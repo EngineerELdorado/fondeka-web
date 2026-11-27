@@ -12,7 +12,10 @@ import {
 } from "../src/lib/business-api-docs";
 import { businessDestination } from "../src/lib/business-tools";
 import { allowedProxyRoute } from "../src/lib/proxy-policy";
-import { portalBusinessApiContract } from "../scripts/lib/business-api-publication";
+import {
+  portalBusinessApiContract,
+  portalBusinessApiMarkdown,
+} from "../scripts/lib/business-api-publication";
 
 const root = resolve("public/docs/business-api");
 const read = (file: string) => readFileSync(resolve(root, file), "utf8");
@@ -170,6 +173,73 @@ test("all published guide, source example and contract links resolve within the 
   });
   for (const match of read("crypto-sandbox-simulations.md").matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g))
     assert.ok(businessApiDocLink(businessApiTopic("testing"), match[1]), match[1]);
+});
+
+test("new backend handoff links resolve to published portal documentation", () => {
+  const source = [
+    "See [errors](errors.md#mobile-money-country-availability) and [admin integration](../admin-mobile-money-api-country-policy.md).",
+    "See [credential management](../business-api-credential-management.md#one-active-credential-set-per-account-and-environment).",
+    "See the [invoice contract](../mobile-bitcart-invoice-payments.md).",
+  ].join("\n");
+  const published = portalBusinessApiMarkdown("changelog.md", source);
+  assert.doesNotMatch(published, /admin integration|\.\.\//);
+  assert.match(published, /errors\.md#mobile-money-country-availability/);
+  assert.match(published, /\[credential setup\]\(quickstart\.md\)/);
+  assert.match(published, /\[crypto collections\]\(guides\/crypto-collection\.md\)/);
+  for (const match of published.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g))
+    assert.ok(businessApiDocLink(businessApiTopic("changelog"), match[1]), match[1]);
+  assert.equal(portalBusinessApiMarkdown("changelog.md", published), published);
+});
+
+test("mobile money country rejections expose structured details and immediate sandbox simulations", () => {
+  const errorCode = "MOBILE_MONEY_COUNTRY_NOT_ENABLED";
+  assert.deepEqual(
+    spec.components.schemas.BusinessApiError.properties.details.additionalProperties,
+    {},
+  );
+  const base = "/business-api/v1/businesses/{businessId}";
+  for (const path of ["collections", "payouts", "collections/quote", "payouts/quote"]) {
+    const operation = spec.paths[`${base}/${path}`].post;
+    const error = operation.responses[403].content["application/json"].examples[errorCode].value;
+    assert.equal(error.errorCode, errorCode);
+    assert.equal(error.status, 403);
+    assert.deepEqual(error.details, {
+      requestedCountryCode: "KE",
+      availableCountryCodes: ["CD"],
+      availableCountries: [{ code: "CD", name: "DR Congo" }],
+      contactSupport: true,
+    });
+    const live = operation["x-error-codes"].LIVE.find(
+      (entry: { errorCode: string }) => entry.errorCode === errorCode,
+    );
+    const sandbox = operation["x-error-codes"].SANDBOX.find(
+      (entry: { errorCode: string }) => entry.errorCode === errorCode,
+    );
+    assert.equal(live.httpStatus, 403);
+    assert.equal(live.simulatable, false);
+    assert.equal(sandbox.httpStatus, 403);
+    assert.equal(sandbox.simulatable, true);
+    assert.equal(sandbox.simulationValue, errorCode);
+    assert.ok(
+      !operation["x-processing-errors"].some(
+        (entry: { errorCode: string }) => entry.errorCode === errorCode,
+      ),
+    );
+    const body = operation.requestBody.content["application/json"].examples.mobileMoney.value;
+    assert.equal(body.paymentMethodName, "MPESA_DRC");
+    assert.match(body.accountRef, /^\+243/);
+  }
+  const postman = JSON.parse(read("postman.v1.json"));
+  const payments = postman.item.find((group: { name: string }) => group.name === "Payments");
+  const mobileMoney = payments.item.filter((item: { name: string }) =>
+    item.name.endsWith("mobileMoney"),
+  );
+  assert.equal(mobileMoney.length, 4);
+  for (const item of mobileMoney) {
+    const body = JSON.parse(item.request.body.raw);
+    assert.equal(body.paymentMethodName, "MPESA_DRC");
+    assert.match(body.accountRef, /^\+243/);
+  }
 });
 
 test("documentation links cannot escape the reviewed files, run script URLs or expose arbitrary proxy paths", () => {

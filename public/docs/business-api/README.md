@@ -31,3 +31,5 @@ Download [OpenAPI v1](openapi.v1.json) for the complete endpoint, parameter, res
 Base URL: `https://api.fondeka.com`. LIVE and SANDBOX use the same routes. The credential determines the environment; a URL or client-side environment label does not switch it.
 
 The API major version is `/business-api/v1`. The OpenAPI `info.version` identifies the documentation contract release. Only documented merchant endpoints are part of this contract. Available payment routes and currencies depend on configuration; an enum value alone is not an availability guarantee.
+
+Crypto collections use the existing invoice address, token quantity, network, expiry, polling and signed webhook contract. Customers may pay from any compatible wallet or exchange; no sender registration or additional client API call is required. See the [crypto collections](guides/crypto-collection.md).

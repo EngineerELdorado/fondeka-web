@@ -138,7 +138,7 @@ function CatalogContent({
         {kind === "CRYPTO" ? <Network size={15} /> : <Globe2 size={15} />}
         {kind === "CRYPTO"
           ? t("Cryptos & compatible networks", "Cryptos et réseaux compatibles")
-          : t("All configured countries", "Tous les pays configurés")}
+          : t("Enabled countries", "Pays activés")}
       </span>
       <span className={`environment-tag ${environment.toLowerCase()}`}>{environment}</span>
       <button
@@ -233,7 +233,7 @@ function CatalogContent({
                       setSelection(undefined);
                     }}
                   >
-                    <option value="">{t("All countries", "Tous les pays")}</option>
+                    <option value="">{t("All enabled countries", "Tous les pays activés")}</option>
                     {groups.map((group) => (
                       <option key={group.code} value={group.code}>
                         {group.flag ? `${group.flag} ` : ""}
@@ -644,8 +644,8 @@ export function ApiGuideCatalog({
                     "Choisissez une crypto pour découvrir ses réseaux actifs et compatibles.",
                   )
                 : t(
-                    "Configured mobile-money names across all countries.",
-                    "Les noms des moyens mobile money configurés dans tous les pays.",
+                    "Mobile money methods in enabled countries. Contact Fondeka support to request another country.",
+                    "Moyens mobile money dans les pays activés. Contactez l’assistance Fondeka pour demander un autre pays.",
                   )
             }
             className={`api-catalog-modal ${kind === "CRYPTO" ? "api-catalog-crypto" : ""}`}
