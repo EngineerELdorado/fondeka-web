@@ -2,7 +2,7 @@
 
 ## Live-payment availability
 
-New LIVE collections and payouts require Fondeka to enable live API payments. Before launch or during a pause, new LIVE intents return HTTP 403 with `errorCode: BUSINESS_API_LIVE_PAYMENTS_DISABLED`; use SANDBOX for integration testing. Existing accepted payments continue processing, and their status reads, idempotent replays and webhooks remain available. A launch rejection does not consume the idempotency key. The gate applies to LIVE credentials in every server profile, including local development.
+LIVE API payments are enabled by default. Use a LIVE key for production; you do not need to request activation. If a request returns HTTP 403 with `errorCode: BUSINESS_API_LIVE_PAYMENTS_DISABLED`, LIVE access is blocked for that Business. Contact Fondeka support to restore it and use SANDBOX for integration testing in the meantime. Previously accepted payments continue processing, and their status reads, idempotent replays and webhooks remain available. The rejection does not consume the idempotency key.
 
 ## Financial ownership
 

@@ -10,6 +10,18 @@ export function portalBusinessApiMarkdown(file: string, source: string): string 
       : "") +
     source
       .replace(
+        /^Fondeka must enable new LIVE API payments before your integration can submit them\.[^\n]+$/m,
+        "LIVE API payments are enabled by default. No activation request is needed. If the API returns `403 BUSINESS_API_LIVE_PAYMENTS_DISABLED`, contact Fondeka support to restore LIVE access; you can continue testing in SANDBOX. Existing accepted payments remain readable, replayable and processed while new LIVE payments are blocked.",
+      )
+      .replace(
+        /^New LIVE collections and payouts require Fondeka to enable live API payments\.[^\n]+$/m,
+        "LIVE API payments are enabled by default. Use a LIVE key for production; you do not need to request activation. If a request returns HTTP 403 with `errorCode: BUSINESS_API_LIVE_PAYMENTS_DISABLED`, LIVE access is blocked for that Business. Contact Fondeka support to restore it and use SANDBOX for integration testing in the meantime. Previously accepted payments continue processing, and their status reads, idempotent replays and webhooks remain available. The rejection does not consume the idempotency key.",
+      )
+      .replace(
+        /^`403 BUSINESS_API_LIVE_PAYMENTS_DISABLED` means Fondeka has not enabled new LIVE API payments[^\n]+$/m,
+        "`403 BUSINESS_API_LIVE_PAYMENTS_DISABLED` means new LIVE payments are blocked for this Business. LIVE payments are enabled by default; if you receive this response, contact Fondeka support to restore access and continue testing in SANDBOX. No payment was accepted and the idempotency key is not consumed by this rejection. Previously accepted payments remain readable/replayable and continue to settle and deliver webhooks. Sandbox can simulate this code through `X-Simulate-Error-Code` on collections and payouts.",
+      )
+      .replace(
         " Your portal login and its JWT are used to manage your Business and credentials; they are not sent to merchant payment endpoints.",
         "",
       )

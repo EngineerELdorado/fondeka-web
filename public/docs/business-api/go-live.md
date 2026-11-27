@@ -10,7 +10,7 @@ Deploy an HTTPS webhook receiver on public port 443. Persist accepted events bef
 
 ## Issue separate LIVE credentials
 
-Fondeka must enable new LIVE API payments before your integration can submit them. A LIVE credential alone does not enable live acceptance. If a new collection or payout returns `403 BUSINESS_API_LIVE_PAYMENTS_DISABLED`, continue integration testing in SANDBOX and wait for live availability. Existing accepted payments remain readable, replayable and processed during a pause.
+LIVE API payments are enabled by default. No activation request is needed. If the API returns `403 BUSINESS_API_LIVE_PAYMENTS_DISABLED`, contact Fondeka support to restore LIVE access; you can continue testing in SANDBOX. Existing accepted payments remain readable, replayable and processed while new LIVE payments are blocked.
 
 Create a LIVE key in the Business portal with your production webhook URL. New LIVE keys start with `fdk_live_`; SANDBOX keys start with `fdk_sandbox_`. Existing `fdk_biz_live_` / `fdk_biz_` LIVE and `fdk_biz_sandbox_` / `fdk_biz_test_` SANDBOX credentials remain valid. Save its API key and separate signing secret securely. You may issue a key before webhook DNS is ready, but saving the URL does not verify delivery: public DNS, TLS and connection-time address checks still apply to every delivery. Set your receiver's expected environment to LIVE. Retain sandbox credentials separately. LIVE credentials ignore `X-Simulate-Error-Code` if it is present; the API key determines the execution environment.
 

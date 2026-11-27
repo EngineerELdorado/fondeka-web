@@ -1001,8 +1001,8 @@ export const apiGuideTracks: GuideTrack[] = [
     id: "go-live",
     title: ["Ready for your first live payment?", "Prêt pour votre premier paiement réel ?"],
     summary: [
-      "Bring the same integration to production with separate LIVE credentials.",
-      "Passez la même intégration en production avec des clés LIVE distinctes.",
+      "LIVE payments are enabled by default. Use separate LIVE credentials for production.",
+      "Les paiements LIVE sont activés par défaut. Utilisez des clés LIVE distinctes pour la production.",
     ],
     icon: "live",
     tone: "green",
@@ -1027,6 +1027,10 @@ export const apiGuideTracks: GuideTrack[] = [
           [
             "Issue a separate LIVE key with your production HTTPS webhook URL. LIVE ignores the X-Simulate-Error-Code header. The base URL and v1 routes stay the same.",
             "Émettez une clé LIVE distincte avec l’URL webhook HTTPS de production. LIVE ignore l’en-tête X-Simulate-Error-Code. URL de base et routes v1 restent identiques.",
+          ],
+          [
+            "Contact Fondeka support for LIVE activation only if the API returns 403 BUSINESS_API_LIVE_PAYMENTS_DISABLED. You can continue testing in SANDBOX while access is restored.",
+            "Contactez l’assistance Fondeka pour une activation LIVE uniquement si l’API renvoie 403 BUSINESS_API_LIVE_PAYMENTS_DISABLED. Vous pouvez poursuivre les tests en SANDBOX pendant le rétablissement de l’accès.",
           ],
           [
             "Keep secrets server-side. Sandbox clients deliberately reject LIVE keys; deploy your reviewed production integration explicitly.",

@@ -125,7 +125,7 @@ The authenticated web portal catalog returns the same metadata. The [OpenAPI ref
 `400 PAYMENT_METHOD_UNAVAILABLE` also covers a winning route that lacks its required local provider mapping. `400 FX_ROUTE_UNAVAILABLE` means an active currency or usable conversion rate is missing for that route. Both reject before payment acceptance and payout reservation; choose another method/currency or ask support to check configuration. SANDBOX can simulate either code from the error catalog without invoking a provider.
 
 
-`403 BUSINESS_API_LIVE_PAYMENTS_DISABLED` means Fondeka has not enabled new LIVE API payments, or has paused their acceptance. Use SANDBOX for testing and wait for live availability before submitting a new live intent. No payment was accepted and the key is not consumed by this rejection. Previously accepted payments remain readable/replayable and continue to settle and deliver webhooks. Sandbox can simulate this code through `X-Simulate-Error-Code` on collections and payouts.
+`403 BUSINESS_API_LIVE_PAYMENTS_DISABLED` means new LIVE payments are blocked for this Business. LIVE payments are enabled by default; if you receive this response, contact Fondeka support to restore access and continue testing in SANDBOX. No payment was accepted and the idempotency key is not consumed by this rejection. Previously accepted payments remain readable/replayable and continue to settle and deliver webhooks. Sandbox can simulate this code through `X-Simulate-Error-Code` on collections and payouts.
 
 For a sandbox payout, add:
 
